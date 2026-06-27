@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Autotask AI</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">Autotask AI</div>
+      <nav>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#ask">Ask Assistant</a>
+        <a href="#tickets">Ticket Search</a>
+        <a href="#sync">Sync Status</a>
+        <a href="#users">Users</a>
+        <a href="#audit">Audit Log</a>
+      </nav>
+    </aside>
+    <main>
+      <section class="login" id="login">
+        <h1>CompuOne Technician Assistant</h1>
+        <form>
+          <label>Username <input autocomplete="username" /></label>
+          <label>Password <input type="password" autocomplete="current-password" /></label>
+          <button type="button">Sign In</button>
+        </form>
+      </section>
+
+      <section id="dashboard">
+        <h2>Dashboard</h2>
+        <div class="metrics">
+          <div><span>Sync</span><strong>Not started</strong></div>
+          <div><span>Knowledge</span><strong>Awaiting import</strong></div>
+          <div><span>Mode</span><strong>Read-only</strong></div>
+        </div>
+      </section>
+
+      <section id="ask">
+        <h2>Ask Assistant</h2>
+        <textarea placeholder="Describe the support issue..."></textarea>
+        <div class="answer-shell">
+          <h3>From CompuOne Ticket History</h3>
+          <p>I do not have enough matching CompuOne ticket history.</p>
+          <h3>General IT Guidance</h3>
+          <p>General guidance will appear separately from internal ticket evidence.</p>
+          <h3>Suggested Next Steps</h3>
+          <p>Review related tickets, validate confidence, and capture feedback.</p>
+          <h3>Based on Tickets</h3>
+          <p>No related tickets selected.</p>
+        </div>
+        <div class="feedback">
+          <button>Good</button><button>Bad</button><button>Needs Edit</button><button>Save as Known Fix</button>
+        </div>
+      </section>
+
+      <section id="tickets"><h2>Ticket Search</h2><input placeholder="Search internal ticket history" /></section>
+      <section id="sync"><h2>Sync Status</h2><p>Historical sync, recent 15-minute sync, and API call counters will report here.</p></section>
+      <section id="users"><h2>Users</h2><p>Admin, Technician, and ReadOnly local app roles.</p></section>
+      <section id="audit"><h2>Audit Log</h2><p>Searches, answers, feedback, and admin actions are audited.</p></section>
+    </main>
+  </body>
+</html>
+

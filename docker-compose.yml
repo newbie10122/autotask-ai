@@ -1,0 +1,94 @@
+services:
+  web:
+    build: ./apps/web
+    ports:
+      - "${WEB_BIND_HOST:-127.0.0.1}:${WEB_PORT:-3010}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  api:
+    build: ./apps/api
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    ports:
+      - "${API_BIND_HOST:-127.0.0.1}:${API_PORT:-5110}:5110"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-autotask_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-autotask_ai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./apps/api/migrations:/docker-entrypoint-initdb.d:ro
+    expose:
+      - "5432"
+    restart: unless-stopped
+
+  worker-sync:
+    build:
+      context: .
+      dockerfile: workers/autotask-sync/Dockerfile
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  worker-documents:
+    build:
+      context: .
+      dockerfile: workers/document-worker/Dockerfile
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    depends_on:
+      - postgres
+    volumes:
+      - ./data/uploads:/app/data/uploads
+    restart: unless-stopped
+
+  worker-embeddings:
+    build:
+      context: .
+      dockerfile: workers/embedding-worker/Dockerfile
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  worker-nightly:
+    build:
+      context: .
+      dockerfile: workers/nightly-knowledge-worker/Dockerfile
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  local-llm:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    profiles:
+      - llm
+    command: ["--host", "0.0.0.0", "--port", "8080", "--model", "/models/model.gguf"]
+    volumes:
+      - ./data/llm-models:/models:ro
+    expose:
+      - "8080"
+    restart: unless-stopped
