@@ -30,6 +30,50 @@ scripts/sync-ticket-notes.sh --limit 25
 
 Use `--full-sync` only when ready for a complete historical pull.
 
+## Long Raw Sync in Tmux
+
+For unattended raw Autotask pulls, start the tmux-managed sync loop:
+
+```bash
+./scripts/start-raw-sync-tmux.sh
+```
+
+The tmux session name is `autotask-ai-sync`.
+
+Detach from tmux with `Ctrl+b`, then `d`.
+
+Reattach later:
+
+```bash
+tmux attach -t autotask-ai-sync
+```
+
+Check status without attaching:
+
+```bash
+./scripts/raw-sync-status.sh
+```
+
+Logs are written to `data/logs/sync/`. Status files are written to `data/status/raw-sync-status.json` and `data/status/raw-sync-status.txt`.
+
+Stop gracefully:
+
+```bash
+./scripts/stop-raw-sync.sh
+```
+
+The loop stops after the current batch sees `data/status/STOP_RAW_SYNC`. If a force stop is needed, use `tmux kill-session -t autotask-ai-sync`.
+
+Recommended flow:
+
+1. Raw sync tickets and ticket notes first.
+2. Do not embed the huge volume yet.
+3. Implement and verify noise filtering.
+4. Build documents.
+5. Embed overnight in batches.
+
+Do not run huge embeddings during business hours on CPU-only hosts.
+
 ## Build Documents
 
 ```bash

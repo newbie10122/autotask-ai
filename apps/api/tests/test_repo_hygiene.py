@@ -34,3 +34,24 @@ def test_host_ollama_mapping_is_documented_for_required_services():
     assert "OLLAMA_CHAT_MODEL=qwen2.5-coder:7b" in example
     assert "EMBEDDING_MODEL_NAME=nomic-embed-text" in example
     assert "host.docker.internal" in docs
+
+
+def test_raw_sync_tmux_scripts_and_docs_are_present():
+    script_names = (
+        "start-raw-sync-tmux.sh",
+        "raw-sync-loop.sh",
+        "raw-sync-status.sh",
+        "stop-raw-sync.sh",
+    )
+    for script_name in script_names:
+        script = ROOT / "scripts" / script_name
+        assert script.exists()
+        assert script.stat().st_mode & 0o111
+        text = script.read_text()
+        assert "set -x" not in text
+        assert "cat .env" not in text
+
+    runbook = (ROOT / "docs" / "FIRST_SYNC_RUNBOOK.md").read_text()
+    assert "autotask-ai-sync" in runbook
+    assert "./scripts/raw-sync-status.sh" in runbook
+    assert "./scripts/stop-raw-sync.sh" in runbook
