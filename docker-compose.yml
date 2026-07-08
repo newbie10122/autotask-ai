@@ -9,6 +9,8 @@ services:
 
   api:
     build: ./apps/api
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - path: .env.example
       - path: .env
@@ -62,6 +64,8 @@ services:
     build:
       context: .
       dockerfile: workers/embedding-worker/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - path: .env.example
       - path: .env
@@ -74,6 +78,8 @@ services:
     build:
       context: .
       dockerfile: workers/nightly-knowledge-worker/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - path: .env.example
       - path: .env

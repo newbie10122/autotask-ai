@@ -122,7 +122,8 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
             conn.execute(
                 """
                 INSERT INTO assistant_query_sources(query_id, chunk_id, ticket_id, score, source_metadata)
-                VALUES (%s, %s, %s, %s, %s)
+                SELECT %s, %s, %s, %s, %s
+                WHERE EXISTS (SELECT 1 FROM document_chunks WHERE id=%s)
                 """,
                 (
                     query_id,
@@ -130,6 +131,7 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
                     source.get("ticket_pk"),
                     float(source.get("score") or 0),
                     Jsonb(source.get("source_metadata") or {}),
+                    source.get("chunk_id"),
                 ),
             )
         answer_row = conn.execute(

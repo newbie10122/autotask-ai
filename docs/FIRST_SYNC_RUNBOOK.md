@@ -38,11 +38,24 @@ scripts/build-documents.sh --limit 100
 
 ## Run Embeddings
 
-Start Ollama and pull models first:
+When Ollama runs on the host OS, verify the API is reachable on the host:
+
+```bash
+curl http://127.0.0.1:11434/api/tags
+```
+
+Containers reach host Ollama through `host.docker.internal`, which requires the Compose `extra_hosts` mapping on the API and worker services.
+
+Start Compose-managed Ollama only if you are not using host OS Ollama:
 
 ```bash
 docker compose --profile llm up -d ollama
 scripts/ollama-pull-models.sh
+```
+
+Then run embeddings:
+
+```bash
 scripts/run-embeddings.sh --limit 16
 ```
 
