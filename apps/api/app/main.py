@@ -25,6 +25,7 @@ class AskRequest(BaseModel):
     question: str = Field(min_length=3)
     mode: Literal["ticket_history_only", "general_plus_ticket_history", "deep_dive"] = "ticket_history_only"
     limit: int = Field(default=5, ge=1, le=12)
+    include_noise: bool = False
 
 
 class FeedbackRequest(BaseModel):
@@ -178,7 +179,7 @@ def run_embeddings(payload: SyncRequest | None = None) -> dict:
 @app.post("/api/assistant/ask")
 def assistant_ask(payload: AskRequest) -> dict:
     audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.assistant_answer, target="assistant.ask"))
-    return ask_assistant(payload.question, mode=payload.mode, limit=payload.limit)
+    return ask_assistant(payload.question, mode=payload.mode, limit=payload.limit, include_noise=payload.include_noise)
 
 
 @app.post("/api/assistant/feedback")

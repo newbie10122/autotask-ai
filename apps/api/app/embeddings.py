@@ -24,11 +24,12 @@ def run_embedding_batch(limit: int | None = None) -> dict[str, Any]:
               ON de.chunk_id = dc.id AND de.model_name = %s
             WHERE de.id IS NULL
               AND dc.is_active
+              AND (NOT %s OR NOT dc.is_noise)
               AND dc.embedding_status IN ('pending', 'failed')
             ORDER BY dc.id
             LIMIT %s
             """,
-            (settings.ollama_embedding_model, batch_size),
+            (settings.ollama_embedding_model, settings.assistant_exclude_noise_by_default, batch_size),
         ).fetchall()
     for chunk in chunks:
         stats["processed"] += 1

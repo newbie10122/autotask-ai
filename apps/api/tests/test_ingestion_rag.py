@@ -10,6 +10,7 @@ import app.embeddings as embeddings_module
 from app.embeddings import run_embedding_batch
 from app.main import app
 from app.ollama import OllamaUnavailable
+from app.quality import classify_chunk, is_recurring_issues_question
 from app.sync import sync_companies, sync_ticket_notes, sync_tickets
 
 
@@ -152,10 +153,79 @@ def test_document_rebuild_soft_deprecates_chunks_instead_of_deleting_history():
 
 def test_search_and_embedding_only_use_active_chunks():
     assistant_source = inspect.getsource(assistant_module.ask_assistant)
+    retrieve_source = inspect.getsource(assistant_module._retrieve_sources)
     embedding_source = inspect.getsource(embeddings_module.run_embedding_batch)
-    assert "AND dc.is_active" in assistant_source
-    assert "WHERE dc.is_active" in assistant_source
+    assert "AND dc.is_active" in retrieve_source
+    assert "OR NOT dc.is_noise" in retrieve_source
     assert "AND dc.is_active" in embedding_source
+    assert "OR NOT dc.is_noise" in embedding_source
+
+
+def test_noise_classifier_marks_survey_completion_and_autoresponder_noise():
+    for text, expected in (
+        ("Ticket Survey Help us serve you better UnsubscribeSurvey", "survey_email"),
+        ("Your Ticket Is Complete. Replies to this email will be added as a note", "completion_email"),
+        ("*** Please enter replies above this line *** automatic reply", "autoresponder"),
+    ):
+        result = classify_chunk(text)
+        assert result["is_noise"] is True
+        assert result["knowledge_class"] == expected
+
+
+def test_resolution_classifier_is_high_quality_not_noise():
+    result = classify_chunk("Resolved by restarting the print spooler and clearing stuck jobs.")
+    assert result["is_noise"] is False
+    assert result["knowledge_class"] == "resolution"
+    assert result["quality_score"] == 1.0
+
+
+def test_recurring_issue_question_detection():
+    assert is_recurring_issues_question("What are the most common recurring support issues?")
+    assert is_recurring_issues_question("top problems in our tickets")
+    assert not is_recurring_issues_question("How did we fix ticket T123?")
+
+
+def test_source_ticket_dedupe_and_context_limits(monkeypatch):
+    monkeypatch.setattr("app.assistant.settings.assistant_max_unique_tickets", 2)
+    monkeypatch.setattr("app.assistant.settings.assistant_max_chunks_per_ticket", 1)
+    monkeypatch.setattr("app.assistant.settings.assistant_max_context_chunks", 3)
+    sources = [
+        {"chunk_id": 1, "autotask_id": 100, "ticket_number": "T1"},
+        {"chunk_id": 2, "autotask_id": 100, "ticket_number": "T1"},
+        {"chunk_id": 3, "autotask_id": 101, "ticket_number": "T2"},
+        {"chunk_id": 4, "autotask_id": 102, "ticket_number": "T3"},
+    ]
+    limited = assistant_module._limit_sources(sources)
+    assert [source["chunk_id"] for source in limited] == [1, 3]
+    assert assistant_module._unique_tickets(limited) == ["T1", "T2"]
+
+
+def test_timeout_fallback_uses_structured_warning():
+    sources = [
+        {
+            "content": "Resolved VPN failures by updating the client and restarting the service.",
+            "ticket_number": "T1",
+            "autotask_id": 1,
+        }
+    ]
+    answer = assistant_module._fallback_answer(
+        sources,
+        0.7,
+        "Local LLM timed out; showing retrieval summary only.",
+    )
+    assert "Local LLM timed out; showing retrieval summary only." in answer
+    assert "Resolved VPN failures" in answer
+
+
+def test_recurring_issues_formatter_returns_counts_and_representatives():
+    groups = [
+        {"category": "Network", "issue_type": "VPN", "subissue_type": "Client", "queue": "Helpdesk", "ticket_count": 12}
+    ]
+    reps = [{"group": groups[0], "tickets": [{"ticket_number": "T1", "autotask_id": 1, "title": "VPN down"}]}]
+    answer, tickets = assistant_module._format_recurring_answer(groups, reps)
+    assert "Top Recurring Issue Groups" in answer
+    assert "12 tickets" in answer
+    assert tickets == ["T1"]
 
 
 def test_embedding_worker_handles_missing_ollama_gracefully(monkeypatch):

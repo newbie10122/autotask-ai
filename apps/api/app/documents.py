@@ -6,6 +6,7 @@ from typing import Any
 from psycopg.types.json import Jsonb
 
 from .db import db_connection, init_schema
+from .quality import classify_chunk
 from .security import find_sensitive_content
 
 
@@ -59,7 +60,15 @@ def _ticket_text(ticket: dict[str, Any], company_name: str | None, notes: list[d
 
 def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
     init_schema()
-    stats = {"documents": 0, "chunks": 0, "chunks_reused": 0, "chunks_superseded": 0, "sensitive_flags": 0}
+    stats = {
+        "documents": 0,
+        "chunks": 0,
+        "chunks_reused": 0,
+        "chunks_superseded": 0,
+        "chunks_reclassified": 0,
+        "noise_chunks": 0,
+        "sensitive_flags": 0,
+    }
     with db_connection() as conn:
         tickets = conn.execute(
             """
@@ -97,7 +106,7 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
             stats["documents"] += 1
             active_chunks = conn.execute(
                 """
-                SELECT id, chunk_index, content_hash
+                SELECT id, chunk_index, content_hash, content
                 FROM document_chunks
                 WHERE document_id=%s AND is_active
                 ORDER BY chunk_index NULLS LAST, id
@@ -107,6 +116,25 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
             new_hashes = [_content_hash(chunk) for chunk in chunks]
             active_hashes = [row["content_hash"] for row in active_chunks]
             if active_hashes == new_hashes and all(active_hashes):
+                for row in active_chunks:
+                    quality = classify_chunk(row["content"])
+                    conn.execute(
+                        """
+                        UPDATE document_chunks
+                        SET knowledge_class=%s, quality_score=%s, is_noise=%s, noise_reason=%s
+                        WHERE id=%s
+                        """,
+                        (
+                            quality["knowledge_class"],
+                            quality["quality_score"],
+                            quality["is_noise"],
+                            quality["noise_reason"],
+                            row["id"],
+                        ),
+                    )
+                    stats["chunks_reclassified"] += 1
+                    if quality["is_noise"]:
+                        stats["noise_chunks"] += 1
                 stats["chunks_reused"] += len(active_chunks)
                 conn.execute("UPDATE autotask_tickets SET indexed_at=now() WHERE id=%s", (ticket["id"],))
                 continue
@@ -124,15 +152,31 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
                 "source_id": ticket["id"],
             }
             for index, chunk in enumerate(chunks):
+                quality = classify_chunk(chunk)
                 chunk_row = conn.execute(
                     """
-                    INSERT INTO document_chunks(document_id, chunk_index, content, source_metadata, content_hash, is_active)
-                    VALUES (%s, %s, %s, %s, %s, TRUE)
+                    INSERT INTO document_chunks(
+                        document_id, chunk_index, content, source_metadata, content_hash,
+                        is_active, knowledge_class, quality_score, is_noise, noise_reason
+                    )
+                    VALUES (%s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
                     RETURNING id
                     """,
-                    (document["id"], index, chunk, Jsonb(metadata), new_hashes[index]),
+                    (
+                        document["id"],
+                        index,
+                        chunk,
+                        Jsonb(metadata),
+                        new_hashes[index],
+                        quality["knowledge_class"],
+                        quality["quality_score"],
+                        quality["is_noise"],
+                        quality["noise_reason"],
+                    ),
                 ).fetchone()
                 stats["chunks"] += 1
+                if quality["is_noise"]:
+                    stats["noise_chunks"] += 1
                 for pattern in find_sensitive_content(chunk):
                     conn.execute(
                         """

@@ -165,6 +165,10 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     superseded_at TIMESTAMPTZ,
     content_hash TEXT,
+    knowledge_class TEXT NOT NULL DEFAULT 'unknown',
+    quality_score NUMERIC(5,3) NOT NULL DEFAULT 0.5,
+    is_noise BOOLEAN NOT NULL DEFAULT FALSE,
+    noise_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

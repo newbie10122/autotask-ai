@@ -37,4 +37,8 @@ Pipeline:
 
 Document rebuilds never hard-delete chunks. When ticket text changes, new active chunks are inserted and old chunks are marked inactive with `superseded_at`, so prior `assistant_query_sources` rows continue to resolve for answer/source audit history. Search and embedding workers use active chunks only.
 
+Chunks are deterministically classified during document creation. Survey emails, completion emails, autoresponders, notification boilerplate, unsubscribe footers, and low-value email headers remain stored for audit but are marked `is_noise=true` and excluded from default assistant search and embedding work. Human troubleshooting and resolution chunks receive higher quality scores and are preferred in retrieval.
+
+Questions about common or recurring issues are routed to local ticket analytics rather than raw semantic retrieval. The assistant aggregates synced Autotask tickets by category, issue, subissue, queue, and representative tickets, then returns counts in the required recurring-issue format.
+
 The sensitive content scanner flags obvious passwords, API keys, private keys, SSNs, credit cards, and VPN shared secrets. Detected secrets must be redacted from generated answers.
