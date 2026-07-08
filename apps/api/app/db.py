@@ -146,19 +146,30 @@ def init_schema() -> None:
         CREATE TABLE IF NOT EXISTS document_chunks (
             id BIGSERIAL PRIMARY KEY,
             document_id BIGINT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-            chunk_index INTEGER NOT NULL,
+            chunk_index INTEGER,
             content TEXT NOT NULL,
             source_metadata JSONB NOT NULL DEFAULT '{}',
             embedding_status TEXT NOT NULL DEFAULT 'pending',
             embedding_error TEXT,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            superseded_at TIMESTAMPTZ,
+            content_hash TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
             UNIQUE(document_id, chunk_index)
         )
         """,
+        "ALTER TABLE document_chunks ALTER COLUMN chunk_index DROP NOT NULL",
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS embedding_status TEXT NOT NULL DEFAULT 'pending'",
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS embedding_error TEXT",
+        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ",
+        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS content_hash TEXT",
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()",
-        "CREATE UNIQUE INDEX IF NOT EXISTS document_chunks_document_index_unique ON document_chunks(document_id, chunk_index)",
+        "ALTER TABLE document_chunks DROP CONSTRAINT IF EXISTS document_chunks_document_id_chunk_index_key",
+        "DROP INDEX IF EXISTS document_chunks_document_index_unique",
+        "CREATE INDEX IF NOT EXISTS document_chunks_active_document_idx ON document_chunks(document_id, chunk_index) WHERE is_active",
+        "CREATE INDEX IF NOT EXISTS document_chunks_content_hash_idx ON document_chunks(content_hash)",
+        "CREATE INDEX IF NOT EXISTS document_chunks_chunk_index_idx ON document_chunks(chunk_index)",
         """
         CREATE TABLE IF NOT EXISTS document_embeddings (
             id BIGSERIAL PRIMARY KEY,
@@ -236,6 +247,7 @@ def init_schema() -> None:
         )
         """,
         "CREATE INDEX IF NOT EXISTS document_chunks_content_idx ON document_chunks USING gin(to_tsvector('english', content))",
+        "CREATE INDEX IF NOT EXISTS document_chunks_active_content_idx ON document_chunks USING gin(to_tsvector('english', content)) WHERE is_active",
     ]
     with db_connection() as conn:
         for statement in statements:

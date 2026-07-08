@@ -14,7 +14,7 @@ def _vector_literal(values: list[float]) -> str:
 def run_embedding_batch(limit: int | None = None) -> dict[str, Any]:
     init_schema()
     stats = {"processed": 0, "embedded": 0, "failed": 0, "error": None}
-    batch_size = min(limit or settings.embedding_batch_size, settings.embedding_batch_size)
+    batch_size = limit or settings.embedding_batch_size
     with db_connection() as conn:
         chunks = conn.execute(
             """
@@ -22,7 +22,9 @@ def run_embedding_batch(limit: int | None = None) -> dict[str, Any]:
             FROM document_chunks dc
             LEFT JOIN document_embeddings de
               ON de.chunk_id = dc.id AND de.model_name = %s
-            WHERE de.id IS NULL AND dc.embedding_status IN ('pending', 'failed')
+            WHERE de.id IS NULL
+              AND dc.is_active
+              AND dc.embedding_status IN ('pending', 'failed')
             ORDER BY dc.id
             LIMIT %s
             """,

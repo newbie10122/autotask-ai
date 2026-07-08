@@ -64,6 +64,28 @@ def _finish_run(run_id: int, status: str, stats: dict[str, Any], error: str | No
         )
 
 
+def _update_run_progress(run_id: int, stats: dict[str, Any]) -> None:
+    with db_connection() as conn:
+        conn.execute(
+            """
+            UPDATE autotask_sync_runs
+            SET records_processed=%s, pulled_count=%s, inserted_count=%s,
+                updated_count=%s, failed_count=%s, checkpoint=%s, resume_token=%s
+            WHERE id=%s
+            """,
+            (
+                stats.get("pulled", 0),
+                stats.get("pulled", 0),
+                stats.get("inserted", 0),
+                stats.get("updated", 0),
+                stats.get("failed", 0),
+                Jsonb(stats.get("checkpoint", {})),
+                str(stats.get("checkpoint", {}).get("last_seen_id", "")),
+                run_id,
+            ),
+        )
+
+
 def _last_checkpoint(sync_type: str) -> int:
     init_schema()
     with db_connection() as conn:
@@ -82,15 +104,31 @@ def _last_checkpoint(sync_type: str) -> int:
         return int(row["last_seen_id"])
 
 
+def _iter_id_pages(client: AutotaskReadOnlyClient, entity: str, last_seen: int, limit: int | None):
+    pulled = 0
+    while limit is None or pulled < limit:
+        payload = client.query_entity(entity, filters=[{"op": "gt", "field": "id", "value": last_seen}])
+        items = payload.get("items") or payload.get("records") or payload.get("value") or []
+        if limit is not None:
+            items = items[: max(0, limit - pulled)]
+        if not items:
+            break
+        page_last_seen = max(int(item.get("id", last_seen)) for item in items)
+        pulled += len(items)
+        yield items, page_last_seen
+        last_seen = max(last_seen, page_last_seen)
+        if len(items) < client.page_size:
+            break
+
+
 def sync_companies(limit: int | None = None, full_sync: bool = False) -> dict[str, Any]:
     run_id = _create_run("companies")
     stats = {"run_id": run_id, "pulled": 0, "inserted": 0, "updated": 0, "failed": 0, "checkpoint": {}}
     try:
         last_seen = 0 if full_sync else _last_checkpoint("companies")
-        limit = None if full_sync else min(limit or settings.autotask_sync_batch_limit, settings.autotask_sync_batch_limit)
+        limit = None if full_sync else (limit or settings.autotask_sync_batch_limit)
         client = AutotaskReadOnlyClient(sync_run_id=run_id)
-        filters = [{"op": "gt", "field": "id", "value": last_seen}]
-        for items, _page in client.iter_entity_pages("Companies", filters=filters, limit=limit):
+        for items, page_last_seen in _iter_id_pages(client, "Companies", last_seen, limit):
             with db_connection() as conn:
                 for item in items:
                     try:
@@ -111,7 +149,9 @@ def sync_companies(limit: int | None = None, full_sync: bool = False) -> dict[st
                         last_seen = max(last_seen, autotask_id)
                     except Exception:
                         stats["failed"] += 1
+            last_seen = max(last_seen, page_last_seen)
             stats["checkpoint"] = {"last_seen_id": last_seen}
+            _update_run_progress(run_id, stats)
         _finish_run(run_id, "completed", stats)
         return stats
     except Exception as exc:
@@ -124,10 +164,9 @@ def sync_tickets(limit: int | None = None, full_sync: bool = False) -> dict[str,
     stats = {"run_id": run_id, "pulled": 0, "inserted": 0, "updated": 0, "failed": 0, "checkpoint": {}}
     try:
         last_seen = 0 if full_sync else _last_checkpoint("tickets")
-        limit = None if full_sync else min(limit or settings.autotask_sync_batch_limit, settings.autotask_sync_batch_limit)
+        limit = None if full_sync else (limit or settings.autotask_sync_batch_limit)
         client = AutotaskReadOnlyClient(sync_run_id=run_id)
-        filters = [{"op": "gt", "field": "id", "value": last_seen}]
-        for items, _page in client.iter_entity_pages("Tickets", filters=filters, limit=limit):
+        for items, page_last_seen in _iter_id_pages(client, "Tickets", last_seen, limit):
             with db_connection() as conn:
                 for item in items:
                     try:
@@ -186,7 +225,9 @@ def sync_tickets(limit: int | None = None, full_sync: bool = False) -> dict[str,
                         last_seen = max(last_seen, autotask_id)
                     except Exception:
                         stats["failed"] += 1
+            last_seen = max(last_seen, page_last_seen)
             stats["checkpoint"] = {"last_seen_id": last_seen}
+            _update_run_progress(run_id, stats)
         _finish_run(run_id, "completed", stats)
         return stats
     except Exception as exc:
@@ -199,10 +240,9 @@ def sync_ticket_notes(limit: int | None = None, full_sync: bool = False) -> dict
     stats = {"run_id": run_id, "pulled": 0, "inserted": 0, "updated": 0, "failed": 0, "checkpoint": {}}
     try:
         last_seen = 0 if full_sync else _last_checkpoint("ticket_notes")
-        limit = None if full_sync else min(limit or settings.autotask_sync_batch_limit, settings.autotask_sync_batch_limit)
+        limit = None if full_sync else (limit or settings.autotask_sync_batch_limit)
         client = AutotaskReadOnlyClient(sync_run_id=run_id, delay_seconds=0.4)
-        filters = [{"op": "gt", "field": "id", "value": last_seen}]
-        for items, _page in client.iter_entity_pages("TicketNotes", filters=filters, limit=limit):
+        for items, page_last_seen in _iter_id_pages(client, "TicketNotes", last_seen, limit):
             with db_connection() as conn:
                 for item in items:
                     try:
@@ -248,7 +288,9 @@ def sync_ticket_notes(limit: int | None = None, full_sync: bool = False) -> dict
                         last_seen = max(last_seen, autotask_id)
                     except Exception:
                         stats["failed"] += 1
+            last_seen = max(last_seen, page_last_seen)
             stats["checkpoint"] = {"last_seen_id": last_seen}
+            _update_run_progress(run_id, stats)
         _finish_run(run_id, "completed", stats)
         return stats
     except Exception as exc:

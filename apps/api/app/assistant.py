@@ -48,6 +48,7 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
                     JOIN document_chunks dc ON dc.id = de.chunk_id
                     LEFT JOIN autotask_tickets t ON (dc.source_metadata->>'ticket_id')::bigint = t.autotask_id
                     WHERE de.model_name=%s
+                      AND dc.is_active
                     ORDER BY de.embedding <=> %s::vector
                     LIMIT %s
                     """,
@@ -67,7 +68,8 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
                            ts_rank_cd(to_tsvector('english', dc.content), plainto_tsquery('english', %s)) AS score
                     FROM document_chunks dc
                     LEFT JOIN autotask_tickets t ON (dc.source_metadata->>'ticket_id')::bigint = t.autotask_id
-                    WHERE to_tsvector('english', dc.content) @@ plainto_tsquery('english', %s)
+                    WHERE dc.is_active
+                      AND to_tsvector('english', dc.content) @@ plainto_tsquery('english', %s)
                     ORDER BY score DESC
                     LIMIT %s
                     """,

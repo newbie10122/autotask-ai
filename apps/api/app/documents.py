@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from psycopg.types.json import Jsonb
@@ -20,6 +21,10 @@ def _chunk_text(text: str, size: int = 1400, overlap: int = 160) -> list[str]:
             chunks.append(chunk)
         start += size - overlap
     return chunks
+
+
+def _content_hash(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def _ticket_text(ticket: dict[str, Any], company_name: str | None, notes: list[dict[str, Any]]) -> str:
@@ -54,7 +59,7 @@ def _ticket_text(ticket: dict[str, Any], company_name: str | None, notes: list[d
 
 def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
     init_schema()
-    stats = {"documents": 0, "chunks": 0, "sensitive_flags": 0}
+    stats = {"documents": 0, "chunks": 0, "chunks_reused": 0, "chunks_superseded": 0, "sensitive_flags": 0}
     with db_connection() as conn:
         tickets = conn.execute(
             """
@@ -90,11 +95,22 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
                 (str(ticket["autotask_id"]), ticket.get("title") or ticket.get("ticket_number"), text),
             ).fetchone()
             stats["documents"] += 1
-            conn.execute(
-                "DELETE FROM document_embeddings WHERE chunk_id IN (SELECT id FROM document_chunks WHERE document_id=%s)",
+            active_chunks = conn.execute(
+                """
+                SELECT id, chunk_index, content_hash
+                FROM document_chunks
+                WHERE document_id=%s AND is_active
+                ORDER BY chunk_index NULLS LAST, id
+                """,
                 (document["id"],),
-            )
-            conn.execute("DELETE FROM document_chunks WHERE document_id=%s", (document["id"],))
+            ).fetchall()
+            new_hashes = [_content_hash(chunk) for chunk in chunks]
+            active_hashes = [row["content_hash"] for row in active_chunks]
+            if active_hashes == new_hashes and all(active_hashes):
+                stats["chunks_reused"] += len(active_chunks)
+                conn.execute("UPDATE autotask_tickets SET indexed_at=now() WHERE id=%s", (ticket["id"],))
+                continue
+
             metadata = {
                 "source_type": "autotask_ticket",
                 "ticket_id": ticket["autotask_id"],
@@ -110,11 +126,11 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
             for index, chunk in enumerate(chunks):
                 chunk_row = conn.execute(
                     """
-                    INSERT INTO document_chunks(document_id, chunk_index, content, source_metadata)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO document_chunks(document_id, chunk_index, content, source_metadata, content_hash, is_active)
+                    VALUES (%s, %s, %s, %s, %s, TRUE)
                     RETURNING id
                     """,
-                    (document["id"], index, chunk, Jsonb(metadata)),
+                    (document["id"], index, chunk, Jsonb(metadata), new_hashes[index]),
                 ).fetchone()
                 stats["chunks"] += 1
                 for pattern in find_sensitive_content(chunk):
@@ -126,5 +142,16 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
                         (str(chunk_row["id"]), pattern),
                     )
                     stats["sensitive_flags"] += 1
+            old_active_ids = [row["id"] for row in active_chunks]
+            if old_active_ids:
+                updated = conn.execute(
+                    """
+                    UPDATE document_chunks
+                    SET is_active=FALSE, superseded_at=now()
+                    WHERE id = ANY(%s)
+                    """,
+                    (old_active_ids,),
+                )
+                stats["chunks_superseded"] += updated.rowcount or 0
             conn.execute("UPDATE autotask_tickets SET indexed_at=now() WHERE id=%s", (ticket["id"],))
     return stats

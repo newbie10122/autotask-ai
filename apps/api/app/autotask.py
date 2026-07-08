@@ -162,7 +162,8 @@ class AutotaskReadOnlyClient:
         return self._request("POST", f"/V1.0/{entity}/query", json=query)
 
     def follow_next_page(self, next_page_url: str) -> dict[str, Any]:
-        return self._request("GET", next_page_url)
+        method = "POST" if "/query/next" in next_page_url else "GET"
+        return self._request(method, next_page_url)
 
     def iter_entity_pages(
         self,

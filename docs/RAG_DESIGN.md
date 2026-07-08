@@ -35,4 +35,6 @@ Pipeline:
 5. `/api/assistant/ask` embeds the question, retrieves similar chunks, falls back to keyword search where practical, and sends only retrieved context to Ollama.
 6. Feedback is stored in `assistant_feedback`; Save as Known Fix creates a `curated_memory` candidate with `pending_review` status.
 
+Document rebuilds never hard-delete chunks. When ticket text changes, new active chunks are inserted and old chunks are marked inactive with `superseded_at`, so prior `assistant_query_sources` rows continue to resolve for answer/source audit history. Search and embedding workers use active chunks only.
+
 The sensitive content scanner flags obvious passwords, API keys, private keys, SSNs, credit cards, and VPN shared secrets. Detected secrets must be redacted from generated answers.

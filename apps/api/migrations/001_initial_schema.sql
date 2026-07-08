@@ -157,13 +157,15 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE TABLE IF NOT EXISTS document_chunks (
     id BIGSERIAL PRIMARY KEY,
     document_id BIGINT NOT NULL REFERENCES documents(id),
-    chunk_index INTEGER NOT NULL,
+    chunk_index INTEGER,
     content TEXT NOT NULL,
     source_metadata JSONB NOT NULL DEFAULT '{}',
     embedding_status TEXT NOT NULL DEFAULT 'pending',
     embedding_error TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE(document_id, chunk_index)
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    superseded_at TIMESTAMPTZ,
+    content_hash TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS document_embeddings (
