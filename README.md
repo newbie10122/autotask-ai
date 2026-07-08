@@ -1,6 +1,6 @@
 # Autotask AI
 
-Internal CompuOne technician assistant for local Autotask ticket-history search and CPU-only RAG/LLM assistance.
+Internal CompuOne technician assistant for local Autotask ticket-history ingestion, pgvector search, and CPU-only Ollama RAG assistance.
 
 This MVP foundation is internal-only, read-only into Autotask, and designed to run behind existing Nginx Basic Auth on `helix-prod-01`. The app binds to localhost ports only: web on `127.0.0.1:3010` and API on `127.0.0.1:5110`. PostgreSQL and the optional local LLM service are not published publicly.
 
@@ -8,9 +8,9 @@ This MVP foundation is internal-only, read-only into Autotask, and designed to r
 
 - `apps/web` static web portal shell
 - `apps/api` FastAPI backend shell
-- `workers/autotask-sync` historical and recent sync placeholders
-- `workers/document-worker` document extraction placeholder
-- `workers/embedding-worker` embedding placeholder
+- `workers/autotask-sync` recent sync worker using the same read-only sync services as the API
+- `workers/document-worker` ticket and note document creation
+- `workers/embedding-worker` Ollama embedding worker
 - `workers/nightly-knowledge-worker` nightly repair/summarization placeholder
 - `apps/api/migrations` PostgreSQL and pgvector schema
 - `nginx` sample reverse proxy with Basic Auth
@@ -26,6 +26,13 @@ curl http://127.0.0.1:5110/health
 ```
 
 Open the web shell at `http://127.0.0.1:3010`.
+
+Start local Ollama intentionally when needed:
+
+```bash
+docker compose --profile llm up -d ollama
+scripts/ollama-pull-models.sh
+```
 
 ## Production Deployment
 
@@ -60,7 +67,20 @@ Update `server_name` and TLS certificate paths in `nginx/autotask-ai.conf` befor
 - `GET /settings`
 - `GET /audit-log`
 - `POST /autotask/test-connection`
-- `GET /sync/status`
+- `GET /api/autotask/threshold`
+- `POST /api/autotask/test/companies`
+- `POST /api/autotask/test/tickets`
+- `POST /api/autotask/test/ticket-notes`
+- `POST /api/sync/companies/start`
+- `POST /api/sync/tickets/start`
+- `POST /api/sync/ticket-notes/start`
+- `POST /api/sync/recent/start`
+- `GET /api/sync/status`
+- `GET /api/sync/runs`
+- `POST /api/documents/build`
+- `POST /api/embeddings/run`
+- `POST /api/assistant/ask`
+- `POST /api/assistant/feedback`
 
 ## Autotask
 
@@ -68,9 +88,19 @@ Autotask credentials are read from `.env` and sent as `Username`, `Secret`, and 
 
 The MVP does not implement Autotask create, update, delete, webhooks, or live question-time Autotask calls.
 
+First safe pull:
+
+```bash
+scripts/sync-companies.sh --limit 25
+scripts/sync-tickets.sh --limit 25
+scripts/sync-ticket-notes.sh --limit 25
+scripts/build-documents.sh --limit 25
+scripts/run-embeddings.sh --limit 16
+```
+
 ## RAG Guardrails
 
-Answers must separate internal evidence from general guidance. See `docs/RAG_DESIGN.md`.
+Answers must separate internal evidence from general guidance, and saved fixes become pending memory candidates only. See `docs/RAG_DESIGN.md`.
 
 ## Tests
 
@@ -83,4 +113,3 @@ python -m venv .venv
 pip install -r requirements.txt
 pytest
 ```
-

@@ -44,5 +44,5 @@ REQUIRED_ANSWER_SECTIONS = (
     "General IT Guidance",
     "Suggested Next Steps",
     "Based on Tickets",
+    "Warnings",
 )
-

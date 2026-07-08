@@ -11,15 +11,24 @@ Create an API-only Autotask user for this MVP. The app uses read-only Autotask R
 Use these `.env` keys:
 
 ```dotenv
+AUTOTASK_BASE_URL=https://webservices15.autotask.net/ATServicesRest
 AUTOTASK_USERNAME=
 AUTOTASK_SECRET=
 AUTOTASK_API_INTEGRATION_CODE=
+AUTOTASK_PAGE_SIZE=500
+AUTOTASK_SYNC_BATCH_LIMIT=500
 ```
 
 MVP rules:
 
-- Sync jobs use 500-record query pages.
-- Sync state is resumable through stored resume tokens.
-- API call counts are written to `autotask_api_calls`.
+- Sync jobs cap query pages at 500 records.
+- Sync state is resumable through `id > last_seen_id` checkpoints.
+- API call details are written to `autotask_api_calls`, including endpoint, method, status, duration, success, and errors.
 - Create, update, and delete operations are intentionally unavailable.
 
+Validation endpoints:
+
+- `GET /api/autotask/threshold`
+- `POST /api/autotask/test/companies`
+- `POST /api/autotask/test/tickets`
+- `POST /api/autotask/test/ticket-notes`

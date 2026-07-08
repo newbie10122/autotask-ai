@@ -12,54 +12,218 @@
       <nav>
         <a href="#dashboard">Dashboard</a>
         <a href="#ask">Ask Assistant</a>
-        <a href="#tickets">Ticket Search</a>
         <a href="#sync">Sync Status</a>
-        <a href="#users">Users</a>
+        <a href="#knowledge">Saved Knowledge</a>
         <a href="#audit">Audit Log</a>
       </nav>
     </aside>
     <main>
-      <section class="login" id="login">
-        <h1>CompuOne Technician Assistant</h1>
-        <form>
-          <label>Username <input autocomplete="username" /></label>
-          <label>Password <input type="password" autocomplete="current-password" /></label>
-          <button type="button">Sign In</button>
-        </form>
-      </section>
-
       <section id="dashboard">
-        <h2>Dashboard</h2>
+        <h1>CompuOne Technician Assistant</h1>
         <div class="metrics">
-          <div><span>Sync</span><strong>Not started</strong></div>
-          <div><span>Knowledge</span><strong>Awaiting import</strong></div>
+          <div><span>API</span><strong id="apiStatus">Checking</strong></div>
+          <div><span>Autotask User</span><strong id="autotaskUser">Loading</strong></div>
           <div><span>Mode</span><strong>Read-only</strong></div>
         </div>
       </section>
 
       <section id="ask">
-        <h2>Ask Assistant</h2>
-        <textarea placeholder="Describe the support issue..."></textarea>
+        <div class="section-row">
+          <h2>Ask Assistant</h2>
+          <select id="askMode">
+            <option value="ticket_history_only">Ticket History Only</option>
+            <option value="general_plus_ticket_history">General + Ticket History</option>
+            <option value="deep_dive">Deep Dive</option>
+          </select>
+        </div>
+        <textarea id="question" placeholder="Describe the support issue..."></textarea>
+        <button id="askButton" type="button">Ask</button>
         <div class="answer-shell">
-          <h3>From CompuOne Ticket History</h3>
-          <p>I do not have enough matching CompuOne ticket history.</p>
-          <h3>General IT Guidance</h3>
-          <p>General guidance will appear separately from internal ticket evidence.</p>
-          <h3>Suggested Next Steps</h3>
-          <p>Review related tickets, validate confidence, and capture feedback.</p>
+          <div class="section-row">
+            <h3>Answer</h3>
+            <strong id="confidence">Confidence: None</strong>
+          </div>
+          <pre id="answerText">Run a question after syncing and embedding ticket history.</pre>
           <h3>Based on Tickets</h3>
-          <p>No related tickets selected.</p>
+          <ul id="basedOnTickets"><li>No related tickets selected.</li></ul>
+          <h3>Warnings</h3>
+          <ul id="warnings"><li>None</li></ul>
         </div>
         <div class="feedback">
-          <button>Good</button><button>Bad</button><button>Needs Edit</button><button>Save as Known Fix</button>
+          <button data-rating="Good" type="button">Good</button>
+          <button data-rating="Bad" type="button">Bad</button>
+          <button data-rating="Needs Edit" type="button">Needs Edit</button>
+          <button data-rating="Save as Known Fix" type="button">Save as Known Fix</button>
         </div>
       </section>
 
-      <section id="tickets"><h2>Ticket Search</h2><input placeholder="Search internal ticket history" /></section>
-      <section id="sync"><h2>Sync Status</h2><p>Historical sync, recent 15-minute sync, and API call counters will report here.</p></section>
-      <section id="users"><h2>Users</h2><p>Admin, Technician, and ReadOnly local app roles.</p></section>
-      <section id="audit"><h2>Audit Log</h2><p>Searches, answers, feedback, and admin actions are audited.</p></section>
+      <section id="sync">
+        <div class="section-row">
+          <h2>Sync Status</h2>
+          <button id="refreshSync" type="button">Refresh</button>
+        </div>
+        <div class="connection-grid">
+          <div><span>Base URL</span><strong id="baseUrl">Loading</strong></div>
+          <div><span>Username</span><strong id="username">Loading</strong></div>
+          <div><span>API Calls</span><strong id="apiCalls">0</strong></div>
+        </div>
+        <div class="actions">
+          <button data-action="/api/autotask/threshold" data-method="GET" type="button">Test Autotask Connection</button>
+          <button data-action="/api/autotask/test/companies" type="button">Test Companies</button>
+          <button data-action="/api/autotask/test/tickets" type="button">Test Tickets</button>
+          <button data-action="/api/sync/companies/start" type="button">Sync Companies</button>
+          <button data-action="/api/sync/tickets/start" type="button">Sync Tickets</button>
+          <button data-action="/api/sync/ticket-notes/start" type="button">Sync Ticket Notes</button>
+          <button data-action="/api/documents/build" type="button">Build Documents</button>
+          <button data-action="/api/embeddings/run" type="button">Run Embeddings</button>
+        </div>
+        <div id="operationResult" class="result">No operation run yet.</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Run</th><th>Type</th><th>Status</th><th>Pulled</th><th>Inserted</th><th>Updated</th><th>Failed</th><th>Checkpoint</th><th>Error</th>
+            </tr>
+          </thead>
+          <tbody id="syncRuns"></tbody>
+        </table>
+      </section>
+
+      <section id="knowledge">
+        <div class="section-row">
+          <h2>Saved Knowledge</h2>
+          <button id="refreshMemory" type="button">Refresh</button>
+        </div>
+        <div id="memoryList" class="memory-list">No pending memory loaded.</div>
+      </section>
+
+      <section id="audit"><h2>Audit Log</h2><div id="auditLog">Loading</div></section>
     </main>
+    <script>
+      const api = async (path, options = {}) => {
+        const response = await fetch(path, {
+          headers: { "Content-Type": "application/json" },
+          ...options,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Request failed");
+        return data;
+      };
+
+      let currentAnswerId = null;
+      const writeList = (el, items, empty) => {
+        el.innerHTML = "";
+        (items && items.length ? items : [empty]).forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          el.appendChild(li);
+        });
+      };
+
+      async function loadSettings() {
+        const [ready, settings] = await Promise.all([api("/ready"), api("/settings")]);
+        document.getElementById("apiStatus").textContent = ready.status;
+        document.getElementById("baseUrl").textContent = settings.autotask_base_url;
+        document.getElementById("username").textContent = settings.autotask_username || "Not configured";
+        document.getElementById("autotaskUser").textContent = settings.autotask_username || "Not configured";
+      }
+
+      async function loadSync() {
+        const [status, runs] = await Promise.all([api("/api/sync/status"), api("/api/sync/runs")]);
+        document.getElementById("apiCalls").textContent = status.api_call_count || 0;
+        const body = document.getElementById("syncRuns");
+        body.innerHTML = "";
+        runs.runs.forEach((run) => {
+          const tr = document.createElement("tr");
+          const checkpoint = run.checkpoint ? JSON.stringify(run.checkpoint) : run.resume_token || "";
+          [run.id, run.sync_type, run.status, run.pulled_count, run.inserted_count, run.updated_count, run.failed_count, checkpoint, run.last_error || ""].forEach((value) => {
+            const td = document.createElement("td");
+            td.textContent = value == null ? "" : value;
+            tr.appendChild(td);
+          });
+          body.appendChild(tr);
+        });
+      }
+
+      async function loadMemory() {
+        const data = await api("/api/admin/curated-memory");
+        const target = document.getElementById("memoryList");
+        target.innerHTML = "";
+        if (!data.items.length) {
+          target.textContent = "No pending memory candidates.";
+          return;
+        }
+        data.items.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "memory-item";
+          div.textContent = `${item.title} (${item.status})`;
+          target.appendChild(div);
+        });
+      }
+
+      async function loadAudit() {
+        const data = await api("/audit-log");
+        document.getElementById("auditLog").textContent = data.entries.map((entry) => `${entry.created_at} ${entry.action} ${entry.target || ""}`).join("\n") || "No audit entries.";
+      }
+
+      document.getElementById("askButton").addEventListener("click", async () => {
+        const button = document.getElementById("askButton");
+        button.disabled = true;
+        button.textContent = "Asking";
+        try {
+          const data = await api("/api/assistant/ask", {
+            method: "POST",
+            body: JSON.stringify({
+              question: document.getElementById("question").value,
+              mode: document.getElementById("askMode").value,
+              limit: 5,
+            }),
+          });
+          currentAnswerId = data.answer_id;
+          document.getElementById("answerText").textContent = data.answer;
+          document.getElementById("confidence").textContent = `Confidence: ${data.confidence}`;
+          writeList(document.getElementById("basedOnTickets"), data.based_on_tickets, "No related tickets selected.");
+          writeList(document.getElementById("warnings"), data.warnings, "None");
+          await loadAudit();
+        } catch (error) {
+          document.getElementById("answerText").textContent = error.message;
+        } finally {
+          button.disabled = false;
+          button.textContent = "Ask";
+        }
+      });
+
+      document.querySelectorAll(".feedback button").forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (!currentAnswerId) return;
+          await api("/api/assistant/feedback", {
+            method: "POST",
+            body: JSON.stringify({ answer_id: currentAnswerId, rating: button.dataset.rating }),
+          });
+          await Promise.all([loadMemory(), loadAudit()]);
+        });
+      });
+
+      document.querySelectorAll(".actions button").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const result = document.getElementById("operationResult");
+          result.textContent = "Running...";
+          try {
+            const method = button.dataset.method || "POST";
+            const options = method === "GET" ? { method } : { method, body: JSON.stringify({ limit: 25 }) };
+            const data = await api(button.dataset.action, options);
+            result.textContent = JSON.stringify(data, null, 2);
+            await loadSync();
+          } catch (error) {
+            result.textContent = `Failed: ${error.message}`;
+          }
+        });
+      });
+
+      document.getElementById("refreshSync").addEventListener("click", loadSync);
+      document.getElementById("refreshMemory").addEventListener("click", loadMemory);
+      Promise.all([loadSettings(), loadSync(), loadMemory(), loadAudit()]).catch((error) => {
+        document.getElementById("apiStatus").textContent = error.message;
+      });
+    </script>
   </body>
 </html>
-

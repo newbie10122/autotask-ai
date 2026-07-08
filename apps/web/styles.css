@@ -63,12 +63,13 @@ h3 { font-size: 15px; margin-top: 18px; }
 
 form, .metrics { display: grid; gap: 14px; }
 label { display: grid; gap: 6px; color: var(--muted); font-weight: 600; }
-input, textarea {
+input, textarea, select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 11px 12px;
   font: inherit;
+  background: white;
 }
 textarea { min-height: 110px; resize: vertical; }
 button {
@@ -82,27 +83,63 @@ button {
 }
 button:hover { background: var(--accent-dark); }
 
-.metrics {
+.metrics, .connection-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
-.metrics div {
+.metrics div, .connection-grid div {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 16px;
 }
-.metrics span { display: block; color: var(--muted); font-size: 13px; }
-.metrics strong { display: block; margin-top: 6px; }
+.metrics span, .connection-grid span { display: block; color: var(--muted); font-size: 13px; }
+.metrics strong, .connection-grid strong { display: block; margin-top: 6px; overflow-wrap: anywhere; }
 .answer-shell {
   margin-top: 16px;
   border-left: 4px solid var(--accent);
   padding-left: 16px;
 }
-.feedback { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.section-row select { max-width: 260px; }
+.feedback, .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.result, pre, #auditLog {
+  margin-top: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+  font-size: 13px;
+}
+th, td {
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  padding: 8px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.memory-list { display: grid; gap: 8px; }
+.memory-item {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+}
 
 @media (max-width: 760px) {
   body { grid-template-columns: 1fr; }
   .sidebar { min-height: auto; }
-  .metrics { grid-template-columns: 1fr; }
+  .metrics, .connection-grid { grid-template-columns: 1fr; }
+  .section-row { align-items: stretch; flex-direction: column; }
+  .section-row select { max-width: none; }
   main { padding: 16px; }
 }
-

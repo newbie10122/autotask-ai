@@ -30,7 +30,13 @@ CREATE TABLE IF NOT EXISTS autotask_sync_runs (
     sync_type TEXT NOT NULL,
     status TEXT NOT NULL,
     resume_token TEXT,
+    checkpoint JSONB NOT NULL DEFAULT '{}',
     records_processed INTEGER NOT NULL DEFAULT 0,
+    pulled_count INTEGER NOT NULL DEFAULT 0,
+    inserted_count INTEGER NOT NULL DEFAULT 0,
+    updated_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
     started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     finished_at TIMESTAMPTZ
 );
@@ -42,6 +48,10 @@ CREATE TABLE IF NOT EXISTS autotask_api_calls (
     method TEXT NOT NULL DEFAULT 'POST',
     record_count INTEGER NOT NULL DEFAULT 0,
     status_code INTEGER,
+    duration_ms INTEGER,
+    success BOOLEAN NOT NULL DEFAULT FALSE,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     called_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -70,11 +80,18 @@ CREATE TABLE IF NOT EXISTS autotask_tickets (
     contact_id BIGINT REFERENCES autotask_contacts(id),
     ticket_number TEXT,
     title TEXT,
+    description TEXT,
     status TEXT,
     priority TEXT,
     queue TEXT,
+    category TEXT,
+    issue_type TEXT,
+    subissue_type TEXT,
+    assigned_resource_id BIGINT,
+    assigned_resource_name TEXT,
     created_at_autotask TIMESTAMPTZ,
     updated_at_autotask TIMESTAMPTZ,
+    completed_at_autotask TIMESTAMPTZ,
     raw JSONB NOT NULL DEFAULT '{}',
     indexed_at TIMESTAMPTZ
 );
@@ -82,10 +99,15 @@ CREATE TABLE IF NOT EXISTS autotask_tickets (
 CREATE TABLE IF NOT EXISTS autotask_ticket_notes (
     id BIGSERIAL PRIMARY KEY,
     autotask_id BIGINT NOT NULL UNIQUE,
-    ticket_id BIGINT NOT NULL REFERENCES autotask_tickets(id),
+    ticket_id BIGINT REFERENCES autotask_tickets(id),
+    autotask_ticket_id BIGINT,
+    title TEXT,
     note_type TEXT,
     body TEXT,
+    resource_id BIGINT,
+    resource_name TEXT,
     created_at_autotask TIMESTAMPTZ,
+    updated_at_autotask TIMESTAMPTZ,
     raw JSONB NOT NULL DEFAULT '{}'
 );
 
@@ -127,7 +149,9 @@ CREATE TABLE IF NOT EXISTS documents (
     title TEXT,
     storage_path TEXT,
     extracted_text TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(source_type, source_id)
 );
 
 CREATE TABLE IF NOT EXISTS document_chunks (
@@ -135,15 +159,20 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     document_id BIGINT NOT NULL REFERENCES documents(id),
     chunk_index INTEGER NOT NULL,
     content TEXT NOT NULL,
-    source_metadata JSONB NOT NULL DEFAULT '{}'
+    source_metadata JSONB NOT NULL DEFAULT '{}',
+    embedding_status TEXT NOT NULL DEFAULT 'pending',
+    embedding_error TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(document_id, chunk_index)
 );
 
 CREATE TABLE IF NOT EXISTS document_embeddings (
     id BIGSERIAL PRIMARY KEY,
     chunk_id BIGINT NOT NULL REFERENCES document_chunks(id),
-    embedding vector(384),
+    embedding vector(768),
     model_name TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(chunk_id, model_name)
 );
 
 CREATE TABLE IF NOT EXISTS assistant_queries (
@@ -151,6 +180,8 @@ CREATE TABLE IF NOT EXISTS assistant_queries (
     user_id UUID REFERENCES users(id),
     query TEXT NOT NULL,
     mode TEXT NOT NULL DEFAULT 'normal',
+    model_name TEXT,
+    duration_ms INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -168,6 +199,8 @@ CREATE TABLE IF NOT EXISTS assistant_answers (
     query_id BIGINT NOT NULL REFERENCES assistant_queries(id),
     answer TEXT NOT NULL,
     confidence NUMERIC(4,3) NOT NULL,
+    model_name TEXT,
+    duration_ms INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -184,7 +217,7 @@ CREATE TABLE IF NOT EXISTS curated_memory (
     id BIGSERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending_approval',
+    status TEXT NOT NULL DEFAULT 'pending_review',
     approved_by UUID REFERENCES users(id),
     approved_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()

@@ -82,13 +82,12 @@ services:
       - postgres
     restart: unless-stopped
 
-  local-llm:
-    image: ghcr.io/ggerganov/llama.cpp:server
+  ollama:
+    image: ollama/ollama:latest
     profiles:
       - llm
-    command: ["--host", "0.0.0.0", "--port", "8080", "--model", "/models/model.gguf"]
     volumes:
-      - ./data/llm-models:/models:ro
+      - ./data/ollama:/root/.ollama
     expose:
-      - "8080"
+      - "11434"
     restart: unless-stopped

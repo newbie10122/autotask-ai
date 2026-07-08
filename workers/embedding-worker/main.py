@@ -1,9 +1,10 @@
 from workers.shared.worker_base import log, run_forever
+from app.embeddings import run_embedding_batch
 
 
 def embedding_job() -> None:
-    log("embedding placeholder: store vectors with source metadata for every chunk")
+    result = run_embedding_batch()
+    log(f"embedding batch completed: {result}")
 
 
 run_forever("worker-embeddings", 300, embedding_job)
-

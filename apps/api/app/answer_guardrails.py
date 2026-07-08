@@ -18,15 +18,16 @@ def build_guarded_answer(
 
     steps = "\n".join(f"- {step}" for step in next_steps) or "- Review available ticket evidence."
     ticket_lines = "\n".join(f"- {ticket}" for ticket in tickets) or "- None"
+    warnings = "- Low confidence; verify before applying." if confidence < 0.35 or not tickets else "- None"
     return (
         f"Confidence: {confidence:.2f}\n\n"
         f"{REQUIRED_ANSWER_SECTIONS[0]}\n{safe_history}\n\n"
         f"{REQUIRED_ANSWER_SECTIONS[1]}\n{safe_guidance}\n\n"
         f"{REQUIRED_ANSWER_SECTIONS[2]}\n{steps}\n\n"
-        f"{REQUIRED_ANSWER_SECTIONS[3]}\n{ticket_lines}"
+        f"{REQUIRED_ANSWER_SECTIONS[3]}\n{ticket_lines}\n\n"
+        f"{REQUIRED_ANSWER_SECTIONS[4]}\n{warnings}"
     )
 
 
 def has_required_answer_sections(answer: str) -> bool:
     return all(section in answer for section in REQUIRED_ANSWER_SECTIONS)
-
