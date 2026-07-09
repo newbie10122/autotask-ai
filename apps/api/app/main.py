@@ -12,6 +12,7 @@ from .documents import create_documents_from_tickets, noise_report
 from .embeddings import run_embedding_batch
 from .models import AuditAction, AuditLogEntry, LoginRequest, Role
 from .sync import sync_companies, sync_recent, sync_runs, sync_status as get_sync_status, sync_ticket_notes, sync_tickets
+from .ticket_analytics import classify_tickets, recurring_issues_report, reference_data_status, sync_reference_data, ticket_class_report
 
 app = FastAPI(title="Autotask AI API", version="0.1.0")
 
@@ -179,6 +180,31 @@ def run_embeddings(payload: SyncRequest | None = None) -> dict:
 @app.get("/api/knowledge/noise-report")
 def knowledge_noise_report() -> dict:
     return noise_report()
+
+
+@app.post("/api/sync/reference-data/start")
+def start_reference_data_sync() -> dict:
+    return sync_reference_data()
+
+
+@app.get("/api/reference-data/status")
+def api_reference_data_status() -> dict:
+    return reference_data_status()
+
+
+@app.post("/api/analytics/classify-tickets")
+def api_classify_tickets(payload: SyncRequest | None = None) -> dict:
+    return classify_tickets(limit=(payload.limit if payload else None))
+
+
+@app.get("/api/analytics/ticket-class-report")
+def api_ticket_class_report() -> dict:
+    return ticket_class_report()
+
+
+@app.get("/api/analytics/recurring-issues")
+def api_recurring_issues(limit: int = 8, include_excluded: bool = False) -> dict:
+    return recurring_issues_report(limit=limit, include_excluded=include_excluded)
 
 
 @app.post("/api/assistant/ask")

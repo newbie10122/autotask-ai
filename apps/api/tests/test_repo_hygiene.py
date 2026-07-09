@@ -54,8 +54,18 @@ def test_raw_sync_tmux_scripts_and_docs_are_present():
 
     reclassify = ROOT / "scripts" / "reclassify-chunks.sh"
     assert "reclassify-chunks" in reclassify.read_text()
+    assert (ROOT / "scripts" / "sync-reference-data.sh").exists()
+    assert (ROOT / "scripts" / "classify-tickets.sh").exists()
 
     runbook = (ROOT / "docs" / "FIRST_SYNC_RUNBOOK.md").read_text()
     assert "autotask-ai-sync" in runbook
     assert "./scripts/raw-sync-status.sh" in runbook
     assert "./scripts/stop-raw-sync.sh" in runbook
+
+
+def test_ticket_analytics_migration_adds_classification_and_reference_schema():
+    migration = (ROOT / "apps" / "api" / "migrations" / "005_ticket_analytics_classification.sql").read_text()
+    assert "ADD COLUMN IF NOT EXISTS ticket_class" in migration
+    assert "ADD COLUMN IF NOT EXISTS analytics_exclude" in migration
+    assert "CREATE TABLE IF NOT EXISTS autotask_reference_values" in migration
+    assert "CREATE INDEX IF NOT EXISTS autotask_tickets_issue_class_idx" in migration

@@ -12,6 +12,7 @@
       <nav>
         <a href="#dashboard">Dashboard</a>
         <a href="#ask">Ask Assistant</a>
+        <a href="#analytics">Analytics</a>
         <a href="#sync">Sync Status</a>
         <a href="#knowledge">Saved Knowledge</a>
         <a href="#audit">Audit Log</a>
@@ -55,6 +56,24 @@
           <button data-rating="Needs Edit" type="button">Needs Edit</button>
           <button data-rating="Save as Known Fix" type="button">Save as Known Fix</button>
         </div>
+      </section>
+
+      <section id="analytics">
+        <div class="section-row">
+          <h2>Recurring Issues</h2>
+          <button id="refreshAnalytics" type="button">Refresh</button>
+        </div>
+        <div class="connection-grid">
+          <div><span>Classified Tickets</span><strong id="classifiedTickets">Loading</strong></div>
+          <div><span>Excluded from Analytics</span><strong id="excludedTickets">Loading</strong></div>
+          <div><span>Reference Labels</span><strong id="referenceLabels">Loading</strong></div>
+        </div>
+        <div class="actions">
+          <button data-action="/api/sync/reference-data/start" type="button">Sync Reference Labels</button>
+          <button data-action="/api/analytics/classify-tickets" type="button">Classify Tickets</button>
+        </div>
+        <div id="analyticsWarnings" class="result">No analytics warnings loaded.</div>
+        <div id="recurringIssues" class="issue-list">Loading recurring issue groups.</div>
       </section>
 
       <section id="sync">
@@ -168,6 +187,43 @@
         });
       }
 
+      async function loadAnalytics() {
+        const [report, classes, refs] = await Promise.all([
+          api("/api/analytics/recurring-issues?limit=8"),
+          api("/api/analytics/ticket-class-report"),
+          api("/api/reference-data/status"),
+        ]);
+        document.getElementById("classifiedTickets").textContent = classes.classified_tickets || 0;
+        document.getElementById("excludedTickets").textContent = report.excluded_count || 0;
+        document.getElementById("referenceLabels").textContent = refs.total_reference_values || 0;
+        document.getElementById("analyticsWarnings").textContent =
+          (report.warnings && report.warnings.length ? report.warnings.join("\n") : "No analytics warnings.");
+        const target = document.getElementById("recurringIssues");
+        target.innerHTML = "";
+        if (!report.groups.length) {
+          target.textContent = "No recurring issue groups found.";
+          return;
+        }
+        report.groups.forEach((group) => {
+          const div = document.createElement("div");
+          div.className = "issue-item";
+          const title = document.createElement("strong");
+          title.textContent = `${group.label} (${group.count})`;
+          div.appendChild(title);
+          const meta = document.createElement("span");
+          meta.textContent = group.ticket_class_label;
+          div.appendChild(meta);
+          const ul = document.createElement("ul");
+          group.representative_tickets.forEach((ticket) => {
+            const li = document.createElement("li");
+            li.textContent = `${ticket.ticket_number}: ${ticket.title}`;
+            ul.appendChild(li);
+          });
+          div.appendChild(ul);
+          target.appendChild(div);
+        });
+      }
+
       async function loadAudit() {
         const data = await api("/audit-log");
         document.getElementById("auditLog").textContent = data.entries.map((entry) => `${entry.created_at} ${entry.action} ${entry.target || ""}`).join("\n") || "No audit entries.";
@@ -220,7 +276,7 @@
             const options = method === "GET" ? { method } : { method, body: JSON.stringify({ limit: 25 }) };
             const data = await api(button.dataset.action, options);
             result.textContent = JSON.stringify(data, null, 2);
-            await loadSync();
+            await Promise.all([loadSync(), loadAnalytics()]);
           } catch (error) {
             result.textContent = `Failed: ${error.message}`;
           }
@@ -228,8 +284,9 @@
       });
 
       document.getElementById("refreshSync").addEventListener("click", loadSync);
+      document.getElementById("refreshAnalytics").addEventListener("click", loadAnalytics);
       document.getElementById("refreshMemory").addEventListener("click", loadMemory);
-      Promise.all([loadSettings(), loadSync(), loadMemory(), loadAudit()]).catch((error) => {
+      Promise.all([loadSettings(), loadSync(), loadAnalytics(), loadMemory(), loadAudit()]).catch((error) => {
         document.getElementById("apiStatus").textContent = error.message;
       });
     </script>

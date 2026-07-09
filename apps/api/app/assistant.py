@@ -13,6 +13,7 @@ from .db import db_connection, init_schema
 from .ollama import OllamaUnavailable, chat, embed_text
 from .quality import is_recurring_issues_question
 from .security import redact_sensitive_content
+from .ticket_analytics import format_recurring_issues_answer, recurring_issues_report
 
 
 def _vector_literal(values: list[float]) -> str:
@@ -286,19 +287,20 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
     query_id = query_row["id"]
 
     if is_recurring_issues_question(question):
-        groups, representatives = _recurring_issue_groups(limit)
-        answer, tickets = _format_recurring_answer(groups, representatives)
+        report = recurring_issues_report(limit=limit)
+        answer, tickets = format_recurring_issues_answer(report)
         duration_ms = int((time.monotonic() - started) * 1000)
-        answer_row = _store_answer(query_id, answer, 0.65 if groups else 0.0, [], duration_ms)
+        confidence_score = 0.7 if report.get("groups") else 0.0
+        answer_row = _store_answer(query_id, answer, confidence_score, [], duration_ms)
         return {
             "query_id": query_id,
             "answer_id": answer_row["id"],
             "answer": answer,
-            "confidence": "Medium" if groups else "Low",
-            "confidence_score": 0.65 if groups else 0.0,
+            "confidence": "Medium" if report.get("groups") else "Low",
+            "confidence_score": confidence_score,
             "based_on_tickets": tickets,
             "sources": [],
-            "warnings": ["Counts are based on currently synced local Autotask tickets."],
+            "warnings": report.get("warnings") or ["Counts are based on currently synced local Autotask tickets."],
             "duration_ms": duration_ms,
             "route": "recurring_issue_analytics",
         }

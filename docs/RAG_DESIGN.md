@@ -39,7 +39,16 @@ Document rebuilds never hard-delete chunks. When ticket text changes, new active
 
 Chunks are deterministically classified during document creation. Survey emails, completion emails, autoresponders, notification boilerplate, unsubscribe footers, and low-value email headers remain stored for audit but are marked `is_noise=true` and excluded from default assistant search and embedding work. Human troubleshooting and resolution chunks receive higher quality scores and are preferred in retrieval.
 
-Questions about common or recurring issues are routed to local ticket analytics rather than raw semantic retrieval. The assistant aggregates synced Autotask tickets by category, issue, subissue, queue, and representative tickets, then returns counts in the required recurring-issue format.
+Questions about common or recurring issues are routed to local ticket analytics rather than raw semantic retrieval. The assistant uses local Autotask reference labels plus ticket-level classification before grouping, so answers use technician-readable labels instead of raw category, issue, subissue, and queue IDs.
+
+The ticket classifier excludes meetings, vendor notices, newsletters, training, surveys, and other non-support noise from analytics while keeping real support work and system-generated alerts such as disk space, backup, VPN, Microsoft 365, printer, access, and security issues. Refresh lookup labels and classifications without running embeddings:
+
+```bash
+./scripts/sync-reference-data.sh
+./scripts/classify-tickets.sh --limit 10000
+```
+
+Admin endpoints for this workflow are `/api/analytics/recurring-issues`, `/api/analytics/ticket-class-report`, and `/api/reference-data/status`. They only update local Postgres analytics fields and do not write back to Autotask.
 
 ## Noise Filtering Before Full Embedding
 

@@ -105,6 +105,12 @@ def init_schema() -> None:
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS assigned_resource_id BIGINT",
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS assigned_resource_name TEXT",
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS completed_at_autotask TIMESTAMPTZ",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS ticket_class TEXT",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS is_support_issue BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS is_system_generated BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS analytics_exclude BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS analytics_exclude_reason TEXT",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS classified_at TIMESTAMPTZ",
         """
         CREATE TABLE IF NOT EXISTS autotask_ticket_notes (
             id BIGSERIAL PRIMARY KEY,
@@ -130,6 +136,22 @@ def init_schema() -> None:
         "CREATE INDEX IF NOT EXISTS autotask_ticket_notes_ticket_id_idx ON autotask_ticket_notes(ticket_id, created_at_autotask NULLS LAST, autotask_id)",
         "CREATE INDEX IF NOT EXISTS autotask_ticket_notes_autotask_ticket_id_idx ON autotask_ticket_notes(autotask_ticket_id, created_at_autotask NULLS LAST, autotask_id)",
         "CREATE INDEX IF NOT EXISTS autotask_tickets_autotask_id_idx ON autotask_tickets(autotask_id)",
+        "CREATE INDEX IF NOT EXISTS autotask_tickets_ticket_class_idx ON autotask_tickets(ticket_class)",
+        "CREATE INDEX IF NOT EXISTS autotask_tickets_analytics_exclude_idx ON autotask_tickets(analytics_exclude, updated_at_autotask DESC NULLS LAST)",
+        "CREATE INDEX IF NOT EXISTS autotask_tickets_issue_class_idx ON autotask_tickets(ticket_class, category, issue_type, subissue_type)",
+        "CREATE INDEX IF NOT EXISTS autotask_tickets_classified_at_idx ON autotask_tickets(classified_at DESC NULLS LAST)",
+        """
+        CREATE TABLE IF NOT EXISTS autotask_reference_values (
+            field_name TEXT NOT NULL,
+            value TEXT NOT NULL,
+            label TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'local',
+            raw JSONB NOT NULL DEFAULT '{}',
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            PRIMARY KEY (field_name, value)
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS autotask_reference_values_field_idx ON autotask_reference_values(field_name, label)",
         """
         CREATE TABLE IF NOT EXISTS documents (
             id BIGSERIAL PRIMARY KEY,

@@ -128,12 +128,15 @@ th, td {
   vertical-align: top;
   overflow-wrap: anywhere;
 }
-.memory-list { display: grid; gap: 8px; }
-.memory-item {
+.memory-list, .issue-list { display: grid; gap: 8px; }
+.memory-item, .issue-item {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 12px;
 }
+.issue-item { display: grid; gap: 6px; }
+.issue-item span { color: var(--muted); font-size: 13px; }
+.issue-item ul { margin: 4px 0 0; padding-left: 18px; }
 
 @media (max-width: 760px) {
   body { grid-template-columns: 1fr; }

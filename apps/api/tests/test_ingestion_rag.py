@@ -12,6 +12,8 @@ from app.main import app
 from app.ollama import OllamaUnavailable
 from app.quality import classify_chunk, is_recurring_issues_question
 from app.sync import sync_companies, sync_ticket_notes, sync_tickets
+from app.ticket_analytics import format_recurring_issues_answer, issue_group_label
+from app.ticket_classifier import classify_ticket
 
 
 def test_autotask_headers_include_required_names_without_logging_secret():
@@ -41,6 +43,8 @@ def test_next_page_query_urls_use_post(monkeypatch):
 def test_no_autotask_write_back_routes_exist():
     route_paths = {route.path for route in app.routes}
     assert not any(path.endswith("/tickets/create") or path.endswith("/tickets/update") for path in route_paths)
+    assert "/api/analytics/recurring-issues" in route_paths
+    assert "/api/sync/reference-data/start" in route_paths
 
 
 def test_company_sync_stores_records(monkeypatch):
@@ -229,6 +233,57 @@ def test_recurring_issues_formatter_returns_counts_and_representatives():
     assert "Top Recurring Issue Groups" in answer
     assert "12 tickets" in answer
     assert tickets == ["T1"]
+
+
+def test_ticket_classifier_excludes_non_support_noise_and_keeps_real_alerts():
+    excluded = classify_ticket("Daily IT Meeting")
+    assert excluded["analytics_exclude"] is True
+    assert excluded["analytics_exclude_reason"] == "internal_meeting"
+
+    vendor = classify_ticket("Updates to Google Play Terms of Service")
+    assert vendor["analytics_exclude"] is True
+    assert vendor["ticket_class"] == "vendor_notice"
+
+    disk = classify_ticket("C: Drive has 225 GB used out of 236 GB (95% Used)", raw={"source": 8, "ticketType": 5})
+    assert disk["analytics_exclude"] is False
+    assert disk["is_system_generated"] is True
+    assert disk["ticket_class"] == "disk_space_alert"
+
+
+def test_ticket_group_label_uses_reference_labels_instead_of_raw_ids():
+    labels = {
+        ("category", "2"): "Monitoring Alert",
+        ("issue_type", "14"): "Disk Space",
+        ("subissue_type", "222"): "System Volume 90/95%",
+    }
+    row = {
+        "category": "2",
+        "issue_type": "14",
+        "subissue_type": "222",
+        "ticket_class": "disk_space_alert",
+        "title": "C: Drive has 95% used",
+    }
+    assert issue_group_label(row, labels) == "Monitoring Alert / Disk Space / System Volume 90/95%"
+
+
+def test_new_recurring_formatter_caps_representative_ticket_output():
+    report = {
+        "groups": [
+            {
+                "label": f"Group {index}",
+                "count": 10,
+                "representative_tickets": [
+                    {"ticket_number": f"T{index}-{ticket}", "title": "Example"}
+                    for ticket in range(3)
+                ],
+            }
+            for index in range(8)
+        ],
+        "warnings": [],
+    }
+    answer, tickets = format_recurring_issues_answer(report)
+    assert "Top Recurring Issue Groups" in answer
+    assert len(tickets) == 16
 
 
 def test_embedding_worker_handles_missing_ollama_gracefully(monkeypatch):
