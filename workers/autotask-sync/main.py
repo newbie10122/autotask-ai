@@ -1,18 +1,14 @@
 from workers.shared.worker_base import env_int, log, run_forever
-from app.sync import sync_recent
-
-
-def historical_sync_job() -> None:
-    log("historical sync is manual-first; use scripts/sync-companies.sh and scripts/sync-tickets.sh for controlled initial pulls")
+from app.operations import run_due_jobs
 
 
 def recent_sync_job() -> None:
-    result = sync_recent(limit=100)
-    log(f"recent sync completed: {result}")
+    results = run_due_jobs(only={"recent_sync"})
+    if results:
+        log(f"recent sync scheduler results: {results}")
 
 
 def job() -> None:
-    historical_sync_job()
     recent_sync_job()
 
 

@@ -53,7 +53,7 @@ def test_raw_sync_tmux_scripts_and_docs_are_present():
         assert "cat .env" not in text
 
     reclassify = ROOT / "scripts" / "reclassify-chunks.sh"
-    assert "reclassify-chunks" in reclassify.read_text()
+    assert "reclassify_chunks" in reclassify.read_text()
     assert (ROOT / "scripts" / "sync-reference-data.sh").exists()
     assert (ROOT / "scripts" / "classify-tickets.sh").exists()
 
@@ -69,6 +69,17 @@ def test_ticket_analytics_migration_adds_classification_and_reference_schema():
     assert "ADD COLUMN IF NOT EXISTS analytics_exclude" in migration
     assert "CREATE TABLE IF NOT EXISTS autotask_reference_values" in migration
     assert "CREATE INDEX IF NOT EXISTS autotask_tickets_issue_class_idx" in migration
+
+
+def test_operations_scheduler_schema_and_worker_are_present():
+    migration = (ROOT / "apps" / "api" / "migrations" / "006_operations_scheduler.sql").read_text()
+    assert "CREATE TABLE IF NOT EXISTS scheduled_jobs" in migration
+    assert "CREATE TABLE IF NOT EXISTS job_runs" in migration
+    assert "CREATE TABLE IF NOT EXISTS job_locks" in migration
+    assert (ROOT / "workers" / "scheduler" / "main.py").exists()
+    assert (ROOT / "workers" / "scheduler" / "Dockerfile").exists()
+    compose = (ROOT / "docker-compose.yml").read_text()
+    assert "worker-scheduler:" in compose
 
 
 def test_compose_config_uses_redacted_wrapper_only():

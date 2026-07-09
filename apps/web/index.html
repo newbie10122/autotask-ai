@@ -13,6 +13,7 @@
         <a href="#dashboard">Dashboard</a>
         <a href="#ask">Ask Assistant</a>
         <a href="#analytics">Analytics</a>
+        <a href="#operations">Operations</a>
         <a href="#sync">Sync Status</a>
         <a href="#knowledge">Saved Knowledge</a>
         <a href="#audit">Audit Log</a>
@@ -74,6 +75,59 @@
         </div>
         <div id="analyticsWarnings" class="result">No analytics warnings loaded.</div>
         <div id="recurringIssues" class="issue-list">Loading recurring issue groups.</div>
+      </section>
+
+      <section id="operations">
+        <div class="section-row">
+          <h2>Operations</h2>
+          <div class="button-row">
+            <button id="refreshOperations" type="button">Refresh</button>
+            <button id="pauseOperations" type="button">Pause</button>
+            <button id="resumeOperations" type="button">Resume</button>
+          </div>
+        </div>
+        <div class="connection-grid">
+          <div><span>API</span><strong id="opsApi">Loading</strong></div>
+          <div><span>DB</span><strong id="opsDb">Loading</strong></div>
+          <div><span>Ollama</span><strong id="opsOllama">Loading</strong></div>
+          <div><span>Autotask Threshold</span><strong id="opsThreshold">Loading</strong></div>
+          <div><span>Disk Free</span><strong id="opsDisk">Loading</strong></div>
+          <div><span>Global Pause</span><strong id="opsPause">Loading</strong></div>
+          <div><span>Tickets</span><strong id="opsTickets">Loading</strong></div>
+          <div><span>Ticket Notes</span><strong id="opsNotes">Loading</strong></div>
+          <div><span>Embeddings Backlog</span><strong id="opsEmbeddingBacklog">Loading</strong></div>
+        </div>
+        <h3>Run Now</h3>
+        <div class="actions">
+          <button data-job="recent_sync" type="button">Run Recent Sync Now</button>
+          <button data-job="sync_reference_data" type="button">Run Reference Sync Now</button>
+          <button data-job="classify_tickets" type="button">Classify Tickets Now</button>
+          <button data-job="build_documents" type="button">Build Documents Batch Now</button>
+          <button data-job="reclassify_chunks" type="button">Reclassify Chunks Now</button>
+          <button data-job="run_embeddings" type="button">Run Embedding Batch Now</button>
+        </div>
+        <div id="operationsResult" class="result">No operation run yet.</div>
+        <h3>Scheduled Jobs</h3>
+        <table>
+          <thead>
+            <tr><th>Job</th><th>Enabled</th><th>Status</th><th>Schedule</th><th>Started</th><th>Finished</th><th>Error</th><th>Controls</th></tr>
+          </thead>
+          <tbody id="scheduledJobs"></tbody>
+        </table>
+        <h3>Running Jobs</h3>
+        <table>
+          <thead>
+            <tr><th>Run</th><th>Job</th><th>Status</th><th>Started</th><th>Step</th><th>Stop</th></tr>
+          </thead>
+          <tbody id="runningJobs"></tbody>
+        </table>
+        <h3>History</h3>
+        <table>
+          <thead>
+            <tr><th>Run</th><th>Job</th><th>Status</th><th>Duration</th><th>Pulled</th><th>Inserted</th><th>Updated</th><th>Failed</th><th>Error</th></tr>
+          </thead>
+          <tbody id="jobHistory"></tbody>
+        </table>
       </section>
 
       <section id="sync">
@@ -229,6 +283,79 @@
         document.getElementById("auditLog").textContent = data.entries.map((entry) => `${entry.created_at} ${entry.action} ${entry.target || ""}`).join("\n") || "No audit entries.";
       }
 
+      async function loadOperations() {
+        const [status, jobs, runs] = await Promise.all([
+          api("/api/operations/status"),
+          api("/api/operations/jobs"),
+          api("/api/operations/jobs/runs"),
+        ]);
+        document.getElementById("opsApi").textContent = status.api_status;
+        document.getElementById("opsDb").textContent = status.db_status;
+        document.getElementById("opsOllama").textContent = status.ollama_status;
+        document.getElementById("opsThreshold").textContent = status.autotask_threshold_remaining ?? status.autotask_threshold_error ?? "Unknown";
+        document.getElementById("opsDisk").textContent = `${status.disk_free_gb} GB`;
+        document.getElementById("opsPause").textContent = status.global_pause ? "Paused" : "Running";
+        document.getElementById("opsTickets").textContent = status.counts.tickets || 0;
+        document.getElementById("opsNotes").textContent = status.counts.ticket_notes || 0;
+        document.getElementById("opsEmbeddingBacklog").textContent = status.counts.eligible_missing_embeddings || 0;
+
+        const jobsBody = document.getElementById("scheduledJobs");
+        jobsBody.innerHTML = "";
+        jobs.jobs.forEach((job) => {
+          const tr = document.createElement("tr");
+          [job.job_name, job.enabled ? "Yes" : "No", job.status, job.schedule || "", job.last_started_at || "", job.last_finished_at || "", job.last_error || ""].forEach((value) => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            tr.appendChild(td);
+          });
+          const controls = document.createElement("td");
+          const toggle = document.createElement("button");
+          toggle.type = "button";
+          toggle.textContent = job.enabled ? "Disable" : "Enable";
+          toggle.addEventListener("click", async () => {
+            await api(`/api/operations/jobs/${job.job_name}/${job.enabled ? "disable" : "enable"}`, { method: "POST" });
+            await loadOperations();
+          });
+          controls.appendChild(toggle);
+          tr.appendChild(controls);
+          jobsBody.appendChild(tr);
+        });
+
+        const runningBody = document.getElementById("runningJobs");
+        runningBody.innerHTML = "";
+        (jobs.running || []).forEach((run) => {
+          const tr = document.createElement("tr");
+          [run.id, run.job_name, run.status, run.started_at, run.current_step || ""].forEach((value) => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            tr.appendChild(td);
+          });
+          const stopCell = document.createElement("td");
+          const stop = document.createElement("button");
+          stop.type = "button";
+          stop.textContent = "Stop";
+          stop.addEventListener("click", async () => {
+            await api(`/api/operations/jobs/${run.id}/request-stop`, { method: "POST" });
+            await loadOperations();
+          });
+          stopCell.appendChild(stop);
+          tr.appendChild(stopCell);
+          runningBody.appendChild(tr);
+        });
+
+        const historyBody = document.getElementById("jobHistory");
+        historyBody.innerHTML = "";
+        runs.runs.forEach((run) => {
+          const tr = document.createElement("tr");
+          [run.id, run.job_name, run.status, run.duration_ms || "", run.pulled_count, run.inserted_count, run.updated_count, run.failed_count, run.last_error || ""].forEach((value) => {
+            const td = document.createElement("td");
+            td.textContent = value == null ? "" : value;
+            tr.appendChild(td);
+          });
+          historyBody.appendChild(tr);
+        });
+      }
+
       document.getElementById("askButton").addEventListener("click", async () => {
         const button = document.getElementById("askButton");
         button.disabled = true;
@@ -267,7 +394,7 @@
         });
       });
 
-      document.querySelectorAll(".actions button").forEach((button) => {
+      document.querySelectorAll(".actions button[data-action]").forEach((button) => {
         button.addEventListener("click", async () => {
           const result = document.getElementById("operationResult");
           result.textContent = "Running...";
@@ -283,10 +410,33 @@
         });
       });
 
+      document.querySelectorAll("[data-job]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const result = document.getElementById("operationsResult");
+          result.textContent = "Running...";
+          try {
+            const data = await api(`/api/operations/jobs/${button.dataset.job}/run`, { method: "POST" });
+            result.textContent = JSON.stringify(data, null, 2);
+            await loadOperations();
+          } catch (error) {
+            result.textContent = `Failed: ${error.message}`;
+          }
+        });
+      });
+
+      document.getElementById("pauseOperations").addEventListener("click", async () => {
+        await api("/api/operations/pause", { method: "POST" });
+        await loadOperations();
+      });
+      document.getElementById("resumeOperations").addEventListener("click", async () => {
+        await api("/api/operations/resume", { method: "POST" });
+        await loadOperations();
+      });
       document.getElementById("refreshSync").addEventListener("click", loadSync);
       document.getElementById("refreshAnalytics").addEventListener("click", loadAnalytics);
+      document.getElementById("refreshOperations").addEventListener("click", loadOperations);
       document.getElementById("refreshMemory").addEventListener("click", loadMemory);
-      Promise.all([loadSettings(), loadSync(), loadAnalytics(), loadMemory(), loadAudit()]).catch((error) => {
+      Promise.all([loadSettings(), loadSync(), loadAnalytics(), loadOperations(), loadMemory(), loadAudit()]).catch((error) => {
         document.getElementById("apiStatus").textContent = error.message;
       });
     </script>

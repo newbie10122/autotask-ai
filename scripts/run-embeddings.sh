@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-docker compose exec api python -m app.cli embeddings "$@"
+docker compose exec api python -m app.cli run-job --job-name run_embeddings "$@"

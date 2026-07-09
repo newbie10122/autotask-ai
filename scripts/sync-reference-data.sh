@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-docker compose exec api python -m app.cli sync-reference-data "$@"
+docker compose exec api python -m app.cli run-job --job-name sync_reference_data "$@"

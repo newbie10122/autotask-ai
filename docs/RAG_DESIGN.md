@@ -50,6 +50,8 @@ The ticket classifier excludes meetings, vendor notices, newsletters, training, 
 
 Admin endpoints for this workflow are `/api/analytics/recurring-issues`, `/api/analytics/ticket-class-report`, and `/api/reference-data/status`. They only update local Postgres analytics fields and do not write back to Autotask.
 
+Routine sync, ticket classification, document build, chunk reclassification, and embedding batches are scheduled through the Admin Operations UI. Scripts are fallback/emergency tools. The scheduler records job history and keeps embeddings disabled until an admin explicitly enables quiet-hours batches.
+
 ## Compose Validation Safety
 
 Never run raw docker compose config in this repo. Always run:

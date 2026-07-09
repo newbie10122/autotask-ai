@@ -91,12 +91,24 @@ Update `server_name` and TLS certificate paths in `nginx/autotask-ai.conf` befor
 - `POST /api/embeddings/run`
 - `POST /api/assistant/ask`
 - `POST /api/assistant/feedback`
+- `GET /api/operations/status`
+- `GET /api/operations/settings`
+- `POST /api/operations/settings`
+- `GET /api/operations/jobs`
+- `GET /api/operations/jobs/runs`
+- `POST /api/operations/jobs/{job_name}/run`
 
 ## Autotask
 
 Autotask credentials are read from `.env` and sent as `Username`, `Secret`, and `APIIntegrationcode` headers. See `docs/AUTOTASK_API_USER.md`.
 
 The MVP does not implement Autotask create, update, delete, webhooks, or live question-time Autotask calls.
+
+## Operations Scheduler
+
+Normal sync, classification, document build, embedding batches, and job history are controlled from the Admin Operations UI. See `docs/OPERATIONS_SCHEDULER.md`.
+
+Default scheduler settings are conservative: recent sync is enabled, historical raw backfill and document build are disabled, embeddings are disabled, and nightly work skips embeddings unless an admin enables them for quiet hours. Existing scripts remain available as fallback or emergency admin tools, but routine operation should use the Operations UI.
 
 First safe pull:
 

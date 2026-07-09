@@ -60,6 +60,20 @@ services:
       - ./data/uploads:/app/data/uploads
     restart: unless-stopped
 
+  worker-scheduler:
+    build:
+      context: .
+      dockerfile: workers/scheduler/Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - path: .env.example
+      - path: .env
+        required: false
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
   worker-embeddings:
     build:
       context: .

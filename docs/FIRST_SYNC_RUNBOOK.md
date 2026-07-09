@@ -14,6 +14,16 @@ curl http://127.0.0.1:5110/health
 curl http://127.0.0.1:5110/ready
 ```
 
+Normal operations after startup are controlled through the Admin Operations UI. Scripts in `scripts/` remain fallback and emergency tools.
+
+Open:
+
+```text
+http://127.0.0.1:3010/#operations
+```
+
+Use Operations to view scheduler status, pause/resume all jobs, trigger bounded batches, and inspect job history.
+
 ## Test Threshold
 
 ```bash
@@ -21,6 +31,10 @@ curl http://127.0.0.1:5110/api/autotask/threshold
 ```
 
 ## Run Safe Initial Syncs
+
+Preferred path: use Admin Operations to run bounded recent sync or enable raw backfill only after checking Autotask threshold and disk free.
+
+Fallback script path:
 
 ```bash
 scripts/sync-companies.sh --limit 25
@@ -32,7 +46,7 @@ Use `--full-sync` only when ready for a complete historical pull.
 
 ## Long Raw Sync in Tmux
 
-For unattended raw Autotask pulls, start the tmux-managed sync loop:
+For unattended raw Autotask pulls, prefer enabling raw backfill from Admin Operations. The tmux-managed sync loop remains an emergency/manual fallback:
 
 ```bash
 ./scripts/start-raw-sync-tmux.sh
@@ -76,6 +90,10 @@ Do not run huge embeddings during business hours on CPU-only hosts.
 
 ## Build Documents
 
+Preferred path: use Admin Operations to enable document build or run a bounded document batch.
+
+Fallback script path:
+
 ```bash
 scripts/build-documents.sh --limit 100
 ```
@@ -98,6 +116,8 @@ Noisy chunks are retained for audit and prior assistant source history, but defa
 Questions such as “What are the most common recurring support issues?” use local analytics over synced tickets instead of random semantic chunks.
 
 ## Run Embeddings
+
+Embeddings are disabled by default. Enable them from Admin Operations only for quiet-hours batches on CPU-only hosts.
 
 When Ollama runs on the host OS, verify the API is reachable on the host:
 

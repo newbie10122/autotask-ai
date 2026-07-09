@@ -11,6 +11,16 @@ from .db import database_available, init_schema
 from .documents import create_documents_from_tickets, noise_report
 from .embeddings import run_embedding_batch
 from .models import AuditAction, AuditLogEntry, LoginRequest, Role
+from .operations import (
+    job_runs,
+    operations_jobs,
+    operations_settings,
+    operations_status,
+    request_stop,
+    run_job,
+    set_job_enabled,
+    update_operations_settings,
+)
 from .sync import sync_companies, sync_recent, sync_runs, sync_status as get_sync_status, sync_ticket_notes, sync_tickets
 from .ticket_analytics import classify_tickets, recurring_issues_report, reference_data_status, sync_reference_data, ticket_class_report
 
@@ -33,6 +43,10 @@ class FeedbackRequest(BaseModel):
     answer_id: int
     rating: Literal["Good", "Bad", "Needs Edit", "Save as Known Fix"]
     notes: str | None = None
+
+
+class OperationsSettingsRequest(BaseModel):
+    settings: dict[str, object] = Field(default_factory=dict)
 
 
 @app.on_event("startup")
@@ -205,6 +219,61 @@ def api_ticket_class_report() -> dict:
 @app.get("/api/analytics/recurring-issues")
 def api_recurring_issues(limit: int = 8, include_excluded: bool = False) -> dict:
     return recurring_issues_report(limit=limit, include_excluded=include_excluded)
+
+
+@app.get("/api/operations/status")
+def api_operations_status() -> dict:
+    return operations_status()
+
+
+@app.get("/api/operations/settings")
+def api_operations_settings() -> dict:
+    return {"ok": True, "settings": operations_settings()}
+
+
+@app.post("/api/operations/settings")
+def api_update_operations_settings(payload: OperationsSettingsRequest) -> dict:
+    return {"ok": True, "settings": update_operations_settings(payload.settings)}
+
+
+@app.get("/api/operations/jobs")
+def api_operations_jobs() -> dict:
+    return operations_jobs()
+
+
+@app.get("/api/operations/jobs/runs")
+def api_operations_job_runs() -> dict:
+    return job_runs()
+
+
+@app.post("/api/operations/jobs/{job_name}/run")
+def api_run_operation_job(job_name: str) -> dict:
+    return run_job(job_name, triggered_by="manual", force=True)
+
+
+@app.post("/api/operations/jobs/{job_name}/enable")
+def api_enable_operation_job(job_name: str) -> dict:
+    return set_job_enabled(job_name, True)
+
+
+@app.post("/api/operations/jobs/{job_name}/disable")
+def api_disable_operation_job(job_name: str) -> dict:
+    return set_job_enabled(job_name, False)
+
+
+@app.post("/api/operations/pause")
+def api_pause_operations() -> dict:
+    return {"ok": True, "settings": update_operations_settings({"global_pause": True})}
+
+
+@app.post("/api/operations/resume")
+def api_resume_operations() -> dict:
+    return {"ok": True, "settings": update_operations_settings({"global_pause": False})}
+
+
+@app.post("/api/operations/jobs/{run_id}/request-stop")
+def api_request_stop(run_id: int) -> dict:
+    return request_stop(run_id)
 
 
 @app.post("/api/assistant/ask")

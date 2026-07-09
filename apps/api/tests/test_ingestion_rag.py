@@ -9,6 +9,7 @@ from app.documents import create_documents_from_tickets, noise_report, reclassif
 import app.embeddings as embeddings_module
 from app.embeddings import run_embedding_batch
 from app.main import app
+import app.operations as operations_module
 from app.ollama import OllamaUnavailable
 from app.quality import classify_chunk, is_recurring_issues_question
 from app.sync import sync_companies, sync_ticket_notes, sync_tickets
@@ -45,6 +46,8 @@ def test_no_autotask_write_back_routes_exist():
     assert not any(path.endswith("/tickets/create") or path.endswith("/tickets/update") for path in route_paths)
     assert "/api/analytics/recurring-issues" in route_paths
     assert "/api/sync/reference-data/start" in route_paths
+    assert "/api/operations/status" in route_paths
+    assert "/api/operations/jobs/{job_name}/run" in route_paths
 
 
 def test_company_sync_stores_records(monkeypatch):
@@ -317,6 +320,66 @@ def test_embedding_worker_handles_missing_ollama_gracefully(monkeypatch):
     result = run_embedding_batch(limit=1)
     assert result["failed"] == 1
     assert "skipped_noise" in result
+
+
+def test_scheduler_default_settings_are_conservative():
+    defaults = operations_module.default_operations_settings()
+    assert defaults["recent_sync_enabled"] is True
+    assert defaults["raw_backfill_enabled"] is False
+    assert defaults["document_build_enabled"] is False
+    assert defaults["embedding_enabled"] is False
+    assert defaults["nightly_pipeline_enabled"] is True
+    assert defaults["min_free_disk_gb"] == 50
+
+
+def test_scheduler_preflight_global_pause_disk_and_threshold_guards(monkeypatch):
+    settings = operations_module.default_operations_settings()
+    settings["global_pause"] = True
+    assert operations_module._preflight("recent_sync", settings) == "global_pause"
+
+    settings["global_pause"] = False
+    monkeypatch.setattr(operations_module, "disk_free_gb", lambda _path="/": 1)
+    assert operations_module._preflight("recent_sync", settings).startswith("low_disk_free_gb")
+
+    monkeypatch.setattr(operations_module, "disk_free_gb", lambda _path="/": 100)
+    monkeypatch.setattr(operations_module, "autotask_threshold_remaining", lambda: 25)
+    assert operations_module._preflight("recent_sync", settings) == "autotask_threshold_low:25"
+
+
+def test_scheduler_conflicts_prevent_duplicate_or_unsafe_jobs():
+    assert operations_module.conflicting_jobs("recent_sync", {"raw_backfill_tickets"}) == {"raw_backfill_tickets"}
+    assert operations_module.conflicting_jobs("run_embeddings", {"build_documents"}) == {"build_documents"}
+    assert operations_module.conflicting_jobs("build_documents", {"reclassify_chunks"}) == {"reclassify_chunks"}
+
+
+def test_embedding_job_refuses_when_disabled_and_skips_noise_by_default(monkeypatch):
+    settings = operations_module.default_operations_settings()
+    monkeypatch.setattr(operations_module, "disk_free_gb", lambda _path="/": 100)
+    assert operations_module._preflight("run_embeddings", settings) == "embedding_disabled"
+    embedding_source = inspect.getsource(embeddings_module.run_embedding_batch)
+    assert "OR NOT dc.is_noise" in embedding_source
+
+
+def test_nightly_pipeline_respects_disabled_document_and_embedding_settings(monkeypatch):
+    calls = []
+    settings = operations_module.default_operations_settings()
+    settings["document_build_enabled"] = False
+    settings["embedding_enabled"] = False
+    monkeypatch.setattr(operations_module, "sync_reference_data", lambda: calls.append("reference") or {"processed": 1})
+    monkeypatch.setattr(operations_module, "classify_tickets", lambda limit=None: calls.append("classify") or {"processed": limit or 0})
+    monkeypatch.setattr(operations_module, "create_documents_from_tickets", lambda limit=None: calls.append("documents") or {})
+    monkeypatch.setattr(operations_module, "reclassify_chunks", lambda limit=None: calls.append("reclassify_chunks") or {"processed": limit or 0})
+    monkeypatch.setattr(operations_module, "run_embedding_batch", lambda limit=None: calls.append("embeddings") or {})
+    result = operations_module._nightly_pipeline(settings)
+    assert calls == ["reference", "classify", "reclassify_chunks"]
+    assert result["failed"] == 0
+
+
+def test_scheduler_job_runner_records_start_finish_and_uses_locks():
+    source = inspect.getsource(operations_module.run_job)
+    assert "_create_job_run" in source
+    assert "_acquire_lock" in source
+    assert "_finish_job_run" in source
 
 
 def test_reclassify_chunks_updates_classification_without_deleting(monkeypatch):
