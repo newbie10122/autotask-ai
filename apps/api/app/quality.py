@@ -5,6 +5,7 @@ import re
 
 NOISE_CLASSES = {
     "system_notification",
+    "monitoring_alert",
     "completion_email",
     "survey_email",
     "autoresponder",
@@ -58,6 +59,17 @@ TECH_PATTERNS = (
 )
 
 CLASS_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "monitoring_alert",
+        (
+            "system_volume",
+            "drive has passed",
+            "% used for",
+            "this alert ticket was generated from aem alert",
+            "cpu usage reached",
+            "monitoring alert",
+        ),
+    ),
     (
         "survey_email",
         (

@@ -12,6 +12,7 @@ from app.main import app
 import app.operations as operations_module
 from app.ollama import OllamaUnavailable
 from app.quality import classify_chunk, is_recurring_issues_question
+import app.sync as sync_module
 from app.sync import sync_companies, sync_ticket_notes, sync_tickets
 from app.ticket_analytics import format_recurring_issues_answer, issue_group_label
 from app.ticket_classifier import classify_ticket
@@ -146,6 +147,33 @@ def test_ticket_and_note_sync_functions_are_available():
     assert callable(sync_ticket_notes)
 
 
+def test_ticket_sync_skips_monitoring_alerts_before_storage():
+    assert sync_module._should_skip_ticket(
+        {
+            "id": 10,
+            "title": "C: Drive has 224.8 GB used out of 235.9 GB (95% Used)",
+            "source": 8,
+            "ticketType": 5,
+        }
+    )
+    source = inspect.getsource(sync_module.sync_tickets)
+    assert "stats[\"skipped\"] += 1" in source
+    assert "_should_skip_ticket(item)" in source
+
+
+def test_ticket_sync_skips_onsite_maintenance_before_storage():
+    result = classify_ticket("Onsite maintenance and monitoring support visit")
+    assert result["analytics_exclude"] is True
+    assert result["analytics_exclude_reason"] == "onsite_maintenance"
+    assert sync_module._should_skip_ticket({"id": 11, "title": "Onsite maintenance and monitoring support visit"})
+
+
+def test_ticket_note_sync_skips_notes_without_local_ticket():
+    source = inspect.getsource(sync_module.sync_ticket_notes)
+    assert "if not ticket_row:" in source
+    assert "stats[\"skipped\"] += 1" in source
+
+
 def test_document_creation_function_is_available():
     assert callable(create_documents_from_tickets)
 
@@ -223,7 +251,7 @@ def test_timeout_fallback_uses_structured_warning():
         0.7,
         "Local LLM timed out; showing retrieval summary only.",
     )
-    assert "Local LLM timed out; showing retrieval summary only." in answer
+    assert "Local CPU LLM timed out; showing a cleaned retrieval summary instead." in answer
     assert "Resolved VPN failures" in answer
 
 
@@ -238,7 +266,7 @@ def test_recurring_issues_formatter_returns_counts_and_representatives():
     assert tickets == ["T1"]
 
 
-def test_ticket_classifier_excludes_non_support_noise_and_keeps_real_alerts():
+def test_ticket_classifier_excludes_non_support_noise_and_monitoring_alerts():
     excluded = classify_ticket("Daily IT Meeting")
     assert excluded["analytics_exclude"] is True
     assert excluded["analytics_exclude_reason"] == "internal_meeting"
@@ -248,9 +276,19 @@ def test_ticket_classifier_excludes_non_support_noise_and_keeps_real_alerts():
     assert vendor["ticket_class"] == "vendor_notice"
 
     disk = classify_ticket("C: Drive has 225 GB used out of 236 GB (95% Used)", raw={"source": 8, "ticketType": 5})
-    assert disk["analytics_exclude"] is False
+    assert disk["analytics_exclude"] is True
+    assert disk["analytics_exclude_reason"] == "monitoring_alert"
     assert disk["is_system_generated"] is True
-    assert disk["ticket_class"] == "disk_space_alert"
+    assert disk["ticket_class"] == "monitoring_alert"
+
+
+def test_monitoring_alert_chunks_are_noise():
+    result = classify_chunk(
+        "C: Drive has 224.8 GB used out of 235.9 GB. "
+        "SYSTEM_VOLUME drive has passed 95.0 % Used for 15 mins."
+    )
+    assert result["is_noise"] is True
+    assert result["knowledge_class"] == "monitoring_alert"
 
 
 def test_ticket_group_label_uses_reference_labels_instead_of_raw_ids():

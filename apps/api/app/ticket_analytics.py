@@ -6,6 +6,7 @@ from typing import Any
 from psycopg.types.json import Jsonb
 
 from .db import db_connection, init_schema
+from .security import redact_private_entities
 from .ticket_classifier import classify_ticket, ticket_class_label
 
 
@@ -362,16 +363,10 @@ def recurring_issues_report(limit: int = 8, include_excluded: bool = False) -> d
                 {
                     "ticket_number": ticket_display,
                     "autotask_id": row.get("autotask_id"),
-                    "title": row.get("title") or "",
+                    "title": redact_private_entities(row.get("title") or ""),
                     "quality_score": float(row.get("max_quality") or 0),
                 }
             )
-        if row.get("category") and not group["category_name"]:
-            warnings.add(f"Category {row.get('category')} is unmapped.")
-        if row.get("issue_type") and not group["issue_name"]:
-            warnings.add(f"Issue {row.get('issue_type')} is unmapped.")
-        if row.get("subissue_type") and not group["subissue_name"]:
-            warnings.add(f"Subissue {row.get('subissue_type')} is unmapped.")
 
     groups = sorted(grouped.values(), key=lambda item: (-item["count"], item["label"]))[:limit]
     return {

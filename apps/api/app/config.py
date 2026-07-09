@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     embedding_batch_size: int = 16
     embed_noise_chunks: bool = False
     answer_target_seconds: int = 20
-    assistant_normal_timeout_seconds: int = 30
+    assistant_normal_timeout_seconds: int = 90
     assistant_max_context_chunks: int = 8
     assistant_max_unique_tickets: int = 5
     assistant_max_chunks_per_ticket: int = 2

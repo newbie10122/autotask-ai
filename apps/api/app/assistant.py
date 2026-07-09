@@ -12,7 +12,7 @@ from .config import settings
 from .db import db_connection, init_schema
 from .ollama import OllamaUnavailable, chat, embed_text
 from .quality import is_recurring_issues_question
-from .security import redact_sensitive_content
+from .security import redact_private_entities
 from .ticket_analytics import format_recurring_issues_answer, recurring_issues_report
 
 
@@ -65,10 +65,15 @@ def _fallback_answer(
     tickets = _unique_tickets(sources)
     summaries = []
     for source in sources[: settings.assistant_max_context_chunks]:
-        text = redact_sensitive_content(source["content"])
-        summaries.append(text[:260].replace("\n", " "))
-    guidance = "Local ticket evidence was retrieved and summarized without relying on generated prose."
-    steps = ["Review the representative tickets.", "Validate the issue details before applying any fix."]
+        summaries.append(_source_summary(source))
+    guidance = (
+        "A local CPU LLM may take longer than the normal timeout. "
+        "This response uses retrieved ticket evidence directly instead of generated prose."
+    )
+    steps = [
+        "Open the representative tickets and compare the symptoms before applying a fix.",
+        "Use Deep Dive mode when you want the local CPU model to spend more time generating a narrative answer.",
+    ]
     answer = build_guarded_answer(
         ticket_history="\n".join(f"- {summary}" for summary in summaries) or WEAK_EVIDENCE_MESSAGE,
         general_guidance=guidance,
@@ -77,8 +82,39 @@ def _fallback_answer(
         confidence=confidence,
     )
     if warning:
-        answer = answer.replace("Warnings\n- None", f"Warnings\n- {warning}")
+        answer = answer.replace(
+            "Warnings\n- None",
+            "Warnings\n- Local CPU LLM timed out; showing a cleaned retrieval summary instead.",
+        )
     return answer
+
+
+def _line_value(content: str, label: str) -> str:
+    prefix = f"{label}:"
+    for line in content.splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix) :].strip()
+    return ""
+
+
+def _compact_text(value: str, max_length: int = 180) -> str:
+    text = " ".join(value.split())
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 3].rstrip() + "..."
+
+
+def _source_summary(source: dict[str, Any]) -> str:
+    content = redact_private_entities(str(source.get("content") or ""))
+    ticket = str(source.get("ticket_number") or source.get("autotask_id") or _line_value(content, "Ticket Number") or "Ticket")
+    title = _line_value(content, "Title")
+    description = _line_value(content, "Description")
+    note_body = _line_value(content, "Note Body")
+    evidence = _compact_text(description or note_body or content, 220)
+    heading = ticket
+    if title:
+        heading += f" - {_compact_text(title, 90)}"
+    return f"{heading}: {evidence}"
 
 
 def _chat_with_timeout(prompt: str, timeout_seconds: int) -> str:
@@ -320,7 +356,7 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
         )
         confidence = 0.0
     else:
-        context = "\n\n---\n\n".join(redact_sensitive_content(source["content"]) for source in sources)
+        context = "\n\n---\n\n".join(redact_private_entities(source["content"]) for source in sources)
         prompt = (
             "Answer using only the CompuOne ticket-history context below. "
             "Ignore boilerplate, surveys, autoresponders, completion emails, and unsubscribe footers. "
@@ -337,9 +373,10 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
             generated = ""
             warning = str(exc)
         if generated and "From CompuOne Ticket History" in generated:
-            answer = redact_sensitive_content(generated)
+            answer = redact_private_entities(generated)
         else:
             answer = _fallback_answer(sources, confidence, warning)
+        answer = redact_private_entities(answer)
 
     duration_ms = int((time.monotonic() - started) * 1000)
     answer_row = _store_answer(query_id, answer, confidence, sources, duration_ms)

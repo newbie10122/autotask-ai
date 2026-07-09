@@ -5,7 +5,20 @@ from typing import Any
 
 
 EXCLUDED_PATTERNS: tuple[tuple[str, str, str], ...] = (
+    (
+        r"system_volume|drive has .*% used|drive has .*used|passed (90|95)(?:\.0)?\s*% used|"
+        r"\bdisk space\b|\blow disk\b|this alert ticket was generated from aem alert|"
+        r"\bcpu usage reached\b|\bmonitoring alert\b",
+        "monitoring_alert",
+        "monitoring_alert",
+    ),
     (r"\bdaily (it )?meeting\b", "meeting", "internal_meeting"),
+    (
+        r"\bonsite\b.*\bmaintenance\b|\bon-site\b.*\bmaintenance\b|\bsite visit\b.*\bmaintenance\b|"
+        r"\bmaintenance\b.*\bonsite\b|\bmaintenance\b.*\bon-site\b|\bonsite monitoring and support\b",
+        "onsite_maintenance",
+        "onsite_maintenance",
+    ),
     (r"\bonsite monitoring and support\b", "admin_internal", "internal_admin"),
     (r"\bterms of service\b", "vendor_notice", "vendor_notice"),
     (r"\bwelcome to .*protect hub\b", "vendor_notice", "vendor_notice"),
@@ -16,7 +29,6 @@ EXCLUDED_PATTERNS: tuple[tuple[str, str, str], ...] = (
 )
 
 SUPPORT_PATTERNS: tuple[tuple[str, str, bool], ...] = (
-    (r"drive has .*used|system_volume|% used|disk space|passed (90|95)|low disk", "disk_space_alert", True),
     (r"no recent backup|backup failed|backup failure|c1 backup|\bbackup\b", "backup_alert", True),
     (r"\bvpn\b|globalprotect|forticlient|radius", "vpn_issue", False),
     (r"outlook|office 365|microsoft 365|\bm365\b|mailbox|email|e-mail", "microsoft_365_issue", False),
@@ -56,7 +68,7 @@ def classify_ticket(
             return {
                 "ticket_class": ticket_class,
                 "is_support_issue": False,
-                "is_system_generated": ticket_class in {"vendor_notice", "notification"},
+                "is_system_generated": ticket_class in {"vendor_notice", "notification", "monitoring_alert"},
                 "analytics_exclude": True,
                 "analytics_exclude_reason": reason,
             }
@@ -74,6 +86,14 @@ def classify_ticket(
     source = str((raw or {}).get("source") or "")
     ticket_type = str((raw or {}).get("ticketType") or "")
     system_generated = source == "8" or ticket_type == "5"
+    if system_generated:
+        return {
+            "ticket_class": "monitoring_alert",
+            "is_support_issue": False,
+            "is_system_generated": True,
+            "analytics_exclude": True,
+            "analytics_exclude_reason": "monitoring_alert",
+        }
     return {
         "ticket_class": "general_support_issue",
         "is_support_issue": True,
@@ -91,9 +111,11 @@ def ticket_class_label(ticket_class: str | None) -> str:
         "disk_space_alert": "Disk Space Alert",
         "general_support_issue": "General Support",
         "meeting": "Meeting",
+        "monitoring_alert": "Monitoring Alert",
         "microsoft_365_issue": "Microsoft 365",
         "newsletter": "Newsletter",
         "notification": "Notification",
+        "onsite_maintenance": "Onsite Maintenance",
         "onsite_support": "Onsite Support",
         "printer_scan_issue": "Printer or Scan",
         "security_alert": "Security Alert",

@@ -71,6 +71,19 @@ def test_ticket_analytics_migration_adds_classification_and_reference_schema():
     assert "CREATE INDEX IF NOT EXISTS autotask_tickets_issue_class_idx" in migration
 
 
+def test_analytics_does_not_show_raw_unmapped_reference_ids():
+    analytics = (ROOT / "apps" / "api" / "app" / "ticket_analytics.py").read_text()
+    assert "is unmapped" not in analytics
+    assert "redact_private_entities" in analytics
+
+
+def test_web_dashboard_does_not_show_autotask_account_identity():
+    web = (ROOT / "apps" / "web" / "index.html").read_text()
+    assert "autotaskUser" not in web
+    assert "Base URL" not in web
+    assert "<span>Username</span>" not in web
+
+
 def test_operations_scheduler_schema_and_worker_are_present():
     migration = (ROOT / "apps" / "api" / "migrations" / "006_operations_scheduler.sql").read_text()
     assert "CREATE TABLE IF NOT EXISTS scheduled_jobs" in migration
@@ -78,6 +91,8 @@ def test_operations_scheduler_schema_and_worker_are_present():
     assert "CREATE TABLE IF NOT EXISTS job_locks" in migration
     assert (ROOT / "workers" / "scheduler" / "main.py").exists()
     assert (ROOT / "workers" / "scheduler" / "Dockerfile").exists()
+    nightly = (ROOT / "workers" / "nightly-knowledge-worker" / "Dockerfile").read_text()
+    assert "COPY apps/api/app ./app" in nightly
     compose = (ROOT / "docker-compose.yml").read_text()
     assert "worker-scheduler:" in compose
 
@@ -89,6 +104,7 @@ def test_nginx_http_preview_helper_and_docs_are_present():
     script_text = script.read_text()
     assert "/etc/nginx/.helix-preview-auth" in script_text
     assert "/etc/nginx/sites-available/autotask-ai" in script_text
+    assert "proxy_read_timeout 180s" in script_text
     assert "certbot" not in script_text
     assert "docker compose config" not in script_text
 

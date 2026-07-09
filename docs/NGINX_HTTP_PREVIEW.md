@@ -31,6 +31,8 @@ sudo bash scripts/install-nginx-http-preview.sh autotask-ai.compuone.local
 
 The script verifies `/etc/nginx/.helix-preview-auth`, writes the dedicated site, enables it, runs `nginx -t`, reloads Nginx, and prints safe test commands.
 
+The API proxy uses longer read/send timeouts because the local CPU LLM can take longer than a typical web request.
+
 ## Health Tests
 
 Local API:

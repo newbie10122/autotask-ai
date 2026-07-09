@@ -21,11 +21,15 @@
     </aside>
     <main>
       <section id="dashboard">
-        <h1>CompuOne Technician Assistant</h1>
-        <div class="metrics">
-          <div><span>API</span><strong id="apiStatus">Checking</strong></div>
-          <div><span>Autotask User</span><strong id="autotaskUser">Loading</strong></div>
-          <div><span>Mode</span><strong>Read-only</strong></div>
+        <div class="hero">
+          <div>
+            <p class="eyebrow">Technician workspace</p>
+            <h1>CompuOne Technician Assistant</h1>
+          </div>
+          <div class="status-pills">
+            <span id="apiStatus">Checking</span>
+            <span>Read-only</span>
+          </div>
         </div>
       </section>
 
@@ -39,13 +43,16 @@
           </select>
         </div>
         <textarea id="question" placeholder="Describe the support issue..."></textarea>
-        <button id="askButton" type="button">Ask</button>
+        <div class="ask-actions">
+          <button id="askButton" type="button">Ask</button>
+          <span>Local CPU model: normal answers can take up to a minute; Deep Dive may take longer.</span>
+        </div>
         <div class="answer-shell">
           <div class="section-row">
             <h3>Answer</h3>
             <strong id="confidence">Confidence: None</strong>
           </div>
-          <pre id="answerText">Run a question after syncing and embedding ticket history.</pre>
+          <div id="answerText" class="answer-text">Run a question after syncing and embedding ticket history.</div>
           <h3>Based on Tickets</h3>
           <ul id="basedOnTickets"><li>No related tickets selected.</li></ul>
           <h3>Warnings</h3>
@@ -136,8 +143,6 @@
           <button id="refreshSync" type="button">Refresh</button>
         </div>
         <div class="connection-grid">
-          <div><span>Base URL</span><strong id="baseUrl">Loading</strong></div>
-          <div><span>Username</span><strong id="username">Loading</strong></div>
           <div><span>API Calls</span><strong id="apiCalls">0</strong></div>
           <div><span>Noise Chunks</span><strong id="noiseChunks">Loading</strong></div>
           <div><span>Useful Chunks</span><strong id="usefulChunks">Loading</strong></div>
@@ -179,10 +184,24 @@
       const api = async (path, options = {}) => {
         const response = await fetch(path, {
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
           ...options,
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || "Request failed");
+        const contentType = response.headers.get("content-type") || "";
+        const data = contentType.includes("application/json") ? await response.json() : await response.text();
+        if (!response.ok) {
+          if (response.status === 504 || response.status === 502) {
+            throw new Error("The local CPU model is still working or the proxy timed out. Try Deep Dive, ask a narrower question, or wait and retry.");
+          }
+          if (response.status === 401) {
+            throw new Error("Your Basic Auth session is not available for this request. Refresh the page and sign in again.");
+          }
+          const detail = typeof data === "object" && data ? data.detail : null;
+          throw new Error(detail || `Request failed (${response.status}).`);
+        }
+        if (!contentType.includes("application/json")) {
+          throw new Error("The server returned a non-JSON response. Refresh the page and try again.");
+        }
         return data;
       };
 
@@ -195,13 +214,87 @@
           el.appendChild(li);
         });
       };
+      const sectionTitles = new Set([
+        "From CompuOne Ticket History",
+        "General IT Guidance",
+        "Suggested Next Steps",
+        "Based on Tickets",
+        "Warnings",
+        "Top Recurring Issue Groups",
+        "Evidence / Counts",
+        "Representative Tickets",
+        "Suggested Operational Next Steps",
+      ]);
+      const renderAnswer = (answer) => {
+        const target = document.getElementById("answerText");
+        target.innerHTML = "";
+        let current = document.createElement("div");
+        current.className = "answer-section";
+        target.appendChild(current);
+        let list = null;
+        answer.split("\n").forEach((rawLine) => {
+          const line = rawLine.trim();
+          if (!line) {
+            list = null;
+            return;
+          }
+          if (line.startsWith("Confidence:")) return;
+          if (sectionTitles.has(line)) {
+            current = document.createElement("div");
+            current.className = "answer-section";
+            const heading = document.createElement("h4");
+            heading.textContent = line;
+            current.appendChild(heading);
+            target.appendChild(current);
+            list = null;
+            return;
+          }
+          if (line.startsWith("- ")) {
+            if (!list) {
+              list = document.createElement("ul");
+              current.appendChild(list);
+            }
+            const item = document.createElement("li");
+            item.textContent = line.slice(2);
+            list.appendChild(item);
+            return;
+          }
+          const p = document.createElement("p");
+          p.textContent = line;
+          current.appendChild(p);
+          list = null;
+        });
+      };
+      const navLinks = Array.from(document.querySelectorAll("nav a"));
+      const main = document.querySelector("main");
+      const setActiveNav = (hash) => {
+        navLinks.forEach((link) => link.classList.toggle("active", link.getAttribute("href") === hash));
+      };
+      navLinks.forEach((link) => {
+        link.addEventListener("click", (event) => {
+          const target = document.querySelector(link.getAttribute("href"));
+          if (!target) return;
+          event.preventDefault();
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+          history.replaceState(null, "", link.getAttribute("href"));
+          setActiveNav(link.getAttribute("href"));
+        });
+      });
+      main.addEventListener("scroll", () => {
+        let current = "#dashboard";
+        document.querySelectorAll("main section").forEach((section) => {
+          if (section.getBoundingClientRect().top <= 140) current = `#${section.id}`;
+        });
+        setActiveNav(current);
+      });
+      setActiveNav(window.location.hash || "#dashboard");
+      if (window.location.hash) {
+        document.querySelector(window.location.hash)?.scrollIntoView({ block: "start" });
+      }
 
       async function loadSettings() {
-        const [ready, settings] = await Promise.all([api("/ready"), api("/settings")]);
-        document.getElementById("apiStatus").textContent = ready.status;
-        document.getElementById("baseUrl").textContent = settings.autotask_base_url;
-        document.getElementById("username").textContent = settings.autotask_username || "Not configured";
-        document.getElementById("autotaskUser").textContent = settings.autotask_username || "Not configured";
+        const ready = await api("/ready");
+        document.getElementById("apiStatus").textContent = ready.status === "ready" ? "API ready" : ready.status;
       }
 
       async function loadSync() {
@@ -370,13 +463,13 @@
             }),
           });
           currentAnswerId = data.answer_id;
-          document.getElementById("answerText").textContent = data.answer;
+          renderAnswer(data.answer);
           document.getElementById("confidence").textContent = `Confidence: ${data.confidence}`;
           writeList(document.getElementById("basedOnTickets"), data.based_on_tickets, "No related tickets selected.");
           writeList(document.getElementById("warnings"), data.warnings, "None");
           await loadAudit();
         } catch (error) {
-          document.getElementById("answerText").textContent = error.message;
+          renderAnswer(`Warnings\n- ${error.message}`);
         } finally {
           button.disabled = false;
           button.textContent = "Ask";

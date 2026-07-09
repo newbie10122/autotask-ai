@@ -1,5 +1,5 @@
 from .models import REQUIRED_ANSWER_SECTIONS
-from .security import redact_sensitive_content
+from .security import redact_private_entities
 
 WEAK_EVIDENCE_MESSAGE = "I do not have enough matching CompuOne ticket history."
 
@@ -11,8 +11,8 @@ def build_guarded_answer(
     tickets: list[str],
     confidence: float,
 ) -> str:
-    safe_history = redact_sensitive_content(ticket_history)
-    safe_guidance = redact_sensitive_content(general_guidance)
+    safe_history = redact_private_entities(ticket_history)
+    safe_guidance = redact_private_entities(general_guidance)
     if confidence < 0.35 or not tickets:
         safe_history = WEAK_EVIDENCE_MESSAGE
 

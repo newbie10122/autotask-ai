@@ -8,6 +8,7 @@ from psycopg.types.json import Jsonb
 from .autotask import AutotaskReadOnlyClient
 from .config import settings
 from .db import db_connection, init_schema
+from .ticket_classifier import classify_ticket
 
 
 def _field(record: dict[str, Any], *names: str) -> Any:
@@ -121,6 +122,18 @@ def _iter_id_pages(client: AutotaskReadOnlyClient, entity: str, last_seen: int, 
             break
 
 
+def _should_skip_ticket(item: dict[str, Any]) -> bool:
+    result = classify_ticket(
+        _field(item, "title"),
+        _field(item, "description"),
+        item,
+    )
+    return bool(
+        result["analytics_exclude"]
+        and result["analytics_exclude_reason"] in {"monitoring_alert", "onsite_maintenance"}
+    )
+
+
 def sync_companies(limit: int | None = None, full_sync: bool = False) -> dict[str, Any]:
     run_id = _create_run("companies")
     stats = {"run_id": run_id, "pulled": 0, "inserted": 0, "updated": 0, "failed": 0, "checkpoint": {}}
@@ -161,7 +174,7 @@ def sync_companies(limit: int | None = None, full_sync: bool = False) -> dict[st
 
 def sync_tickets(limit: int | None = None, full_sync: bool = False) -> dict[str, Any]:
     run_id = _create_run("tickets")
-    stats = {"run_id": run_id, "pulled": 0, "inserted": 0, "updated": 0, "failed": 0, "checkpoint": {}}
+    stats = {"run_id": run_id, "pulled": 0, "inserted": 0, "updated": 0, "skipped": 0, "failed": 0, "checkpoint": {}}
     try:
         last_seen = 0 if full_sync else _last_checkpoint("tickets")
         limit = None if full_sync else (limit or settings.autotask_sync_batch_limit)
@@ -171,6 +184,11 @@ def sync_tickets(limit: int | None = None, full_sync: bool = False) -> dict[str,
                 for item in items:
                     try:
                         autotask_id = int(item["id"])
+                        stats["pulled"] += 1
+                        last_seen = max(last_seen, autotask_id)
+                        if _should_skip_ticket(item):
+                            stats["skipped"] += 1
+                            continue
                         company_autotask_id = _field(item, "companyID", "accountID", "companyId")
                         company_row = None
                         if company_autotask_id:
@@ -221,8 +239,6 @@ def sync_tickets(limit: int | None = None, full_sync: bool = False) -> dict[str,
                             ),
                         ).fetchone()
                         stats["inserted" if row["inserted"] else "updated"] += 1
-                        stats["pulled"] += 1
-                        last_seen = max(last_seen, autotask_id)
                     except Exception:
                         stats["failed"] += 1
             last_seen = max(last_seen, page_last_seen)
@@ -237,7 +253,7 @@ def sync_tickets(limit: int | None = None, full_sync: bool = False) -> dict[str,
 
 def sync_ticket_notes(limit: int | None = None, full_sync: bool = False) -> dict[str, Any]:
     run_id = _create_run("ticket_notes")
-    stats = {"run_id": run_id, "pulled": 0, "inserted": 0, "updated": 0, "failed": 0, "checkpoint": {}}
+    stats = {"run_id": run_id, "pulled": 0, "inserted": 0, "updated": 0, "skipped": 0, "failed": 0, "checkpoint": {}}
     try:
         last_seen = 0 if full_sync else _last_checkpoint("ticket_notes")
         limit = None if full_sync else (limit or settings.autotask_sync_batch_limit)
@@ -247,6 +263,8 @@ def sync_ticket_notes(limit: int | None = None, full_sync: bool = False) -> dict
                 for item in items:
                     try:
                         autotask_id = int(item["id"])
+                        stats["pulled"] += 1
+                        last_seen = max(last_seen, autotask_id)
                         autotask_ticket_id = _field(item, "ticketID", "ticketId")
                         ticket_row = None
                         if autotask_ticket_id:
@@ -254,6 +272,9 @@ def sync_ticket_notes(limit: int | None = None, full_sync: bool = False) -> dict
                                 "SELECT id FROM autotask_tickets WHERE autotask_id=%s",
                                 (int(autotask_ticket_id),),
                             ).fetchone()
+                        if not ticket_row:
+                            stats["skipped"] += 1
+                            continue
                         row = conn.execute(
                             """
                             INSERT INTO autotask_ticket_notes(
@@ -284,8 +305,6 @@ def sync_ticket_notes(limit: int | None = None, full_sync: bool = False) -> dict
                             ),
                         ).fetchone()
                         stats["inserted" if row["inserted"] else "updated"] += 1
-                        stats["pulled"] += 1
-                        last_seen = max(last_seen, autotask_id)
                     except Exception:
                         stats["failed"] += 1
             last_seen = max(last_seen, page_last_seen)
