@@ -6,7 +6,7 @@ from typing import Any
 from psycopg.types.json import Jsonb
 
 from .db import db_connection, init_schema
-from .quality import classify_chunk
+from .knowledge_classifier import classify_chunk
 from .security import find_sensitive_content
 
 
@@ -121,7 +121,7 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
                     conn.execute(
                         """
                         UPDATE document_chunks
-                        SET knowledge_class=%s, quality_score=%s, is_noise=%s, noise_reason=%s
+                        SET knowledge_class=%s, quality_score=%s, is_noise=%s, noise_reason=%s, classified_at=now()
                         WHERE id=%s
                         """,
                         (
@@ -157,9 +157,9 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
                     """
                     INSERT INTO document_chunks(
                         document_id, chunk_index, content, source_metadata, content_hash,
-                        is_active, knowledge_class, quality_score, is_noise, noise_reason
+                        is_active, knowledge_class, quality_score, is_noise, noise_reason, classified_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s, now())
                     RETURNING id
                     """,
                     (
@@ -199,3 +199,102 @@ def create_documents_from_tickets(limit: int | None = None) -> dict[str, int]:
                 stats["chunks_superseded"] += updated.rowcount or 0
             conn.execute("UPDATE autotask_tickets SET indexed_at=now() WHERE id=%s", (ticket["id"],))
     return stats
+
+
+def reclassify_chunks(limit: int | None = None, include_inactive: bool = False) -> dict[str, Any]:
+    init_schema()
+    stats: dict[str, Any] = {
+        "processed": 0,
+        "useful": 0,
+        "noise": 0,
+        "unknown": 0,
+        "by_knowledge_class": {},
+    }
+    with db_connection() as conn:
+        chunks = conn.execute(
+            """
+            SELECT id, content
+            FROM document_chunks
+            WHERE (%s OR is_active)
+            ORDER BY id
+            LIMIT %s
+            """,
+            (include_inactive, limit or 100000),
+        ).fetchall()
+        for chunk in chunks:
+            quality = classify_chunk(chunk["content"])
+            conn.execute(
+                """
+                UPDATE document_chunks
+                SET knowledge_class=%s,
+                    quality_score=%s,
+                    is_noise=%s,
+                    noise_reason=%s,
+                    classified_at=now()
+                WHERE id=%s
+                """,
+                (
+                    quality["knowledge_class"],
+                    quality["quality_score"],
+                    quality["is_noise"],
+                    quality["noise_reason"],
+                    chunk["id"],
+                ),
+            )
+            knowledge_class = str(quality["knowledge_class"])
+            stats["processed"] += 1
+            stats["by_knowledge_class"][knowledge_class] = stats["by_knowledge_class"].get(knowledge_class, 0) + 1
+            if quality["is_noise"]:
+                stats["noise"] += 1
+            elif knowledge_class == "unknown":
+                stats["unknown"] += 1
+            else:
+                stats["useful"] += 1
+    return stats
+
+
+def noise_report() -> dict[str, Any]:
+    init_schema()
+    with db_connection() as conn:
+        totals = conn.execute(
+            """
+            SELECT
+              count(DISTINCT dc.id) FILTER (WHERE dc.is_active)::int AS total_active_chunks,
+              count(DISTINCT dc.id) FILTER (WHERE dc.is_active AND dc.is_noise)::int AS active_noise_chunks,
+              count(DISTINCT dc.id) FILTER (WHERE dc.is_active AND NOT dc.is_noise AND dc.knowledge_class <> 'unknown')::int AS active_useful_chunks,
+              count(DISTINCT dc.id) FILTER (WHERE dc.is_active AND dc.knowledge_class = 'unknown')::int AS unknown_chunks,
+              count(DISTINCT dc.id) FILTER (WHERE dc.is_active AND NOT dc.is_noise)::int AS embedding_eligible_chunks,
+              count(DISTINCT dc.id) FILTER (
+                WHERE dc.is_active
+                  AND NOT dc.is_noise
+                  AND de.id IS NULL
+              )::int AS eligible_missing_embeddings
+            FROM document_chunks dc
+            LEFT JOIN document_embeddings de
+              ON de.chunk_id = dc.id
+            """
+        ).fetchone()
+        classes = conn.execute(
+            """
+            SELECT knowledge_class, count(*)::int AS count
+            FROM document_chunks
+            WHERE is_active
+            GROUP BY knowledge_class
+            ORDER BY count DESC, knowledge_class
+            """
+        ).fetchall()
+        reasons = conn.execute(
+            """
+            SELECT noise_reason, count(*)::int AS count
+            FROM document_chunks
+            WHERE is_active AND is_noise AND noise_reason IS NOT NULL
+            GROUP BY noise_reason
+            ORDER BY count DESC, noise_reason
+            LIMIT 20
+            """
+        ).fetchall()
+    return {
+        **dict(totals or {}),
+        "counts_by_knowledge_class": classes,
+        "top_noise_reasons": reasons,
+    }

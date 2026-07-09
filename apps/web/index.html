@@ -66,6 +66,10 @@
           <div><span>Base URL</span><strong id="baseUrl">Loading</strong></div>
           <div><span>Username</span><strong id="username">Loading</strong></div>
           <div><span>API Calls</span><strong id="apiCalls">0</strong></div>
+          <div><span>Noise Chunks</span><strong id="noiseChunks">Loading</strong></div>
+          <div><span>Useful Chunks</span><strong id="usefulChunks">Loading</strong></div>
+          <div><span>Unknown Chunks</span><strong id="unknownChunks">Loading</strong></div>
+          <div><span>Embedding Backlog</span><strong id="embeddingBacklog">Loading</strong></div>
         </div>
         <div class="actions">
           <button data-action="/api/autotask/threshold" data-method="GET" type="button">Test Autotask Connection</button>
@@ -128,8 +132,12 @@
       }
 
       async function loadSync() {
-        const [status, runs] = await Promise.all([api("/api/sync/status"), api("/api/sync/runs")]);
+        const [status, runs, noise] = await Promise.all([api("/api/sync/status"), api("/api/sync/runs"), api("/api/knowledge/noise-report")]);
         document.getElementById("apiCalls").textContent = status.api_call_count || 0;
+        document.getElementById("noiseChunks").textContent = noise.active_noise_chunks || 0;
+        document.getElementById("usefulChunks").textContent = noise.active_useful_chunks || 0;
+        document.getElementById("unknownChunks").textContent = noise.unknown_chunks || 0;
+        document.getElementById("embeddingBacklog").textContent = noise.eligible_missing_embeddings || 0;
         const body = document.getElementById("syncRuns");
         body.innerHTML = "";
         runs.runs.forEach((run) => {

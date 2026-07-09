@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     ollama_chat_model: str = "llama3.2:3b"
     ollama_embedding_model: str = "nomic-embed-text"
     embedding_batch_size: int = 16
+    embed_noise_chunks: bool = False
     answer_target_seconds: int = 20
     assistant_normal_timeout_seconds: int = 30
     assistant_max_context_chunks: int = 8

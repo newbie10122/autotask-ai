@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-docker compose exec api python -m app.cli documents "$@"
+docker compose exec api python -m app.cli reclassify-chunks "$@"

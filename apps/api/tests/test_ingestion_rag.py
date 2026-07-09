@@ -5,7 +5,7 @@ import app.assistant as assistant_module
 from app.assistant import ask_assistant, store_feedback
 from app.autotask import AutotaskHeaders, AutotaskReadOnlyClient
 import app.documents as documents_module
-from app.documents import create_documents_from_tickets
+from app.documents import create_documents_from_tickets, noise_report, reclassify_chunks
 import app.embeddings as embeddings_module
 from app.embeddings import run_embedding_batch
 from app.main import app
@@ -149,6 +149,7 @@ def test_document_rebuild_soft_deprecates_chunks_instead_of_deleting_history():
     assert "DELETE FROM document_embeddings" not in source
     assert "SET is_active=FALSE" in source
     assert "content_hash" in source
+    assert "classified_at=now()" in source
 
 
 def test_search_and_embedding_only_use_active_chunks():
@@ -166,6 +167,8 @@ def test_noise_classifier_marks_survey_completion_and_autoresponder_noise():
         ("Ticket Survey Help us serve you better UnsubscribeSurvey", "survey_email"),
         ("Your Ticket Is Complete. Replies to this email will be added as a note", "completion_email"),
         ("*** Please enter replies above this line *** automatic reply", "autoresponder"),
+        ("Ticket Note Created or Edited notification e-mail Initiated by workflow", "system_notification"),
+        ("From: Person\nTo: Support\nSubject: x\nThanks\nPhone: 555-1234", "signature_or_footer"),
     ):
         result = classify_chunk(text)
         assert result["is_noise"] is True
@@ -233,6 +236,9 @@ def test_embedding_worker_handles_missing_ollama_gracefully(monkeypatch):
         def execute(self, *_args, **_kwargs):
             return self
 
+        def fetchone(self):
+            return {"count": 0}
+
         def fetchall(self):
             return [{"id": 1, "content": "Printer spooler restart fixed issue."}]
 
@@ -255,6 +261,84 @@ def test_embedding_worker_handles_missing_ollama_gracefully(monkeypatch):
     monkeypatch.setattr("app.embeddings.embed_text", lambda _text: (_ for _ in ()).throw(OllamaUnavailable("missing ollama")))
     result = run_embedding_batch(limit=1)
     assert result["failed"] == 1
+    assert "skipped_noise" in result
+
+
+def test_reclassify_chunks_updates_classification_without_deleting(monkeypatch):
+    calls = []
+
+    class FakeConn:
+        def execute(self, sql, params=None):
+            calls.append((sql, params))
+            return self
+
+        def fetchall(self):
+            return [{"id": 1, "content": "Ticket Survey Help us serve you better"}]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.db.psycopg.connect", lambda *args, **kwargs: FakeConn())
+    result = reclassify_chunks(limit=1)
+    assert result["processed"] == 1
+    assert result["noise"] == 1
+    sql_text = "\n".join(str(call[0]) for call in calls)
+    assert "DELETE FROM document_chunks" not in sql_text
+    assert "classified_at=now()" in sql_text
+
+
+def test_noise_report_returns_embedding_backlog(monkeypatch):
+    class FakeConn:
+        def execute(self, sql, params=None):
+            self.sql = sql
+            return self
+
+        def fetchone(self):
+            return {
+                "total_active_chunks": 3,
+                "active_noise_chunks": 1,
+                "active_useful_chunks": 1,
+                "unknown_chunks": 1,
+                "embedding_eligible_chunks": 2,
+                "eligible_missing_embeddings": 2,
+            }
+
+        def fetchall(self):
+            if "GROUP BY knowledge_class" in self.sql:
+                return [{"knowledge_class": "survey_email", "count": 1}]
+            return [{"noise_reason": "ticket survey", "count": 1}]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.db.psycopg.connect", lambda *args, **kwargs: FakeConn())
+    report = noise_report()
+    assert report["active_noise_chunks"] == 1
+    assert report["eligible_missing_embeddings"] == 2
 
 
 def test_ask_endpoint_refuses_when_no_matching_chunks(monkeypatch):

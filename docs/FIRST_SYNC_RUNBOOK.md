@@ -80,6 +80,23 @@ Do not run huge embeddings during business hours on CPU-only hosts.
 scripts/build-documents.sh --limit 100
 ```
 
+## Noise Filtering Before Full Embedding
+
+Raw tickets and notes can be synced first. Do not start a full embedding run until chunks have been classified and the noise report looks reasonable.
+
+Recommended bounded flow:
+
+```bash
+./scripts/reclassify-chunks.sh --limit 10000
+./scripts/build-documents.sh --limit 5000
+./scripts/reclassify-chunks.sh --limit 10000
+curl http://127.0.0.1:5110/api/knowledge/noise-report
+```
+
+Noisy chunks are retained for audit and prior assistant source history, but default RAG and embedding work exclude active chunks marked `is_noise=true`. Full embeddings should run against active non-noise chunks unless `EMBED_NOISE_CHUNKS=true` is deliberately set for debugging.
+
+Questions such as “What are the most common recurring support issues?” use local analytics over synced tickets instead of random semantic chunks.
+
 ## Run Embeddings
 
 When Ollama runs on the host OS, verify the API is reachable on the host:

@@ -33,6 +33,7 @@ def test_host_ollama_mapping_is_documented_for_required_services():
     assert "LOCAL_LLM_BASE_URL=http://host.docker.internal:11434" in example
     assert "OLLAMA_CHAT_MODEL=qwen2.5-coder:7b" in example
     assert "EMBEDDING_MODEL_NAME=nomic-embed-text" in example
+    assert "EMBED_NOISE_CHUNKS=false" in example
     assert "host.docker.internal" in docs
 
 
@@ -50,6 +51,9 @@ def test_raw_sync_tmux_scripts_and_docs_are_present():
         text = script.read_text()
         assert "set -x" not in text
         assert "cat .env" not in text
+
+    reclassify = ROOT / "scripts" / "reclassify-chunks.sh"
+    assert "reclassify-chunks" in reclassify.read_text()
 
     runbook = (ROOT / "docs" / "FIRST_SYNC_RUNBOOK.md").read_text()
     assert "autotask-ai-sync" in runbook

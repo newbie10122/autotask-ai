@@ -41,4 +41,12 @@ Chunks are deterministically classified during document creation. Survey emails,
 
 Questions about common or recurring issues are routed to local ticket analytics rather than raw semantic retrieval. The assistant aggregates synced Autotask tickets by category, issue, subissue, queue, and representative tickets, then returns counts in the required recurring-issue format.
 
+## Noise Filtering Before Full Embedding
+
+Raw tickets and notes can be synced first. Before a large document or embedding pass, run document build and chunk classification on a bounded sample, inspect `/api/knowledge/noise-report`, then reclassify existing chunks as rules improve.
+
+Noisy chunks are retained for audit history and prior answer-source references. They are not hard-deleted. Default retrieval and embeddings use only active non-noise chunks; set `include_noise=true` on the assistant request only for debugging, and set `EMBED_NOISE_CHUNKS=true` only for explicit admin experiments.
+
+Recurring issue questions use deterministic analytics over synced ticket fields and representative tickets. They should not be answered by dumping arbitrary semantic chunks.
+
 The sensitive content scanner flags obvious passwords, API keys, private keys, SSNs, credit cards, and VPN shared secrets. Detected secrets must be redacted from generated answers.

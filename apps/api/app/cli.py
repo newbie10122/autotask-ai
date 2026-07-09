@@ -3,16 +3,17 @@ from __future__ import annotations
 import argparse
 import json
 
-from .documents import create_documents_from_tickets
+from .documents import create_documents_from_tickets, reclassify_chunks
 from .embeddings import run_embedding_batch
 from .sync import sync_companies, sync_recent, sync_ticket_notes, sync_tickets
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["companies", "tickets", "ticket-notes", "recent", "documents", "embeddings"])
+    parser.add_argument("command", choices=["companies", "tickets", "ticket-notes", "recent", "documents", "embeddings", "reclassify-chunks"])
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--full-sync", action="store_true")
+    parser.add_argument("--include-inactive", action="store_true")
     args = parser.parse_args()
 
     if args.command == "companies":
@@ -25,8 +26,10 @@ def main() -> None:
         result = sync_recent(limit=args.limit)
     elif args.command == "documents":
         result = create_documents_from_tickets(limit=args.limit)
-    else:
+    elif args.command == "embeddings":
         result = run_embedding_batch(limit=args.limit)
+    else:
+        result = reclassify_chunks(limit=args.limit, include_inactive=args.include_inactive)
     print(json.dumps(result, default=str, indent=2))
 
 

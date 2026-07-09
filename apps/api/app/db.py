@@ -127,6 +127,9 @@ def init_schema() -> None:
         "ALTER TABLE autotask_ticket_notes ADD COLUMN IF NOT EXISTS resource_id BIGINT",
         "ALTER TABLE autotask_ticket_notes ADD COLUMN IF NOT EXISTS resource_name TEXT",
         "ALTER TABLE autotask_ticket_notes ADD COLUMN IF NOT EXISTS updated_at_autotask TIMESTAMPTZ",
+        "CREATE INDEX IF NOT EXISTS autotask_ticket_notes_ticket_id_idx ON autotask_ticket_notes(ticket_id, created_at_autotask NULLS LAST, autotask_id)",
+        "CREATE INDEX IF NOT EXISTS autotask_ticket_notes_autotask_ticket_id_idx ON autotask_ticket_notes(autotask_ticket_id, created_at_autotask NULLS LAST, autotask_id)",
+        "CREATE INDEX IF NOT EXISTS autotask_tickets_autotask_id_idx ON autotask_tickets(autotask_id)",
         """
         CREATE TABLE IF NOT EXISTS documents (
             id BIGSERIAL PRIMARY KEY,
@@ -155,9 +158,10 @@ def init_schema() -> None:
             superseded_at TIMESTAMPTZ,
             content_hash TEXT,
             knowledge_class TEXT NOT NULL DEFAULT 'unknown',
-            quality_score NUMERIC(5,3) NOT NULL DEFAULT 0.5,
+            quality_score NUMERIC(5,3) NOT NULL DEFAULT 0,
             is_noise BOOLEAN NOT NULL DEFAULT FALSE,
             noise_reason TEXT,
+            classified_at TIMESTAMPTZ,
             created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
             UNIQUE(document_id, chunk_index)
         )
@@ -169,9 +173,11 @@ def init_schema() -> None:
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ",
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS content_hash TEXT",
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS knowledge_class TEXT NOT NULL DEFAULT 'unknown'",
-        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS quality_score NUMERIC(5,3) NOT NULL DEFAULT 0.5",
+        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS quality_score NUMERIC(5,3) NOT NULL DEFAULT 0",
+        "ALTER TABLE document_chunks ALTER COLUMN quality_score SET DEFAULT 0",
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS is_noise BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS noise_reason TEXT",
+        "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS classified_at TIMESTAMPTZ",
         "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()",
         "ALTER TABLE document_chunks DROP CONSTRAINT IF EXISTS document_chunks_document_id_chunk_index_key",
         "DROP INDEX IF EXISTS document_chunks_document_index_unique",
@@ -179,6 +185,10 @@ def init_schema() -> None:
         "CREATE INDEX IF NOT EXISTS document_chunks_content_hash_idx ON document_chunks(content_hash)",
         "CREATE INDEX IF NOT EXISTS document_chunks_chunk_index_idx ON document_chunks(chunk_index)",
         "CREATE INDEX IF NOT EXISTS document_chunks_active_non_noise_idx ON document_chunks(document_id, knowledge_class, quality_score DESC) WHERE is_active AND NOT is_noise",
+        "CREATE INDEX IF NOT EXISTS document_chunks_knowledge_class_idx ON document_chunks(knowledge_class)",
+        "CREATE INDEX IF NOT EXISTS document_chunks_quality_score_idx ON document_chunks(quality_score DESC)",
+        "CREATE INDEX IF NOT EXISTS document_chunks_is_noise_idx ON document_chunks(is_noise)",
+        "CREATE INDEX IF NOT EXISTS document_chunks_active_document_source_idx ON document_chunks(document_id, chunk_index, quality_score DESC) WHERE is_active",
         "CREATE INDEX IF NOT EXISTS document_chunks_noise_idx ON document_chunks(is_noise, knowledge_class) WHERE is_active",
         """
         CREATE TABLE IF NOT EXISTS document_embeddings (

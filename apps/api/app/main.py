@@ -8,7 +8,7 @@ from .assistant import ask_assistant, pending_memory, store_feedback
 from .autotask import AutotaskReadOnlyClient
 from .config import settings
 from .db import database_available, init_schema
-from .documents import create_documents_from_tickets
+from .documents import create_documents_from_tickets, noise_report
 from .embeddings import run_embedding_batch
 from .models import AuditAction, AuditLogEntry, LoginRequest, Role
 from .sync import sync_companies, sync_recent, sync_runs, sync_status as get_sync_status, sync_ticket_notes, sync_tickets
@@ -174,6 +174,11 @@ def build_documents(payload: SyncRequest | None = None) -> dict:
 @app.post("/api/embeddings/run")
 def run_embeddings(payload: SyncRequest | None = None) -> dict:
     return run_embedding_batch(limit=(payload.limit if payload else None))
+
+
+@app.get("/api/knowledge/noise-report")
+def knowledge_noise_report() -> dict:
+    return noise_report()
 
 
 @app.post("/api/assistant/ask")

@@ -13,9 +13,24 @@ def _vector_literal(values: list[float]) -> str:
 
 def run_embedding_batch(limit: int | None = None) -> dict[str, Any]:
     init_schema()
-    stats = {"processed": 0, "embedded": 0, "failed": 0, "error": None}
+    stats = {"processed": 0, "embedded": 0, "skipped_noise": 0, "failed": 0, "error": None}
     batch_size = limit or settings.embedding_batch_size
     with db_connection() as conn:
+        skipped = conn.execute(
+            """
+            SELECT count(*)::int AS count
+            FROM document_chunks dc
+            LEFT JOIN document_embeddings de
+              ON de.chunk_id = dc.id AND de.model_name = %s
+            WHERE de.id IS NULL
+              AND dc.is_active
+              AND dc.is_noise
+              AND NOT %s
+              AND dc.embedding_status IN ('pending', 'failed')
+            """,
+            (settings.ollama_embedding_model, settings.embed_noise_chunks),
+        ).fetchone()
+        stats["skipped_noise"] = int(skipped["count"] or 0)
         chunks = conn.execute(
             """
             SELECT dc.id, dc.content
@@ -24,12 +39,12 @@ def run_embedding_batch(limit: int | None = None) -> dict[str, Any]:
               ON de.chunk_id = dc.id AND de.model_name = %s
             WHERE de.id IS NULL
               AND dc.is_active
-              AND (NOT %s OR NOT dc.is_noise)
+              AND (%s OR NOT dc.is_noise)
               AND dc.embedding_status IN ('pending', 'failed')
             ORDER BY dc.id
             LIMIT %s
             """,
-            (settings.ollama_embedding_model, settings.assistant_exclude_noise_by_default, batch_size),
+            (settings.ollama_embedding_model, settings.embed_noise_chunks, batch_size),
         ).fetchall()
     for chunk in chunks:
         stats["processed"] += 1
@@ -50,13 +65,16 @@ def run_embedding_batch(limit: int | None = None) -> dict[str, Any]:
                     (chunk["id"],),
                 )
             stats["embedded"] += 1
-        except OllamaUnavailable as exc:
+        except Exception as exc:
             stats["failed"] += 1
             stats["error"] = str(exc)
-            with db_connection() as conn:
-                conn.execute(
-                    "UPDATE document_chunks SET embedding_status='failed', embedding_error=%s WHERE id=%s",
-                    (str(exc)[:500], chunk["id"]),
-                )
+            try:
+                with db_connection() as conn:
+                    conn.execute(
+                        "UPDATE document_chunks SET embedding_status='failed', embedding_error=%s WHERE id=%s",
+                        (str(exc)[:500], chunk["id"]),
+                    )
+            except Exception:
+                pass
             break
     return stats
