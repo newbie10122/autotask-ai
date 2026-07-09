@@ -69,3 +69,28 @@ def test_ticket_analytics_migration_adds_classification_and_reference_schema():
     assert "ADD COLUMN IF NOT EXISTS analytics_exclude" in migration
     assert "CREATE TABLE IF NOT EXISTS autotask_reference_values" in migration
     assert "CREATE INDEX IF NOT EXISTS autotask_tickets_issue_class_idx" in migration
+
+
+def test_compose_config_uses_redacted_wrapper_only():
+    wrapper = ROOT / "scripts" / "compose-config-redacted.sh"
+    assert wrapper.exists()
+    assert wrapper.stat().st_mode & 0o111
+    assert "docker compose config" in wrapper.read_text()
+
+    allowed_warning = "Never run raw docker compose config"
+    offenders: list[str] = []
+    for directory in (ROOT / "docs", ROOT / "scripts"):
+        for path in directory.rglob("*"):
+            if not path.is_file() or path == wrapper:
+                continue
+            if path.suffix not in {".md", ".sh"}:
+                continue
+            for line_number, line in enumerate(path.read_text().splitlines(), start=1):
+                if "docker compose config" in line and allowed_warning not in line:
+                    offenders.append(f"{path.relative_to(ROOT)}:{line_number}")
+
+    readme = ROOT / "README.md"
+    assert allowed_warning in readme.read_text()
+    assert "./scripts/compose-config-redacted.sh" in readme.read_text()
+    assert allowed_warning in (ROOT / "docs" / "RAG_DESIGN.md").read_text()
+    assert not offenders

@@ -50,6 +50,16 @@ The ticket classifier excludes meetings, vendor notices, newsletters, training, 
 
 Admin endpoints for this workflow are `/api/analytics/recurring-issues`, `/api/analytics/ticket-class-report`, and `/api/reference-data/status`. They only update local Postgres analytics fields and do not write back to Autotask.
 
+## Compose Validation Safety
+
+Never run raw docker compose config in this repo. Always run:
+
+```bash
+./scripts/compose-config-redacted.sh
+```
+
+The wrapper redacts Autotask, database, session, token, key, code, password, and secret values before printing Compose validation output.
+
 ## Noise Filtering Before Full Embedding
 
 Raw tickets and notes can be synced first. Before a large document or embedding pass, run document build and chunk classification on a bounded sample, inspect `/api/knowledge/noise-report`, then reclassify existing chunks as rules improve.

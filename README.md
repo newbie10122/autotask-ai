@@ -27,6 +27,16 @@ curl http://127.0.0.1:5110/health
 
 Open the web shell at `http://127.0.0.1:3010`.
 
+## Compose Validation Safety
+
+Never run raw docker compose config in this repo. Always run:
+
+```bash
+./scripts/compose-config-redacted.sh
+```
+
+The wrapper redacts secret-like environment values before printing Compose validation output.
+
 Start local Ollama intentionally when needed:
 
 ```bash
