@@ -82,6 +82,25 @@ def test_operations_scheduler_schema_and_worker_are_present():
     assert "worker-scheduler:" in compose
 
 
+def test_nginx_http_preview_helper_and_docs_are_present():
+    script = ROOT / "scripts" / "install-nginx-http-preview.sh"
+    assert script.exists()
+    assert script.stat().st_mode & 0o111
+    script_text = script.read_text()
+    assert "/etc/nginx/.helix-preview-auth" in script_text
+    assert "/etc/nginx/sites-available/autotask-ai" in script_text
+    assert "certbot" not in script_text
+    assert "docker compose config" not in script_text
+
+    docs = (ROOT / "docs" / "NGINX_HTTP_PREVIEW.md").read_text()
+    assert "HTTP-only" in docs
+    assert "Basic Auth" in docs
+    assert "not encrypted without HTTPS" in docs
+    assert "/etc/nginx/sites-available/autotask-ai" in docs
+    assert "127.0.0.1:3010" in docs
+    assert "127.0.0.1:5110" in docs
+
+
 def test_compose_config_uses_redacted_wrapper_only():
     wrapper = ROOT / "scripts" / "compose-config-redacted.sh"
     assert wrapper.exists()
