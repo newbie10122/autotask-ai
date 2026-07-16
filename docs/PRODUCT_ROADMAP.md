@@ -4,11 +4,11 @@
 
 Autotask AI is an internal technician assistant that pulls read-only ticket history from Autotask, cleans and indexes that history, finds relevant past tickets, and uses a local CPU-based AI model to help technicians answer questions and find likely solutions.
 
-This roadmap keeps the project focused on three outcomes:
+This roadmap keeps the project focused on three outcomes, in priority order:
 
-1. Make technicians faster.
-2. Improve long-term customer service.
-3. Keep customer data local and usable without a GPU.
+1. Make technicians faster and improve internal efficiency.
+2. Keep customer data local and usable without a GPU.
+3. Improve long-term customer service after the internal tools are proven.
 
 Roadmap entries require normal requirements discovery, security review, approval, implementation, and validation before development begins.
 
@@ -132,25 +132,9 @@ All suggestions must remain reviewable by the technician before being written ba
 
 Primary benefit: more consistent troubleshooting and documentation.
 
-### 7. Customer Success Intelligence
+### 7. Local CPU AI Optimization
 
-Use ticket history to identify long-term customer needs rather than only responding to individual tickets.
-
-Possible outputs include:
-
-- Customers with increasing ticket volume.
-- Repeated issues by customer, device, location, or service.
-- Systems that may need replacement or redesign.
-- Training opportunities for customer staff.
-- Preventative maintenance recommendations.
-- Potential standards, documentation, or project work that would reduce future tickets.
-- Customer health summaries for account reviews.
-
-Primary benefit: move support from reactive ticket handling toward proactive customer improvement.
-
-### 8. Local CPU AI Optimization
-
-Keep the architecture local-first and CPU-capable.
+Keep the architecture local-first and CPU-capable throughout every roadmap phase.
 
 Required design principles include:
 
@@ -164,6 +148,22 @@ Required design principles include:
 
 Primary benefit: useful local AI without requiring GPU hardware or exposing customer ticket data.
 
+### 8. Customer Success Intelligence
+
+After the internal technician-efficiency capabilities are proven, use ticket history to identify long-term customer needs rather than only responding to individual tickets.
+
+Possible outputs include:
+
+- Customers with increasing ticket volume.
+- Repeated issues by customer, device, location, or service.
+- Systems that may need replacement or redesign.
+- Training opportunities for customer staff.
+- Preventative maintenance recommendations.
+- Potential standards, documentation, or project work that would reduce future tickets.
+- Customer health summaries for account reviews.
+
+Primary benefit: move support from reactive ticket handling toward proactive customer improvement after the internal platform is effective and trusted.
+
 ## Recommended Delivery Order
 
 ### Near Term
@@ -173,16 +173,22 @@ Primary benefit: useful local AI without requiring GPU hardware or exposing cust
 3. Redis caching.
 4. Real-time technician updates.
 
-### Next
+### Next: Internal Technician Efficiency
 
 5. Technician performance assistant.
-6. Customer success intelligence.
+6. Predictive service intelligence.
+7. Automated ticket routing recommendations.
+8. Separately evaluate approved automatic routing only after recommendation accuracy is proven.
 
-### Later
+### Ongoing Architecture Requirement
 
-7. Predictive service intelligence.
-8. Automated ticket routing recommendations.
-9. Separately evaluate approved automatic routing only after recommendation accuracy is proven.
+Local CPU AI optimization applies to every phase and is not deferred to a later release.
+
+### Final Roadmap Stage
+
+9. Customer success intelligence.
+
+Customer-facing and account-management intelligence remains last so the project first proves measurable improvements in technician speed, troubleshooting quality, routing, and internal operations.
 
 ## Success Measures
 
