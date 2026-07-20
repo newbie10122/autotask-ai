@@ -87,3 +87,17 @@ Before production release, compare runtime behavior with privacy, retention, int
 ## Minimum validation
 
 Run the broadest safe Python tests, compile/import checks, repository hygiene checks, redaction tests, isolation tests, and restart/recovery checks applicable to the change. Compose validation must use `./scripts/compose-config-redacted.sh`; never print raw Compose secrets.
+
+## Governed design skills
+
+Use `pbakaus/impeccable` at reviewed commit `b906b41462c26c359e452040994685ce6d8e4008` (Apache-2.0) as the only approved primary external design skill for the Autotask AI product UI, including search, answers, citations, recurring-issue analytics, operations, settings, audit, onboarding, empty states, responsive behavior, accessibility, and error-state hardening.
+
+Taste Skill is not approved for Autotask AI. This is an internal, evidence-dense operational product rather than a brand or experimental marketing surface.
+
+Selected read-only skills from `emilkowalski/skills` at reviewed commit `6bf24434f7730ad169077756cf9c7cd7bd675fc6` (MIT), especially `improve-animations` and `review-animations`, may review restrained modal, drawer, loading, feedback, tooltip, and state-transition motion. Search, citations, warnings, admin controls, and high-frequency technician workflows must remain fast and clear.
+
+Retrieval evidence, citation visibility, client isolation, truthful confidence, accessibility, reduced motion, security, existing components, and read-only authority override all external design guidance. Visual polish may not obscure whether content came from ticket history, general guidance, a pending memory candidate, or missing evidence.
+
+Do not install skills globally, run unpinned updates, or automatically approve hooks. Project-local scripts, hooks, packages, plans, and dependencies remain untrusted until source, license, security, client-data, behavior, performance, and rollback review pass. Use one primary design skill per implementation task; another may act only as a named read-only reviewer.
+
+A material UI change requires applicable real-browser, keyboard, accessibility, contrast, responsive, reduced-motion, visual-regression, performance, citation, client-isolation, weak-evidence, error-state, and built-artifact checks. A polished answer panel is not evidence that retrieval or answer correctness is certified.
