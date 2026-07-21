@@ -33,12 +33,12 @@
 **Impact:** Security and operational actions may not be reconstructable after restart.  
 **Mitigation:** Database-backed immutable audit records with actor, scope, target, outcome, source references, and denied actions.
 
-### R5 — No automated CI or current Quality Streak evidence
+### R5 — Quality Streak evidence not yet established
 
 **Severity:** High  
-**State:** Open  
-**Impact:** Test code exists, but each commit cannot prove compliance or regression safety.  
-**Mitigation:** Milestone 0 CI, certification matrix, and three-consecutive-clean-run receipts.
+**State:** Partially mitigated  
+**Impact:** Local and GitHub CI validation now exist for the governed CI branch, but three-run Quality Streak evidence and a fuller certification matrix are not yet established.
+**Mitigation:** Merge the governed CI PR after review, then build certification matrix plus three-consecutive-clean-run receipts without overstating existing capability certification.
 
 ## Medium risks
 
@@ -93,6 +93,20 @@
 **Impact:** Written progress could disagree with code, tests, or deployment reality.  
 **Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection.
 
+### R16 — CI runner environment differences
+
+**Severity:** Medium  
+**State:** Partially mitigated
+**Impact:** The first GitHub-hosted CI run passed, but future runners may still differ in Docker Compose, Node, network, cache, or resource limits.
+**Mitigation:** Keep CI credentials-free, bounded, and deterministic; treat future GitHub CI failures as blockers to completion claims until repaired.
+
+### R17 — Host test tooling is incomplete
+
+**Severity:** Low
+**State:** Mitigated by containerized CI validator
+**Impact:** Host `pytest` is not installed, so direct `cd apps/api && pytest` cannot run outside the container on this machine.
+**Mitigation:** `scripts/validate-ci.sh` runs pytest inside the API image with the repository mounted; install host test tooling only if a future local workflow requires non-container pytest.
+
 ## Low and deferred risks
 
 ### R13 — Real-time event complexity
@@ -113,4 +127,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #6 has an updated Autotask AI projection with local validation passing, but its remote `Validate knowledge` workflow is failing before job steps; this blocks merging the projection but does not block independent Autotask AI engineering.

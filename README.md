@@ -120,6 +120,16 @@ scripts/build-documents.sh --limit 25
 scripts/run-embeddings.sh --limit 16
 ```
 
+## Validation
+
+Run the same validation used by CI with:
+
+```bash
+./scripts/validate-ci.sh
+```
+
+This performs redacted Compose validation, migration ordering checks, API image build, Python compilation, full pytest, and static web JavaScript syntax validation. See `docs/CI_VALIDATION.md`.
+
 ## RAG Guardrails
 
 Answers must separate internal evidence from general guidance, and saved fixes become pending memory candidates only. See `docs/RAG_DESIGN.md`.

@@ -20,10 +20,19 @@ A milestone may be marked `verified_complete` only when:
 
 - Canonical roadmap and control files exist and are internally consistent.
 - Obsolete roadmap PRs are closed or explicitly superseded.
-- CI automatically runs the agreed validation suite.
+- CI automatically runs the agreed validation suite on pull requests, pushes to `main`, and manual dispatch.
+- CI uses read-only repository permissions and a bounded 30-minute job timeout.
+- CI delegates command logic to `scripts/validate-ci.sh` instead of duplicating validation steps in workflow YAML.
+- The CI validation script runs redacted Compose validation through `scripts/compose-config-redacted.sh` and does not print raw `.env` values.
+- The CI validation script verifies migration filename ordering, builds the API image, compiles API/worker Python, runs the full Python test suite, and checks static web JavaScript syntax.
+- CI validation uses `.env.example` and must not require live Autotask credentials for ordinary PR validation.
+- CI validation does not start sync jobs, deploy production services, or write to Autotask.
 - CI failures block completion claims.
-- A capability certification and Quality Streak record format exists.
+- A capability certification and Quality Streak record format exists in `docs/CI_VALIDATION.md`.
+- Repository hygiene tests pin the CI workflow, validation script, redacted Compose usage, migration ordering check, JavaScript syntax check, and receipt format.
 - Repository receipts include exact commands, results, commits, risks, rollback, and Second Brain state.
+- Local reconciled evidence on branch `agent/m0-ci-validation`: `./scripts/validate-ci.sh` passed with redacted Compose validation, 6 ordered migrations, API image build, Python compile, `53 passed`, and static web JavaScript syntax.
+- GitHub Actions evidence: PR `newbie10122/autotask-ai#3` run `29849731532` passed workflow `CI`, job `Validate Autotask AI`, for implementation commit `c092bfa6f1f958f46f0512fa3817d5911d8f3b3f`. Milestone 0 still requires merge plus fuller certification matrix/Quality Streak records before it can be marked `verified_complete`.
 
 ## Milestone 1
 

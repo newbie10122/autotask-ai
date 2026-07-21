@@ -12,6 +12,42 @@ def test_env_is_ignored_and_example_is_present():
     assert (ROOT / ".env.example").exists()
 
 
+def test_ci_workflow_runs_safe_repository_validation():
+    workflow = ROOT / ".github" / "workflows" / "ci.yml"
+    validator = ROOT / "scripts" / "validate-ci.sh"
+    docs = ROOT / "docs" / "CI_VALIDATION.md"
+
+    assert workflow.exists()
+    assert validator.exists()
+    assert docs.exists()
+    assert validator.stat().st_mode & 0o111
+
+    workflow_text = workflow.read_text()
+    validator_text = validator.read_text()
+    docs_text = docs.read_text()
+
+    assert "pull_request:" in workflow_text
+    assert "workflow_dispatch:" in workflow_text
+    assert "contents: read" in workflow_text
+    assert "./scripts/validate-ci.sh" in workflow_text
+    assert "docker compose config" not in workflow_text
+
+    assert "./scripts/compose-config-redacted.sh" in validator_text
+    assert "docker compose build api" in validator_text
+    assert "python -m compileall -q apps/api/app workers" in validator_text
+    assert "pytest -q" in validator_text
+    assert "mktemp --suffix=.js" in validator_text
+    assert "node --check" in validator_text
+    assert "migration does not use NNN_name.sql format" in validator_text
+    assert "cat .env" not in validator_text
+    assert "set -x" not in validator_text
+
+    assert "./scripts/validate-ci.sh" in docs_text
+    assert "Capability Certification Receipt" in docs_text
+    assert "Autotask write-back" in docs_text
+    assert "must be `none`" in docs_text
+
+
 def test_no_obvious_secret_values_committed():
     example = (ROOT / ".env.example").read_text()
     assert "change-me" in example
@@ -124,6 +160,10 @@ def test_compose_config_uses_redacted_wrapper_only():
     assert "docker compose config" in wrapper.read_text()
 
     allowed_warning = "Never run raw docker compose config"
+
+    def is_allowed_warning(line: str) -> bool:
+        return allowed_warning in line or ("Never run raw" in line and "docker compose config" in line)
+
     offenders: list[str] = []
     for directory in (ROOT / "docs", ROOT / "scripts"):
         for path in directory.rglob("*"):
@@ -132,7 +172,7 @@ def test_compose_config_uses_redacted_wrapper_only():
             if path.suffix not in {".md", ".sh"}:
                 continue
             for line_number, line in enumerate(path.read_text().splitlines(), start=1):
-                if "docker compose config" in line and allowed_warning not in line:
+                if "docker compose config" in line and not is_allowed_warning(line):
                     offenders.append(f"{path.relative_to(ROOT)}:{line_number}")
 
     readme = ROOT / "README.md"
