@@ -132,6 +132,70 @@ def test_admin_route_requires_admin_role_when_route_auth_enabled(monkeypatch):
     assert allowed.status_code == 200
 
 
+def test_assistant_ask_denies_authenticated_user_without_company_scope(monkeypatch):
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [])
+    token = create_session_token("tech", [Role.technician.value])["token"]
+
+    response = client.post(
+        "/api/assistant/ask",
+        json={"question": "printer not printing"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert "company scope" in response.json()["detail"]
+
+
+def test_assistant_ask_passes_authorized_company_scope(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [123])
+
+    def fake_ask_assistant(question, mode, limit, include_noise, authorized_company_ids):
+        captured["authorized_company_ids"] = authorized_company_ids
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "app.main.ask_assistant",
+        fake_ask_assistant,
+    )
+    token = create_session_token("tech", [Role.technician.value])["token"]
+
+    response = client.post(
+        "/api/assistant/ask",
+        json={"question": "printer not printing"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert captured["authorized_company_ids"] == [123]
+
+
+def test_admin_assistant_ask_uses_explicit_global_scope(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+
+    def fake_ask_assistant(question, mode, limit, include_noise, authorized_company_ids):
+        captured["authorized_company_ids"] = authorized_company_ids
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "app.main.ask_assistant",
+        fake_ask_assistant,
+    )
+    token = create_session_token("admin", [Role.admin.value])["token"]
+
+    response = client.post(
+        "/api/assistant/ask",
+        json={"question": "printer not printing"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert captured["authorized_company_ids"] is None
+
+
 def test_audit_sink_persists_when_database_available(monkeypatch):
     calls = []
 

@@ -389,6 +389,15 @@ def init_schema() -> None:
         "CREATE INDEX IF NOT EXISTS audit_log_created_at_idx ON audit_log(created_at DESC, id DESC)",
         "CREATE INDEX IF NOT EXISTS audit_log_actor_created_idx ON audit_log(actor, created_at DESC)",
         "CREATE INDEX IF NOT EXISTS audit_log_action_outcome_idx ON audit_log(action, outcome, created_at DESC)",
+        """
+        CREATE TABLE IF NOT EXISTS app_user_company_scopes (
+            username TEXT NOT NULL REFERENCES app_users(username) ON DELETE CASCADE,
+            company_id BIGINT NOT NULL REFERENCES autotask_companies(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            PRIMARY KEY (username, company_id)
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS app_user_company_scopes_company_idx ON app_user_company_scopes(company_id)",
     ]
     with db_connection() as conn:
         for statement in statements:

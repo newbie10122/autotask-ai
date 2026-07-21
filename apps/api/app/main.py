@@ -137,6 +137,48 @@ def require_roles(*allowed_roles: Role):
     return dependency
 
 
+def authorized_company_ids_for_user(user: dict) -> list[int] | None:
+    roles = set(user.get("roles") or [])
+    if Role.admin.value in roles:
+        return None
+    try:
+        with db_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT company_id
+                FROM app_user_company_scopes
+                WHERE username = %s
+                ORDER BY company_id
+                """,
+                (user.get("username"),),
+            ).fetchall()
+        return [int(row["company_id"]) for row in rows]
+    except Exception:
+        return []
+
+
+def require_company_scope(request: Request) -> list[int] | None:
+    if not settings.app_route_auth_required:
+        return None
+    user = current_user(request)
+    company_ids = authorized_company_ids_for_user(user)
+    if company_ids is None:
+        return None
+    if not company_ids:
+        audit_sink.record(
+            AuditLogEntry(
+                actor=user.get("username") or "unknown",
+                action=AuditAction.authorization_denied,
+                target=request.url.path,
+                outcome="denied",
+                scope={"company_ids": []},
+                metadata={"reason": "missing_company_scope"},
+            )
+        )
+        raise HTTPException(status_code=403, detail="No authorized company scope is assigned.")
+    return company_ids
+
+
 @app.on_event("startup")
 def startup() -> None:
     try:
@@ -319,8 +361,12 @@ def api_ticket_class_report() -> dict:
 
 
 @app.get("/api/analytics/recurring-issues")
-def api_recurring_issues(limit: int = 8, include_excluded: bool = False) -> dict:
-    return recurring_issues_report(limit=limit, include_excluded=include_excluded)
+def api_recurring_issues(
+    limit: int = 8,
+    include_excluded: bool = False,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    return recurring_issues_report(limit=limit, include_excluded=include_excluded, authorized_company_ids=authorized_company_ids)
 
 
 @app.get("/api/operations/status")
@@ -379,9 +425,15 @@ def api_request_stop(run_id: int, _user: dict | None = Depends(require_roles(Rol
 
 
 @app.post("/api/assistant/ask")
-def assistant_ask(payload: AskRequest) -> dict:
+def assistant_ask(payload: AskRequest, authorized_company_ids: list[int] | None = Depends(require_company_scope)) -> dict:
     audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.assistant_answer, target="assistant.ask"))
-    return ask_assistant(payload.question, mode=payload.mode, limit=payload.limit, include_noise=payload.include_noise)
+    return ask_assistant(
+        payload.question,
+        mode=payload.mode,
+        limit=payload.limit,
+        include_noise=payload.include_noise,
+        authorized_company_ids=authorized_company_ids,
+    )
 
 
 @app.post("/api/assistant/feedback")

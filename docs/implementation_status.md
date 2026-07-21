@@ -25,12 +25,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Pending known-fix candidate creation.
 - Milestone 1 auth foundation adds PBKDF2 password hashing, signed expiring session tokens, disabled-user and throttling hooks, optional fail-closed API route authentication, admin-operation role denial tests, pre-prompt prompt-injection/secret source filtering, and deterministic answer-verifier citation checks.
 - Milestone 1 durable-audit branch `agent/m1-durable-audit-scope-foundation` adds database-backed audit persistence, outcome/scope fields, and authorization-denial audit events.
+- Milestone 1 company-scope branch `agent/m1-company-scope-foundation` adds user-company scope tables, fail-closed assistant/analytics route scope checks, and scoped retrieval/recurring-analytics filters.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation but is not yet enforced end to end in production defaults or UI.
 - Audit logging is database-backed for foundation events, but identity/company-scope linkage is not yet complete across every workflow.
-- Retrieval has an `authorized_company_ids` filter contract, but request identity-to-company scope is not fully wired through every route, analytics path, citation, cache, and UI flow.
+- Assistant retrieval and recurring-issue analytics have authenticated company-scope plumbing when app route auth is enabled, but scope is not yet wired through every route, citation, feedback, memory, cache, export, and UI flow.
 - Prompt-injection scanning and deterministic answer verification have initial tests, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -54,8 +55,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Publish and verify the durable-audit PR.
-2. Wire authenticated actor/company scope through assistant retrieval, recurring analytics, query sources, feedback, memory, and future cache/export contracts.
+1. Publish and verify the company-scope foundation PR.
+2. Wire authenticated actor/company scope through query sources, feedback, memory, and future cache/export contracts.
 3. Expand route and UI RBAC for Admin, Technician, and ReadOnly across all API actions.
 4. Expand deterministic verifier coverage for unsupported claims, source subset, section labeling, injection, secrets, and scope violations.
 5. Prepare the existing governed Second Brain projection update after this durable-audit branch PR is opened.
@@ -88,7 +89,7 @@ None currently identified for documentation and non-production implementation wo
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
 - **Rollback:** Revert this branch commit or set `APP_ROUTE_AUTH_REQUIRED=false`; migration is additive and leaves new local auth tables inert if unused.
 
-## Latest receipt — Milestone 1 durable audit foundation
+## Previous receipt — Milestone 1 durable audit foundation
 
 - **Slice:** Add database-backed audit persistence and authorization-denial audit evidence on branch `agent/m1-durable-audit-scope-foundation` from canonical `main` `9d92d704e862c8d94404a109b922a2a306514522`.
 - **State:** `partial`; durable audit is improved, but Milestone 1 still requires identity-linked audit on all protected workflows, full company-scope propagation, UI/API RBAC completion, verifier breadth, and three-run evidence.
@@ -98,6 +99,17 @@ None currently identified for documentation and non-production implementation wo
 - **Full CI validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 8 ordered migrations, API image build, API/worker Python compile, full pytest `67 passed`, and static web JavaScript syntax validation.
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
 - **Rollback:** Revert this branch commit; migration is additive and audit falls back to memory if the DB table is unavailable.
+
+## Latest receipt — Milestone 1 company-scope foundation
+
+- **Slice:** Add user-company scope table and fail-closed assistant/analytics scope plumbing on branch `agent/m1-company-scope-foundation` from canonical `main` `4f7fb1f268e18d9aace0d873d73b9d2be5bb8096`.
+- **State:** `partial`; assistant and recurring analytics now have first authenticated scope gates, but Milestone 1 still requires scope linkage across query sources, feedback, memory, UI, future cache/export paths, and broader negative tests.
+- **Files changed:** `apps/api/app/db.py`, `apps/api/app/main.py`, `apps/api/app/assistant.py`, `apps/api/app/ticket_analytics.py`, `apps/api/migrations/009_user_company_scope.sql`, `apps/api/tests/test_api.py`, and `apps/api/tests/test_ingestion_rag.py`.
+- **Implemented:** `app_user_company_scopes` table, admin-global scope handling, fail-closed non-admin assistant/analytics access when no company scope exists, scoped assistant route propagation, scoped retrieval SQL, and scoped recurring-issues SQL.
+- **Validation:** `docker compose run --rm -T --no-deps -e DATABASE_URL=postgresql://autotask_ai:change-me@postgres-missing:5432/autotask_ai -v "$PWD":/workspace -w /workspace api sh -c 'python -m compileall -q apps/api/app workers && pytest -q apps/api/tests/test_api.py apps/api/tests/test_ingestion_rag.py'` passed with `51 passed`.
+- **Full CI validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 9 ordered migrations, API image build, API/worker Python compile, full pytest `70 passed`, and static web JavaScript syntax validation.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; migration is additive and default app-route auth remains off.
 
 ## Previous receipt — Milestone 0 CI reconciliation
 
@@ -120,4 +132,4 @@ None currently identified for documentation and non-production implementation wo
 
 ## Exact next action
 
-Open a draft PR for branch `agent/m1-durable-audit-scope-foundation`, let GitHub CI run, update the existing governed Second Brain projection with durable-audit branch/PR evidence, then continue Milestone 1 full company-scope wiring.
+Open a draft PR for branch `agent/m1-company-scope-foundation`, let GitHub CI run, update the existing governed Second Brain projection with company-scope branch/PR evidence, then continue Milestone 1 scope propagation into feedback, memory, UI, future cache/export contracts, and verifier scope checks.
