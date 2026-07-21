@@ -36,7 +36,7 @@ CLIENT_LABEL_PATTERN = re.compile(
 PERSON_LABEL_PATTERN = re.compile(
     r"(?im)^((?:Note Resource|Resource|Assigned Resource|Requester|Contact|User)\s*:\s*)(.+)$",
 )
-PROPER_NAME_PATTERN = re.compile(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b")
+PROPER_NAME_PATTERN = re.compile(r"\b[A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){1,3}\b")
 
 PROPER_NAME_ALLOWLIST = {
     "Admin Operations",

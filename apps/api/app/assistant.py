@@ -35,7 +35,15 @@ def _unique_tickets(sources: list[dict[str, Any]]) -> list[str]:
     seen: set[str] = set()
     tickets: list[str] = []
     for source in sources:
-        ticket = str(source.get("ticket_number") or source.get("autotask_id") or "")
+        metadata = source.get("source_metadata") or {}
+        ticket = str(
+            source.get("ticket_number")
+            or metadata.get("ticket_number")
+            or source.get("autotask_id")
+            or metadata.get("autotask_id")
+            or metadata.get("ticket_id")
+            or ""
+        )
         if ticket and ticket not in seen:
             seen.add(ticket)
             tickets.append(ticket)
@@ -47,7 +55,15 @@ def _limit_sources(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
     per_ticket: dict[str, int] = defaultdict(int)
     seen_tickets: set[str] = set()
     for source in sources:
-        ticket_key = str(source.get("autotask_id") or source.get("ticket_number") or source.get("chunk_id"))
+        metadata = source.get("source_metadata") or {}
+        ticket_key = str(
+            source.get("autotask_id")
+            or metadata.get("autotask_id")
+            or source.get("ticket_number")
+            or metadata.get("ticket_number")
+            or metadata.get("ticket_id")
+            or source.get("chunk_id")
+        )
         if ticket_key not in seen_tickets and len(seen_tickets) >= settings.assistant_max_unique_tickets:
             continue
         if per_ticket[ticket_key] >= settings.assistant_max_chunks_per_ticket:
@@ -132,7 +148,16 @@ def _compact_text(value: str, max_length: int = 180) -> str:
 
 def _source_summary(source: dict[str, Any]) -> str:
     content = redact_private_entities(str(source.get("content") or ""))
-    ticket = str(source.get("ticket_number") or source.get("autotask_id") or _line_value(content, "Ticket Number") or "Ticket")
+    metadata = source.get("source_metadata") or {}
+    ticket = str(
+        source.get("ticket_number")
+        or metadata.get("ticket_number")
+        or source.get("autotask_id")
+        or metadata.get("autotask_id")
+        or metadata.get("ticket_id")
+        or _line_value(content, "Ticket Number")
+        or "Ticket"
+    )
     title = _line_value(content, "Title")
     description = _line_value(content, "Description")
     note_body = _line_value(content, "Note Body")
@@ -456,8 +481,8 @@ def ask_assistant(
         "sources": [
             {
                 "chunk_id": source.get("chunk_id"),
-                "ticket_id": source.get("autotask_id"),
-                "ticket_number": source.get("ticket_number"),
+                "ticket_id": source.get("autotask_id") or (source.get("source_metadata") or {}).get("autotask_id"),
+                "ticket_number": source.get("ticket_number") or (source.get("source_metadata") or {}).get("ticket_number"),
                 "score": float(source.get("score") or 0),
                 "knowledge_class": source.get("knowledge_class"),
             }
