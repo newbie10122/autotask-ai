@@ -50,7 +50,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge or replace the obsolete draft roadmap PR with the governed roadmap branch.
+1. Review and merge governed project PR #2; obsolete project PR #1 is closed as superseded.
 2. Add CI for tests, import/compile, migrations, hygiene, read-only enforcement, redaction, injection, authorization/isolation, and redacted Compose validation.
 3. Create the capability certification/Quality Streak evidence format.
 4. Begin Milestone 1 with authentication/RBAC test-first design.
@@ -71,7 +71,7 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`prepared` — sanitized project status must be proposed through a dedicated `newbie10122/helix-second-brain` branch and pull request. Do not mark `merged` until that PR is merged and validated.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, exact branch head `acf1863ae5623cf3004fba107deab19c3f627659`. The repository `Validate knowledge` workflow is required before merge. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
