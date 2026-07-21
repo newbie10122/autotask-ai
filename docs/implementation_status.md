@@ -15,6 +15,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
+- `docs/CAPABILITY_CERTIFICATION.md` now tracks capability states, evidence, Quality Streak status, remaining certification work, and the explicit fact that no milestone is `verified_complete`.
 - FastAPI API and technician/admin web interface.
 - Dockerized web, API, PostgreSQL/pgvector, synchronization, document, embedding, scheduler, nightly, and optional Ollama services.
 - Read-only company, ticket, and ticket-note synchronization with checkpoints.
@@ -44,7 +45,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
 - Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, future scoped cache contracts, and first browser RBAC smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with accessibility checks or active scoped cache consumers.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, and first unsupported ticket-history resolution claims; broader source sufficiency remains open.
-- Three-run Quality Streak evidence is not established.
+- Capability-specific three-run Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
 - Ticket-health related-data synchronization is automated but not fully caught up across the historical estate; TimeEntries and TicketHistory coverage still require continued bounded scheduled sweeps and certification.
 
@@ -52,7 +53,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 | Milestone | State | Next evidence required |
 |---|---|---|
-| 0. Governance and continuous validation | partial | CI PR merged; certification matrix/Quality Streak records still required |
+| 0. Governance and continuous validation | partial | Certification matrix added and validation-harness streak recorded; capability Quality Streaks remain open |
 | 1. Security, identity, isolation, answer trust | active | Complete durable audit, full route/UI RBAC, company scope wiring, verifier breadth, and three-run evidence |
 | 2. Complete operational Autotask data | partial_foundation | TimeEntries/TicketHistory jobs restored; continue bounded catch-up and field certification |
 | 3. Ticket Health Analytics | not_started | Deterministic APIs/UI with evidence |
@@ -68,7 +69,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 1. Add broader accessibility evidence and source-sufficiency certification.
 2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
-3. Build Quality Streak/certification receipts without marking milestones complete prematurely.
+3. Build capability-specific Quality Streak receipts without marking milestones complete prematurely.
 
 Parallel-safe work after roadmap merge:
 
@@ -84,7 +85,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 browser UI RBAC smoke
+## Latest receipt — Certification matrix and validation-harness streak tracking
+
+- **Slice:** Add governed capability certification matrix and current validation-harness streak tracking on branch `agent/m0-quality-streak-matrix` from canonical `main` `82d30d34032a42ff505de9ef6c88500c9a39b526`.
+- **State:** `partial`; Milestone 0 governance evidence is improved, but no production capability or milestone is marked `verified_complete`.
+- **Files changed:** `docs/CAPABILITY_CERTIFICATION.md`, `docs/CI_VALIDATION.md`, `apps/api/tests/test_repo_hygiene.py`, and project status docs.
+- **Implemented:** Capability matrix tracks CI validation, auth/RBAC, durable audit, company isolation, answer safety, read-only TimeEntries/TicketHistory sync, and browser UI RBAC as partial or partial-foundation with evidence, streak state, and remaining certification work. `docs/CI_VALIDATION.md` records two browser-enabled validation-harness evidence points: local pre-merge validation and PR #17 GitHub Actions.
+- **Validation:** Focused repository-hygiene tests passed with `13 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `88 passed`, static web JavaScript syntax validation, Playwright browser UI RBAC smoke `3 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability are involved.
+- **Rollback:** Revert this branch commit; documentation-only plus test assertions.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 browser UI RBAC smoke
 
 - **Slice:** Add repeatable Playwright browser evidence for static-web RBAC states on branch `agent/m1-browser-rbac-smoke` from canonical `main` `a4f02bc0987dfe0ba9cb0fd6164d67310acb2cc6`.
 - **State:** `partial`; real browser RBAC behavior is now smoke-tested, but Milestone 1 still requires broader accessibility evidence, source-sufficiency certification, production auth enablement, active scoped cache consumer validation, and Quality Streak records.

@@ -9,6 +9,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Latest merged PR: `newbie10122/autotask-ai#16`, `Reject unsupported ticket-history resolution claims`
 - Latest PR #16 CI: GitHub Actions run `29861695989`, workflow `CI`, job `Validate Autotask AI`, passed before merge
 - Latest local governed validation: `./scripts/validate-ci.sh` passed with full pytest `88 passed` and Playwright browser UI RBAC smoke `3 passed` on branch `agent/m1-browser-rbac-smoke`
+- Current working branch objective: `agent/m0-quality-streak-matrix` adds `docs/CAPABILITY_CERTIFICATION.md` and updates `docs/CI_VALIDATION.md`; validation is pending until focused hygiene and full CI pass.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -27,9 +28,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge branch `agent/m1-browser-rbac-smoke` after GitHub CI passes.
-2. Update the existing Second Brain projection PR with the browser UI RBAC smoke evidence.
-3. Continue Milestone 1 closeout with broader accessibility evidence, source-sufficiency certification, and Quality Streak receipts.
+1. Merge branch `agent/m0-quality-streak-matrix` after GitHub CI passes.
+2. Update the existing Second Brain projection PR with the certification-matrix evidence.
+3. Continue Milestone 1 closeout with broader accessibility evidence, source-sufficiency certification, and capability Quality Streak receipts.
 
 ## Milestone status
 
