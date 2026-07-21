@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `a2c3cd5037e4a3656114678c39c1e12a4e6e4ed1`, which merged PR `newbie10122/autotask-ai#21`.
+- Canonical `main` is `064f82debc47cd16a6c9ba8fefd535719d3d173c`, which merged PR `newbie10122/autotask-ai#22`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -42,10 +42,11 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 keyboard/focus branch `agent/m1-keyboard-focus-smoke` adds explicit focus-visible styling and Playwright keyboard traversal evidence for navigation, auth, and ask workflow controls.
 - Milestone 1 source-sufficiency branch `agent/m1-source-sufficiency-verifier` adds ticket-history source-overlap checks for non-resolution factual claims.
 - Milestone 1 active scoped-cache branch `agent/m1-active-scoped-cache-consumer` moves the operations-status cache consumer onto the scoped cache-key contract.
+- Milestone 1 production-auth preflight branch `agent/m1-production-auth-preflight` adds CI-validated production auth boundary checks.
 
 ## Verified gaps blocking production readiness
 
-- Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix, but production defaults still keep app-route auth off.
+- Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix. A production-auth preflight now requires app-route auth or an explicit external-auth boundary, but live production enforcement remains approval-gated.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
 - Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with all cache consumers or production-auth deployment evidence.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
@@ -71,7 +72,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Add adversarial answer-safety Quality Streak evidence and production-auth deployment evidence.
+1. Add adversarial answer-safety Quality Streak evidence and remaining production-auth deployment evidence.
 2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
 3. Build capability-specific Quality Streak receipts without marking milestones complete prematurely.
 
@@ -89,7 +90,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 active scoped-cache consumer
+## Latest receipt — Milestone 1 production-auth preflight
+
+- **Slice:** Add CI-validated production-auth preflight on branch `agent/m1-production-auth-preflight` from canonical `main` `064f82debc47cd16a6c9ba8fefd535719d3d173c`.
+- **State:** `partial`; deploy-time auth evidence is stronger, but live production auth enforcement remains approval-gated and Milestone 1 still requires bootstrap/admin-user operations, broader adversarial verifier evidence, and Quality Streak records.
+- **Files changed:** `.env.example`, `README.md`, `scripts/production-auth-preflight.sh`, `scripts/validate-ci.sh`, `docs/CI_VALIDATION.md`, `apps/api/tests/test_repo_hygiene.py`, and project status docs.
+- **Implemented:** CI now runs `scripts/production-auth-preflight.sh .env.example`. The preflight passes production only when `APP_ROUTE_AUTH_REQUIRED=true` or an explicit external-auth boundary is documented with `EXTERNAL_AUTH_CONFIRMED=true` and `EXTERNAL_AUTH_DESCRIPTION`. README deployment steps now call out the preflight before deploy.
+- **Validation:** `scripts/production-auth-preflight.sh .env.example` passed; focused repository-hygiene tests passed with `14 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `93 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; deploy instructions and CI return to the prior auth-boundary checks.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 active scoped-cache consumer
 
 - **Slice:** Move the active operations-status cache consumer onto scoped cache keys on branch `agent/m1-active-scoped-cache-consumer` from canonical `main` `a2c3cd5037e4a3656114678c39c1e12a4e6e4ed1`.
 - **State:** `partial`; one active global cache consumer is now scoped, but Milestone 1 still requires production auth enablement, remaining cache-consumer certification, broader adversarial verifier evidence, and Quality Streak records.
@@ -98,7 +110,7 @@ None currently identified for documentation and non-production implementation wo
 - **Validation:** Focused API/RAG tests passed with `65 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `92 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added; tests are hermetic.
 - **Rollback:** Revert this branch commit; operations status falls back to the prior global cache key behavior.
-- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+- **Second Brain state:** `updated`; existing projection PR #6 records PR #22 at commit `ff37f14`.
 
 ## Previous receipt — Milestone 1 source-sufficiency verifier
 
