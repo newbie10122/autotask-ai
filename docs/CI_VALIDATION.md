@@ -16,7 +16,7 @@ The same command runs in GitHub Actions at `.github/workflows/ci.yml`.
 - Python syntax compilation for `apps/api/app` and `workers`.
 - Full Python test suite with `pytest -q`.
 - Static JavaScript syntax extracted from `apps/web/index.html`.
-- Playwright Chromium browser UI RBAC smoke tests for anonymous, Admin, and ReadOnly role-control states plus first serious/critical accessibility checks.
+- Playwright Chromium browser UI RBAC smoke tests for anonymous, Admin, and ReadOnly role-control states plus serious/critical accessibility and keyboard/focus smoke checks.
 
 The CI path uses `.env.example` and must not require real Autotask credentials. It does not start a sync, does not run live Autotask pulls, and does not write to Autotask.
 
