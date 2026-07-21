@@ -70,6 +70,9 @@ def test_ci_workflow_runs_safe_repository_validation():
     assert "pytest -q" in validator_text
     assert "mktemp --suffix=.js" in validator_text
     assert "node --check" in validator_text
+    assert "npm ci" in validator_text
+    assert "npx playwright install --with-deps chromium" in validator_text
+    assert "npm run test:web" in validator_text
     assert "migration does not use NNN_name.sql format" in validator_text
     assert "cat .env" not in validator_text
     assert "set -x" not in validator_text
