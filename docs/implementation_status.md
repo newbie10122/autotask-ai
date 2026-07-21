@@ -53,6 +53,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 scoped local capability routes branch `agent/m1-scoped-local-capability-routes` exposes scoped read-only ticket-health, customer-success, routing, and realtime GET routes with route-matrix and scope-propagation tests.
 - Milestone 1 scoped local feedback routes branch `agent/m1-scoped-local-feedback-routes` exposes local-only ticket-health, customer-success, and routing feedback POST routes for Technician/Admin users with company-scope propagation and ReadOnly denial.
 - Milestone 1 cache/export consumer certification branch `agent/m1-cache-export-consumer-certification` asserts current active cache consumers use scoped cache contracts and no export/download routes exist.
+- Milestone 1 security/isolation Quality Streak branch `agent/m1-security-isolation-quality-streak` adds a repeatable three-run harness for auth, route RBAC, audit, scope, scoped-cache, realtime, feedback, and verifier evidence.
 
 ## Verified gaps blocking production readiness
 
@@ -60,7 +61,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
 - Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, ticket-health/customer-success summary cache keys, ticket-health/customer-success/routing local capability functions, scoped read-only local capability routes, scoped local feedback routes, realtime ticket-history events, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with production-auth deployment evidence.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
-- Answer-safety has a candidate three-run conversational Quality Streak harness and local 3/3 evidence, but broader capability-specific Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
+- Answer-safety and security/isolation have candidate three-run local Quality Streak harnesses and local 3/3 evidence, but live production-auth deployment evidence remains open; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
 - Ticket-health related-data synchronization is automated but not fully caught up across the historical estate; TimeEntries and TicketHistory coverage still require continued bounded scheduled sweeps and certification.
 
@@ -82,7 +83,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Add remaining production-auth deployment evidence and broader capability Quality Streak evidence.
+1. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence.
 2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
 3. Build capability-specific Quality Streak receipts without marking milestones complete prematurely.
 
@@ -100,7 +101,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 cache/export consumer certification
+## Latest receipt — Milestone 1 security/isolation Quality Streak
+
+- **Slice:** Add repeatable Milestone 1 security/isolation Quality Streak harness on branch `agent/m1-security-isolation-quality-streak` from canonical `main` `a58b10a91b101d21cd84742e5ff72abc45c44a3b`.
+- **State:** `partial`; security/isolation now has repeatable local 3/3 streak evidence, but live production-auth deployment evidence remains open.
+- **Files changed:** `scripts/security-isolation-quality-streak.sh`, `apps/api/tests/test_repo_hygiene.py`, and project status docs.
+- **Implemented:** Added `scripts/security-isolation-quality-streak.sh` to run the existing auth, route RBAC, audit, company-scope propagation, scoped local capability route, local feedback role-gate, scoped-cache, export/download absence, realtime scope, and verifier fail-closed subset three consecutive times inside the API container. Repository-hygiene coverage verifies the script exists, is executable, uses no-deps Docker test runs, and avoids shell tracing.
+- **Validation:** Focused repository-hygiene test command passed with `14 passed`. `./scripts/security-isolation-quality-streak.sh` passed 3/3 runs, each with `46 passed`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added; tests use synthetic local evidence only.
+- **Rollback:** Revert this branch commit; no schema/runtime configuration change is included.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 cache/export consumer certification
 
 - **Slice:** Certify current active cache and export/download route state on branch `agent/m1-cache-export-consumer-certification` from canonical `main` `e05ac0c34b7457bf690fd06793c90c164239eb69`.
 - **State:** `partial`; current active cache consumers are covered by scoped cache contracts and export/download routes remain absent, but production-auth deployment evidence and broader capability Quality Streak records remain open.

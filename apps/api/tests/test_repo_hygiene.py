@@ -49,20 +49,24 @@ def test_ci_workflow_runs_safe_repository_validation():
     workflow = ROOT / ".github" / "workflows" / "ci.yml"
     validator = ROOT / "scripts" / "validate-ci.sh"
     answer_safety_streak = ROOT / "scripts" / "answer-safety-quality-streak.sh"
+    security_isolation_streak = ROOT / "scripts" / "security-isolation-quality-streak.sh"
     docs = ROOT / "docs" / "CI_VALIDATION.md"
     matrix = ROOT / "docs" / "CAPABILITY_CERTIFICATION.md"
 
     assert workflow.exists()
     assert validator.exists()
     assert answer_safety_streak.exists()
+    assert security_isolation_streak.exists()
     assert docs.exists()
     assert matrix.exists()
     assert validator.stat().st_mode & 0o111
     assert answer_safety_streak.stat().st_mode & 0o111
+    assert security_isolation_streak.stat().st_mode & 0o111
 
     workflow_text = workflow.read_text()
     validator_text = validator.read_text()
     answer_safety_streak_text = answer_safety_streak.read_text()
+    security_isolation_streak_text = security_isolation_streak.read_text()
     docs_text = docs.read_text()
     matrix_text = matrix.read_text()
 
@@ -93,8 +97,17 @@ def test_ci_workflow_runs_safe_repository_validation():
     assert "sync" not in answer_safety_streak_text
     assert "set -x" not in answer_safety_streak_text
 
+    assert "SECURITY_ISOLATION_STREAK_RUNS" in security_isolation_streak_text
+    assert "apps/api/tests/test_api.py" in security_isolation_streak_text
+    assert "apps/api/tests/test_ingestion_rag.py" in security_isolation_streak_text
+    assert "apps/api/tests/test_guardrails.py" in security_isolation_streak_text
+    assert "docker compose run --rm -T --no-deps" in security_isolation_streak_text
+    assert "auth or scope or audit or route" in security_isolation_streak_text
+    assert "set -x" not in security_isolation_streak_text
+
     assert "./scripts/validate-ci.sh" in docs_text
     assert "./scripts/answer-safety-quality-streak.sh" in docs_text
+    assert "./scripts/security-isolation-quality-streak.sh" in docs_text
     assert "Capability Certification Receipt" in docs_text
     assert "Playwright Chromium browser UI RBAC smoke tests" in docs_text
     assert "Autotask write-back" in docs_text
@@ -103,6 +116,7 @@ def test_ci_workflow_runs_safe_repository_validation():
     assert "Capability Certification Matrix" in matrix_text
     assert "No milestone is `verified_complete`" in matrix_text
     assert "No Autotask write capability is implemented or approved" in matrix_text
+    assert "security/isolation has a local 3/3 streak harness" in matrix_text
 
 
 def test_production_auth_preflight_requires_app_or_documented_external_auth(tmp_path):
