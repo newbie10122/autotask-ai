@@ -120,6 +120,27 @@ def test_route_auth_accepts_bearer_token_when_enabled(monkeypatch):
     assert response.status_code == 200
 
 
+def test_operations_status_passes_scoped_cache_context_when_route_auth_enabled(monkeypatch):
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    captured = {}
+
+    def fake_operations_status(cache_context=None):
+        captured["cache_context"] = cache_context
+        return {"ok": True, "cache": {"scoped": True}}
+
+    monkeypatch.setattr("app.main.operations_status", fake_operations_status)
+    token = create_session_token("reader", [Role.readonly.value])["token"]
+
+    response = client.get("/api/operations/status", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    assert captured["cache_context"] == {
+        "authority_class": "authenticated-read",
+        "roles": [Role.readonly.value],
+        "scope": {"global": True},
+    }
+
+
 def test_admin_route_requires_admin_role_when_route_auth_enabled(monkeypatch):
     monkeypatch.setattr(settings, "app_route_auth_required", True)
     monkeypatch.setattr("app.main.update_operations_settings", lambda payload: payload)

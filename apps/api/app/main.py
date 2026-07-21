@@ -480,8 +480,17 @@ def api_recurring_issues(
 
 
 @app.get("/api/operations/status")
-def api_operations_status() -> dict:
-    return operations_status()
+def api_operations_status(request: Request) -> dict:
+    if not settings.app_route_auth_required:
+        return operations_status()
+    user = current_user(request)
+    return operations_status(
+        {
+            "authority_class": "authenticated-read",
+            "roles": user.get("roles") or ["Authenticated"],
+            "scope": audit_scope(),
+        }
+    )
 
 
 @app.get("/api/operations/settings")
