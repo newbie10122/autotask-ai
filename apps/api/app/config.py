@@ -4,6 +4,10 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     app_env: str = "development"
     app_session_secret: str = "development-only"
+    app_session_ttl_seconds: int = 28800
+    app_route_auth_required: bool = False
+    auth_login_failure_limit: int = 5
+    auth_login_failure_window_seconds: int = 300
     database_url: str = "postgresql://autotask_ai:change-me@postgres:5432/autotask_ai"
     autotask_base_url: str = "https://webservices.autotask.net/atservicesrest"
     autotask_username: str = ""

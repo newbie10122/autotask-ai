@@ -32,7 +32,7 @@ A milestone may be marked `verified_complete` only when:
 - Repository hygiene tests pin the CI workflow, validation script, redacted Compose usage, migration ordering check, JavaScript syntax check, and receipt format.
 - Repository receipts include exact commands, results, commits, risks, rollback, and Second Brain state.
 - Local reconciled evidence on branch `agent/m0-ci-validation`: `./scripts/validate-ci.sh` passed with redacted Compose validation, 6 ordered migrations, API image build, Python compile, `53 passed`, and static web JavaScript syntax.
-- GitHub Actions evidence: PR `newbie10122/autotask-ai#3` run `29849731532` passed workflow `CI`, job `Validate Autotask AI`, for implementation commit `c092bfa6f1f958f46f0512fa3817d5911d8f3b3f`. Milestone 0 still requires merge plus fuller certification matrix/Quality Streak records before it can be marked `verified_complete`.
+- GitHub Actions evidence: PR `newbie10122/autotask-ai#3` latest run `29850162173` passed workflow `CI`, job `Validate Autotask AI`, for head `67de41334d7c609bfdb9fd52580addd139804ac7`; PR #3 was merged into canonical `main` as `fec62ba9963e0ade35e292f88b337bbbe8bf5714`. Milestone 0 still requires fuller certification matrix/Quality Streak records before it can be marked `verified_complete`.
 
 ## Milestone 1
 
@@ -47,6 +47,8 @@ A milestone may be marked `verified_complete` only when:
 - Retrieved untrusted content is scanned for prompt injection and prohibited secrets.
 - Material answers pass an independent verifier or fail closed.
 - Three consecutive clean identity/isolation/verifier certification runs exist.
+- Current branch evidence on `agent/m1-auth-rbac-foundation`: password hashing, signed expiring tokens, `/auth/me`, optional bearer-token middleware, disabled-user rejection, invalid-login rejection, route-auth fail-closed behavior, admin-operation role denial, prompt-injection source filtering, secret-source filtering, and unretrieved-ticket citation rejection have tests.
+- Current branch validation: focused Docker test command passed with `54 passed`; full `./scripts/validate-ci.sh` passed with 7 ordered migrations and `65 passed`. This is foundation evidence only; durable audit, full UI/API RBAC, company-scope propagation, verifier breadth, and three-run streak evidence remain required.
 
 ## Milestone 2
 

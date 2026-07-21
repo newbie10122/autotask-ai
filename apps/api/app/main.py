@@ -1,6 +1,9 @@
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from collections.abc import Callable
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .audit import audit_sink
@@ -23,8 +26,20 @@ from .operations import (
 )
 from .sync import sync_companies, sync_recent, sync_runs, sync_status as get_sync_status, sync_ticket_notes, sync_tickets
 from .ticket_analytics import classify_tickets, recurring_issues_report, reference_data_status, sync_reference_data, ticket_class_report
+from .security import authenticate_user, create_session_token, verify_session_token
 
 app = FastAPI(title="Autotask AI API", version="0.1.0")
+
+PUBLIC_AUTH_PATHS = {
+    "/health",
+    "/ready",
+    "/auth/login",
+    "/auth/logout",
+    "/auth/me",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+}
 
 
 class SyncRequest(BaseModel):
@@ -47,6 +62,57 @@ class FeedbackRequest(BaseModel):
 
 class OperationsSettingsRequest(BaseModel):
     settings: dict[str, object] = Field(default_factory=dict)
+
+
+def _bearer_token(request: Request) -> str | None:
+    authorization = request.headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        return None
+    return token
+
+
+def _token_user(request: Request) -> dict | None:
+    token = _bearer_token(request)
+    if not token:
+        return None
+    payload = verify_session_token(token)
+    if not payload:
+        return None
+    return {"username": payload["sub"], "roles": payload["roles"]}
+
+
+@app.middleware("http")
+async def enforce_route_auth(request: Request, call_next: Callable) -> JSONResponse:
+    if not settings.app_route_auth_required or request.url.path in PUBLIC_AUTH_PATHS:
+        return await call_next(request)
+
+    user = _token_user(request)
+    if not user:
+        return JSONResponse(status_code=401, content={"detail": "Missing or invalid bearer token."})
+    request.state.user = user
+    return await call_next(request)
+
+
+def current_user(request: Request) -> dict:
+    user = getattr(request.state, "user", None) or _token_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Missing or invalid bearer token.")
+    return user
+
+
+def require_roles(*allowed_roles: Role):
+    allowed = {role.value for role in allowed_roles}
+
+    def dependency(request: Request) -> dict | None:
+        if not settings.app_route_auth_required:
+            return None
+        user = current_user(request)
+        if not allowed.intersection(set(user.get("roles") or [])):
+            raise HTTPException(status_code=403, detail="Insufficient role for this action.")
+        return user
+
+    return dependency
 
 
 @app.on_event("startup")
@@ -72,19 +138,33 @@ def ready() -> dict:
 
 
 @app.post("/auth/login")
-def login(payload: LoginRequest) -> dict:
+def login(payload: LoginRequest, request: Request) -> dict:
     if not payload.username or not payload.password:
         raise HTTPException(status_code=400, detail="Username and password are required.")
-    audit_sink.record(AuditLogEntry(actor=payload.username, action=AuditAction.login))
+    user = authenticate_user(payload.username, payload.password, request.client.host if request.client else None)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    if user.get("throttled"):
+        raise HTTPException(status_code=429, detail="Too many failed login attempts. Wait and retry.")
+    if user.get("disabled"):
+        raise HTTPException(status_code=403, detail="User account is disabled.")
+    session = create_session_token(user["username"], user["roles"])
+    audit_sink.record(AuditLogEntry(actor=user["username"], action=AuditAction.login))
     return {
-        "token": "local-development-placeholder-token",
-        "user": {"username": payload.username, "roles": [Role.technician]},
+        "token": session["token"],
+        "expires_at": session["expires_at"],
+        "user": {"username": user["username"], "roles": user["roles"]},
     }
 
 
 @app.post("/auth/logout")
 def logout() -> dict:
     return {"ok": True}
+
+
+@app.get("/auth/me")
+def auth_me(request: Request) -> dict:
+    return {"user": current_user(request)}
 
 
 @app.get("/settings")
@@ -232,7 +312,7 @@ def api_operations_settings() -> dict:
 
 
 @app.post("/api/operations/settings")
-def api_update_operations_settings(payload: OperationsSettingsRequest) -> dict:
+def api_update_operations_settings(payload: OperationsSettingsRequest, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return {"ok": True, "settings": update_operations_settings(payload.settings)}
 
 
@@ -247,32 +327,32 @@ def api_operations_job_runs() -> dict:
 
 
 @app.post("/api/operations/jobs/{job_name}/run")
-def api_run_operation_job(job_name: str) -> dict:
+def api_run_operation_job(job_name: str, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return run_job(job_name, triggered_by="manual", force=True)
 
 
 @app.post("/api/operations/jobs/{job_name}/enable")
-def api_enable_operation_job(job_name: str) -> dict:
+def api_enable_operation_job(job_name: str, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return set_job_enabled(job_name, True)
 
 
 @app.post("/api/operations/jobs/{job_name}/disable")
-def api_disable_operation_job(job_name: str) -> dict:
+def api_disable_operation_job(job_name: str, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return set_job_enabled(job_name, False)
 
 
 @app.post("/api/operations/pause")
-def api_pause_operations() -> dict:
+def api_pause_operations(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return {"ok": True, "settings": update_operations_settings({"global_pause": True})}
 
 
 @app.post("/api/operations/resume")
-def api_resume_operations() -> dict:
+def api_resume_operations(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return {"ok": True, "settings": update_operations_settings({"global_pause": False})}
 
 
 @app.post("/api/operations/jobs/{run_id}/request-stop")
-def api_request_stop(run_id: int) -> dict:
+def api_request_stop(run_id: int, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return request_stop(run_id)
 
 
