@@ -1588,14 +1588,16 @@ def store_ticket_health_risk_feedback(
     risk_bucket: str | None,
     outcome: str,
     notes: str | None = None,
+    authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     if outcome not in TICKET_HEALTH_FEEDBACK_OUTCOMES:
         return {"ok": False, "reason": "invalid_outcome"}
 
     with db_connection() as conn:
+        company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
         ticket = conn.execute(
-            "SELECT id, autotask_id, ticket_number FROM autotask_tickets WHERE id=%s",
-            (ticket_id,),
+            f"SELECT id, autotask_id, ticket_number FROM autotask_tickets WHERE id=%s{company_scope_sql}",
+            (ticket_id, *company_scope_params),
         ).fetchone()
         if not ticket:
             return {"ok": False, "reason": "ticket_not_found"}

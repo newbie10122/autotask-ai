@@ -990,14 +990,17 @@ def test_ticket_health_data_paths_accept_and_apply_company_scope():
     review_source = inspect.getsource(ticket_health_module.ticket_health_review_queue)
     detail_source = inspect.getsource(ticket_health_module.ticket_health_detail_scoped)
     number_source = inspect.getsource(ticket_health_module.ticket_health_detail_by_number_scoped)
+    feedback_source = inspect.getsource(ticket_health_module.store_ticket_health_risk_feedback)
 
     assert "authorized_company_ids" in summary_source
     assert "authorized_company_ids" in review_source
     assert "authorized_company_ids" in detail_source
     assert "authorized_company_ids" in number_source
+    assert "authorized_company_ids" in feedback_source
     assert "company_id = ANY(%s)" in scope_source
     assert "_company_scope_clause(authorized_company_ids)" in summary_source
     assert "_company_scope_clause(authorized_company_ids)" in detail_source
+    assert "_company_scope_clause(authorized_company_ids)" in feedback_source
     assert "company_scope_sql" in number_source
 
 
