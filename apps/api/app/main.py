@@ -179,6 +179,13 @@ def require_company_scope(request: Request) -> list[int] | None:
     return company_ids
 
 
+def request_actor(request: Request) -> str:
+    if not settings.app_route_auth_required:
+        return "system"
+    user = current_user(request)
+    return str(user.get("username") or "unknown")
+
+
 @app.on_event("startup")
 def startup() -> None:
     try:
@@ -425,7 +432,11 @@ def api_request_stop(run_id: int, _user: dict | None = Depends(require_roles(Rol
 
 
 @app.post("/api/assistant/ask")
-def assistant_ask(payload: AskRequest, authorized_company_ids: list[int] | None = Depends(require_company_scope)) -> dict:
+def assistant_ask(
+    payload: AskRequest,
+    request: Request,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
     audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.assistant_answer, target="assistant.ask"))
     return ask_assistant(
         payload.question,
@@ -433,13 +444,24 @@ def assistant_ask(payload: AskRequest, authorized_company_ids: list[int] | None 
         limit=payload.limit,
         include_noise=payload.include_noise,
         authorized_company_ids=authorized_company_ids,
+        actor_username=request_actor(request),
     )
 
 
 @app.post("/api/assistant/feedback")
-def assistant_feedback(payload: FeedbackRequest) -> dict:
+def assistant_feedback(
+    payload: FeedbackRequest,
+    request: Request,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
     audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.feedback, target=str(payload.answer_id)))
-    return store_feedback(payload.answer_id, payload.rating, payload.notes)
+    return store_feedback(
+        payload.answer_id,
+        payload.rating,
+        payload.notes,
+        actor_username=request_actor(request),
+        authorized_company_ids=authorized_company_ids,
+    )
 
 
 @app.get("/api/admin/curated-memory")

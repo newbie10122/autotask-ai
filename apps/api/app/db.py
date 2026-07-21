@@ -290,16 +290,20 @@ def init_schema() -> None:
         """,
         "ALTER TABLE assistant_queries ADD COLUMN IF NOT EXISTS model_name TEXT",
         "ALTER TABLE assistant_queries ADD COLUMN IF NOT EXISTS duration_ms INTEGER",
+        "ALTER TABLE assistant_queries ADD COLUMN IF NOT EXISTS actor_username TEXT",
+        "ALTER TABLE assistant_queries ADD COLUMN IF NOT EXISTS effective_scope JSONB NOT NULL DEFAULT '{}'",
         """
         CREATE TABLE IF NOT EXISTS assistant_query_sources (
             id BIGSERIAL PRIMARY KEY,
             query_id BIGINT NOT NULL REFERENCES assistant_queries(id) ON DELETE CASCADE,
             chunk_id BIGINT REFERENCES document_chunks(id),
             ticket_id BIGINT REFERENCES autotask_tickets(id),
+            company_id BIGINT REFERENCES autotask_companies(id),
             score NUMERIC(8,5),
             source_metadata JSONB NOT NULL DEFAULT '{}'
         )
         """,
+        "ALTER TABLE assistant_query_sources ADD COLUMN IF NOT EXISTS company_id BIGINT REFERENCES autotask_companies(id)",
         """
         CREATE TABLE IF NOT EXISTS assistant_answers (
             id BIGSERIAL PRIMARY KEY,
@@ -317,20 +321,28 @@ def init_schema() -> None:
         CREATE TABLE IF NOT EXISTS assistant_feedback (
             id BIGSERIAL PRIMARY KEY,
             answer_id BIGINT NOT NULL REFERENCES assistant_answers(id) ON DELETE CASCADE,
+            actor_username TEXT,
+            effective_scope JSONB NOT NULL DEFAULT '{}',
             rating TEXT NOT NULL CHECK (rating IN ('Good', 'Bad', 'Needs Edit', 'Save as Known Fix')),
             notes TEXT,
             created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
         """,
+        "ALTER TABLE assistant_feedback ADD COLUMN IF NOT EXISTS actor_username TEXT",
+        "ALTER TABLE assistant_feedback ADD COLUMN IF NOT EXISTS effective_scope JSONB NOT NULL DEFAULT '{}'",
         """
         CREATE TABLE IF NOT EXISTS curated_memory (
             id BIGSERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             body TEXT NOT NULL,
+            actor_username TEXT,
+            effective_scope JSONB NOT NULL DEFAULT '{}',
             status TEXT NOT NULL DEFAULT 'pending_review',
             created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )
         """,
+        "ALTER TABLE curated_memory ADD COLUMN IF NOT EXISTS actor_username TEXT",
+        "ALTER TABLE curated_memory ADD COLUMN IF NOT EXISTS effective_scope JSONB NOT NULL DEFAULT '{}'",
         "ALTER TABLE curated_memory ALTER COLUMN status SET DEFAULT 'pending_review'",
         """
         CREATE TABLE IF NOT EXISTS sensitive_content_flags (

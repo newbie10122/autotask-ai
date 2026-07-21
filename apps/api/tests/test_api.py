@@ -152,8 +152,9 @@ def test_assistant_ask_passes_authorized_company_scope(monkeypatch):
     monkeypatch.setattr(settings, "app_route_auth_required", True)
     monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [123])
 
-    def fake_ask_assistant(question, mode, limit, include_noise, authorized_company_ids):
+    def fake_ask_assistant(question, mode, limit, include_noise, authorized_company_ids, actor_username):
         captured["authorized_company_ids"] = authorized_company_ids
+        captured["actor_username"] = actor_username
         return {"ok": True}
 
     monkeypatch.setattr(
@@ -170,14 +171,16 @@ def test_assistant_ask_passes_authorized_company_scope(monkeypatch):
 
     assert response.status_code == 200
     assert captured["authorized_company_ids"] == [123]
+    assert captured["actor_username"] == "tech"
 
 
 def test_admin_assistant_ask_uses_explicit_global_scope(monkeypatch):
     captured = {}
     monkeypatch.setattr(settings, "app_route_auth_required", True)
 
-    def fake_ask_assistant(question, mode, limit, include_noise, authorized_company_ids):
+    def fake_ask_assistant(question, mode, limit, include_noise, authorized_company_ids, actor_username):
         captured["authorized_company_ids"] = authorized_company_ids
+        captured["actor_username"] = actor_username
         return {"ok": True}
 
     monkeypatch.setattr(
@@ -194,6 +197,41 @@ def test_admin_assistant_ask_uses_explicit_global_scope(monkeypatch):
 
     assert response.status_code == 200
     assert captured["authorized_company_ids"] is None
+    assert captured["actor_username"] == "admin"
+
+
+def test_feedback_passes_actor_and_scope_snapshot(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [123])
+
+    def fake_store_feedback(answer_id, rating, notes, actor_username, authorized_company_ids):
+        captured.update(
+            {
+                "answer_id": answer_id,
+                "rating": rating,
+                "actor_username": actor_username,
+                "authorized_company_ids": authorized_company_ids,
+            }
+        )
+        return {"feedback_id": 1}
+
+    monkeypatch.setattr("app.main.store_feedback", fake_store_feedback)
+    token = create_session_token("tech", [Role.technician.value])["token"]
+
+    response = client.post(
+        "/api/assistant/feedback",
+        json={"answer_id": 42, "rating": "Good"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert captured == {
+        "answer_id": 42,
+        "rating": "Good",
+        "actor_username": "tech",
+        "authorized_company_ids": [123],
+    }
 
 
 def test_audit_sink_persists_when_database_available(monkeypatch):
