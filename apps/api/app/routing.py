@@ -44,6 +44,12 @@ def _availability_context() -> dict[str, Any]:
     }
 
 
+def _scope_params(authorized_company_ids: list[int] | None) -> list[Any]:
+    if authorized_company_ids is None:
+        return [None, []]
+    return [authorized_company_ids, authorized_company_ids]
+
+
 def _candidate_factors(candidate: dict[str, Any]) -> list[str]:
     factors = [
         f"{int(candidate.get('completed_related') or 0)} completed related local tickets",
@@ -75,7 +81,7 @@ def _routing_feedback_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def technician_skill_profiles(limit: int = 25) -> dict[str, Any]:
+def technician_skill_profiles(limit: int = 25, authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
     row_limit = min(max(limit, 1), 100)
     with db_connection() as conn:
         profile_rows = list(
@@ -93,6 +99,7 @@ def technician_skill_profiles(limit: int = 25) -> dict[str, Any]:
                       AND completed_at_autotask IS NULL
                       AND NOT analytics_exclude
                       AND COALESCE(status, '') <> ALL(%s)
+                      AND (%s IS NULL OR company_id = ANY(%s))
                     GROUP BY assigned_resource_id
                 )
                 SELECT
@@ -117,6 +124,7 @@ def technician_skill_profiles(limit: int = 25) -> dict[str, Any]:
                 WHERE t.assigned_resource_id IS NOT NULL
                   AND NOT t.analytics_exclude
                   AND t.completed_at_autotask IS NOT NULL
+                  AND (%s IS NULL OR t.company_id = ANY(%s))
                 GROUP BY
                     t.assigned_resource_id,
                     COALESCE(NULLIF(t.assigned_resource_name, ''), resource_ref.label, t.assigned_resource_id::text),
@@ -124,7 +132,7 @@ def technician_skill_profiles(limit: int = 25) -> dict[str, Any]:
                 ORDER BY completed_tickets DESC, assigned_resource_name
                 LIMIT %s
                 """,
-                (list(CLOSED_STATUS_IDS), row_limit),
+                (list(CLOSED_STATUS_IDS), *_scope_params(authorized_company_ids), *_scope_params(authorized_company_ids), row_limit),
             ).fetchall()
         )
         skill_rows = list(
@@ -150,6 +158,7 @@ def technician_skill_profiles(limit: int = 25) -> dict[str, Any]:
                     WHERE t.assigned_resource_id IS NOT NULL
                       AND NOT t.analytics_exclude
                       AND t.completed_at_autotask IS NOT NULL
+                      AND (%s IS NULL OR t.company_id = ANY(%s))
                     GROUP BY t.assigned_resource_id, skill_label
                 ),
                 ranked AS (
@@ -165,7 +174,8 @@ def technician_skill_profiles(limit: int = 25) -> dict[str, Any]:
                 FROM ranked
                 WHERE rank <= 3
                 ORDER BY assigned_resource_id, rank
-                """
+                """,
+                _scope_params(authorized_company_ids),
             ).fetchall()
         )
 
@@ -209,7 +219,11 @@ def technician_skill_profiles(limit: int = 25) -> dict[str, Any]:
     }
 
 
-def ticket_routing_recommendation(ticket_id: int, limit: int = 5) -> dict[str, Any]:
+def ticket_routing_recommendation(
+    ticket_id: int,
+    limit: int = 5,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
     row_limit = min(max(limit, 1), 10)
     with db_connection() as conn:
         target = conn.execute(
@@ -217,8 +231,9 @@ def ticket_routing_recommendation(ticket_id: int, limit: int = 5) -> dict[str, A
             SELECT id, autotask_id, ticket_number, title, category, issue_type, subissue_type, company_id, priority
             FROM autotask_tickets
             WHERE id=%s
+              AND (%s IS NULL OR company_id = ANY(%s))
             """,
-            (ticket_id,),
+            (ticket_id, *_scope_params(authorized_company_ids)),
         ).fetchone()
         if not target:
             return {"ok": False, "reason": "ticket_not_found", "recommendations": []}
@@ -238,6 +253,7 @@ def ticket_routing_recommendation(ticket_id: int, limit: int = 5) -> dict[str, A
                       AND NOT analytics_exclude
                       AND completed_at_autotask IS NOT NULL
                       AND id <> %s
+                      AND (%s IS NULL OR company_id = ANY(%s))
                       AND category IS NOT DISTINCT FROM %s
                       AND issue_type IS NOT DISTINCT FROM %s
                       AND subissue_type IS NOT DISTINCT FROM %s
@@ -272,7 +288,7 @@ def ticket_routing_recommendation(ticket_id: int, limit: int = 5) -> dict[str, A
                 ORDER BY completed_related DESC, related_tickets DESC
                 LIMIT 25
                 """,
-                (ticket_id, target["category"], target["issue_type"], target["subissue_type"]),
+                (ticket_id, *_scope_params(authorized_company_ids), target["category"], target["issue_type"], target["subissue_type"]),
             ).fetchall()
         )
         workload_rows = list(
@@ -284,9 +300,10 @@ def ticket_routing_recommendation(ticket_id: int, limit: int = 5) -> dict[str, A
                   AND completed_at_autotask IS NULL
                   AND NOT analytics_exclude
                   AND COALESCE(status, '') <> ALL(%s)
+                  AND (%s IS NULL OR company_id = ANY(%s))
                 GROUP BY assigned_resource_id
                 """,
-                (list(CLOSED_STATUS_IDS),),
+                (list(CLOSED_STATUS_IDS), *_scope_params(authorized_company_ids)),
             ).fetchall()
         )
         customer_rows = list(
@@ -300,9 +317,10 @@ def ticket_routing_recommendation(ticket_id: int, limit: int = 5) -> dict[str, A
                   AND id <> %s
                   AND company_id IS NOT NULL
                   AND company_id = %s
+                  AND (%s IS NULL OR company_id = ANY(%s))
                 GROUP BY assigned_resource_id
                 """,
-                (ticket_id, target["company_id"]),
+                (ticket_id, target["company_id"], *_scope_params(authorized_company_ids)),
             ).fetchall()
         )
         skill_rows = list(
@@ -314,13 +332,14 @@ def ticket_routing_recommendation(ticket_id: int, limit: int = 5) -> dict[str, A
                   AND NOT analytics_exclude
                   AND completed_at_autotask IS NOT NULL
                   AND id <> %s
+                  AND (%s IS NULL OR company_id = ANY(%s))
                   AND (
                     COALESCE(category, '') = COALESCE(%s, '')
                     OR COALESCE(issue_type, '') = COALESCE(%s, '')
                   )
                 GROUP BY assigned_resource_id
                 """,
-                (ticket_id, target["category"], target["issue_type"]),
+                (ticket_id, *_scope_params(authorized_company_ids), target["category"], target["issue_type"]),
             ).fetchall()
         )
         feedback_rows = [
@@ -381,13 +400,19 @@ def store_routing_feedback(
     recommended_resource_name: str | None,
     outcome: str,
     notes: str | None = None,
+    authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     if outcome not in {"accepted", "rejected", "needs_review"}:
         return {"ok": False, "reason": "invalid_outcome"}
     with db_connection() as conn:
         ticket = conn.execute(
-            "SELECT id, autotask_id FROM autotask_tickets WHERE id=%s",
-            (ticket_id,),
+            """
+            SELECT id, autotask_id
+            FROM autotask_tickets
+            WHERE id=%s
+              AND (%s IS NULL OR company_id = ANY(%s))
+            """,
+            (ticket_id, *_scope_params(authorized_company_ids)),
         ).fetchone()
         if not ticket:
             return {"ok": False, "reason": "ticket_not_found"}

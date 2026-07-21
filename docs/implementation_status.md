@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `2b5485c00dcb940650b3076d44ccbfb8a7d9381d`, which merged PR `newbie10122/autotask-ai#27`.
+- Canonical `main` is `14a545e356fff7dca6ba1a946f0cc5837e025f1d`, which merged PR `newbie10122/autotask-ai#28`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -48,12 +48,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 generated-answer verifier branch `agent/m1-generated-answer-verifier-evidence` exercises generated assistant answers through redaction, source metadata, verifier fallback, and audit behavior.
 - Milestone 1 answer-safety Quality Streak branch `agent/m1-answer-safety-quality-streak` adds a repeatable three-run conversational answer-safety streak harness.
 - Milestone 1 summary-cache scope branch `agent/m1-summary-cache-scope-contracts` moves ticket-health and customer-success summary cache keys onto the scoped cache contract.
+- Milestone 1 ticket-health/customer-success/routing scope branch `agent/m1-scope-certification-ticket-health-routing` adds optional company-scope filters and fail-closed detail/feedback behavior for local capability functions.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix. A production-auth preflight now requires app-route auth or an explicit external-auth boundary, but live production enforcement remains approval-gated.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, ticket-health/customer-success summary cache keys, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with production-auth deployment evidence.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, ticket-health/customer-success summary cache keys, ticket-health/customer-success/routing local capability functions, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with production-auth deployment evidence.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
 - Answer-safety has a candidate three-run conversational Quality Streak harness and local 3/3 evidence, but broader capability-specific Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -95,7 +96,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 summary cache scope contracts
+## Latest receipt — Milestone 1 ticket-health/customer-success/routing scope certification
+
+- **Slice:** Add company-scope filters and fail-closed detail/feedback behavior for ticket-health, customer-success, and routing local capability functions on branch `agent/m1-scope-certification-ticket-health-routing` from canonical `main` `14a545e356fff7dca6ba1a946f0cc5837e025f1d`.
+- **State:** `partial`; local capability functions now accept and apply company scope, but production-auth deployment evidence, first-class route exposure decisions, and broader capability Quality Streak records remain open.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/app/customer_success.py`, `apps/api/app/routing.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `ticket_health_summary()`, ticket-health review/detail lookup helpers, `customer_success_summary()`, customer-success detail/review/feedback helpers, `technician_skill_profiles()`, `ticket_routing_recommendation()`, and local routing feedback now accept optional authorized company scope. Scoped calls add SQL company filters; out-of-scope customer detail/feedback and ticket/routing lookups fail closed as not found.
+- **Validation:** Focused API/RAG test command passed with `47 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `107 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; changes only filter local read/feedback evidence.
+- **Rollback:** Revert this branch commit; local capability functions return to prior global-scope behavior.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 summary cache scope contracts
 
 - **Slice:** Move ticket-health and customer-success summary cache consumers onto scoped cache contracts on branch `agent/m1-summary-cache-scope-contracts` from canonical `main` `2b5485c00dcb940650b3076d44ccbfb8a7d9381d`.
 - **State:** `partial`; active summary cache consumers now have scope/role-aware key contracts, but production-auth deployment evidence and broader capability Quality Streak records remain open.

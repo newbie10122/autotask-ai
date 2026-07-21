@@ -190,6 +190,7 @@ def _calibration_readiness(
 
 def _customer_row_query(*, company_id: int | None = None) -> str:
     company_filter = "WHERE metrics.total_tickets > 0"
+    company_filter += " AND (%s IS NULL OR metrics.company_id = ANY(%s))"
     if company_id is not None:
         company_filter += " AND metrics.company_id = %s"
     return f"""
@@ -305,6 +306,16 @@ def _customer_query_params(now: datetime, recent_cutoff: datetime, stale_cutoff:
     ]
 
 
+def _scope_params(authorized_company_ids: list[int] | None) -> list[Any]:
+    if authorized_company_ids is None:
+        return [None, []]
+    return [authorized_company_ids, authorized_company_ids]
+
+
+def _company_in_scope(company_id: int, authorized_company_ids: list[int] | None) -> bool:
+    return authorized_company_ids is None or company_id in {int(scope_id) for scope_id in authorized_company_ids}
+
+
 def _customer_payload(row: dict[str, Any]) -> dict[str, Any]:
     score = _score_customer(row)
     repeat_labels = row.get("repeat_issue_labels") or []
@@ -332,6 +343,7 @@ def customer_success_summary(
     limit: int = 25,
     recent_days: int = 30,
     cache_context: dict[str, Any] | None = None,
+    authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     row_limit = min(max(limit, 1), 100)
     window_days = min(max(recent_days, 1), 365)
@@ -339,6 +351,7 @@ def customer_success_summary(
         {
             "limit": row_limit,
             "recent_days": window_days,
+            "authorized_company_ids": sorted(authorized_company_ids) if authorized_company_ids is not None else None,
             "closed_status_ids": sorted(CLOSED_STATUS_IDS),
         },
         **(cache_context or {}),
@@ -360,7 +373,7 @@ def customer_success_summary(
             company_name
         LIMIT %s
     """
-    params = [*_customer_query_params(now, recent_cutoff, stale_cutoff), row_limit]
+    params = [*_customer_query_params(now, recent_cutoff, stale_cutoff), *_scope_params(authorized_company_ids), row_limit]
     with db_connection() as conn:
         rows = list(conn.execute(query, params).fetchall())
 
@@ -425,13 +438,19 @@ def _round_optional(value: Any, digits: int = 1) -> float | None:
     return round(_num(value), digits)
 
 
-def customer_success_detail(company_id: int, recent_days: int = 30) -> dict[str, Any]:
+def customer_success_detail(
+    company_id: int,
+    recent_days: int = 30,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    if not _company_in_scope(company_id, authorized_company_ids):
+        return {"ok": False, "reason": "company_not_found", "company_id": company_id}
     window_days = min(max(recent_days, 1), 365)
     now = datetime.now(UTC)
     recent_cutoff = now - timedelta(days=window_days)
     stale_cutoff = now - timedelta(days=7)
     query = _customer_row_query(company_id=company_id)
-    params = [*_customer_query_params(now, recent_cutoff, stale_cutoff), company_id]
+    params = [*_customer_query_params(now, recent_cutoff, stale_cutoff), *_scope_params(authorized_company_ids), company_id]
 
     with db_connection() as conn:
         row = conn.execute(query, params).fetchone()
@@ -738,9 +757,12 @@ def store_customer_risk_feedback(
     risk_bucket: str | None,
     outcome: str,
     notes: str | None = None,
+    authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     if outcome not in CUSTOMER_RISK_FEEDBACK_OUTCOMES:
         return {"ok": False, "reason": "invalid_outcome"}
+    if not _company_in_scope(company_id, authorized_company_ids):
+        return {"ok": False, "reason": "company_not_found"}
 
     with db_connection() as conn:
         company = conn.execute(
@@ -871,11 +893,12 @@ def customer_success_review_queue(
     risk_bucket: str | None = None,
     min_priority: int = 0,
     needs_review_only: bool = False,
+    authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     row_limit = min(max(limit, 1), 100)
     priority_floor = min(max(int(min_priority or 0), 0), 100)
     allowed_bucket = risk_bucket if risk_bucket in {"critical", "high", "watch", "normal"} else None
-    summary = customer_success_summary(limit=100, recent_days=recent_days)
+    summary = customer_success_summary(limit=100, recent_days=recent_days, authorized_company_ids=authorized_company_ids)
     items: list[dict[str, Any]] = []
     for customer in summary.get("customers", []):
         calibration = customer.get("calibration") or {}
