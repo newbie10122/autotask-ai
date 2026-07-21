@@ -8,6 +8,7 @@ from typing import Any
 from psycopg.types.json import Jsonb
 
 from .answer_guardrails import WEAK_EVIDENCE_MESSAGE, build_guarded_answer
+from .answer_safety import filter_safe_sources, verify_answer
 from .config import settings
 from .db import db_connection, init_schema
 from .ollama import OllamaUnavailable, chat, embed_text
@@ -129,9 +130,21 @@ def _chat_with_timeout(prompt: str, timeout_seconds: int) -> str:
         executor.shutdown(wait=False, cancel_futures=True)
 
 
-def _retrieve_sources(question: str, limit: int, include_noise: bool = False) -> list[dict[str, Any]]:
+def _retrieve_sources(
+    question: str,
+    limit: int,
+    include_noise: bool = False,
+    authorized_company_ids: list[int] | None = None,
+) -> list[dict[str, Any]]:
     sources: list[dict[str, Any]] = []
     fetch_limit = max(limit * 4, settings.assistant_max_context_chunks * 3)
+    company_filter_sql = ""
+    company_filter_params: tuple[Any, ...] = ()
+    if authorized_company_ids is not None:
+        if not authorized_company_ids:
+            return []
+        company_filter_sql = "AND (dc.source_metadata->>'company_id')::bigint = ANY(%s)"
+        company_filter_params = (authorized_company_ids,)
     try:
         embedding = embed_text(question)
         with db_connection() as conn:
@@ -152,6 +165,7 @@ def _retrieve_sources(question: str, limit: int, include_noise: bool = False) ->
                     WHERE de.model_name=%s
                       AND dc.is_active
                       AND (%s OR NOT dc.is_noise)
+                      """ + company_filter_sql + """
                     ORDER BY score DESC
                     LIMIT %s
                     """,
@@ -159,6 +173,7 @@ def _retrieve_sources(question: str, limit: int, include_noise: bool = False) ->
                         _vector_literal(embedding),
                         settings.ollama_embedding_model,
                         include_noise or not settings.assistant_exclude_noise_by_default,
+                        *company_filter_params,
                         fetch_limit,
                     ),
                 ).fetchall()
@@ -182,6 +197,7 @@ def _retrieve_sources(question: str, limit: int, include_noise: bool = False) ->
                     LEFT JOIN autotask_tickets t ON (dc.source_metadata->>'ticket_id')::bigint = t.autotask_id
                     WHERE dc.is_active
                       AND (%s OR NOT dc.is_noise)
+                      """ + company_filter_sql + """
                       AND to_tsvector('english', dc.content) @@ plainto_tsquery('english', %s)
                     ORDER BY score DESC
                     LIMIT %s
@@ -189,6 +205,7 @@ def _retrieve_sources(question: str, limit: int, include_noise: bool = False) ->
                     (
                         question,
                         include_noise or not settings.assistant_exclude_noise_by_default,
+                        *company_filter_params,
                         question,
                         fetch_limit,
                     ),
@@ -342,6 +359,7 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
         }
 
     sources = _retrieve_sources(question, limit, include_noise=include_noise)
+    sources, safety_warnings = filter_safe_sources(sources)
     best_score = float(sources[0]["score"] or 0) if sources else 0.0
     tickets = _unique_tickets(sources)
     weak = not sources or best_score < 0.05
@@ -377,6 +395,10 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
         else:
             answer = _fallback_answer(sources, confidence, warning)
         answer = redact_private_entities(answer)
+        verification = verify_answer(answer, sources)
+        if not verification.ok:
+            warning = f"Answer verifier failed closed: {verification.fail_closed_reason}."
+            answer = _fallback_answer(sources, confidence, warning)
 
     duration_ms = int((time.monotonic() - started) * 1000)
     answer_row = _store_answer(query_id, answer, confidence, sources, duration_ms)
@@ -397,7 +419,7 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
             }
             for source in sources
         ],
-        "warnings": ([warning] if warning else []) if not weak else [WEAK_EVIDENCE_MESSAGE],
+        "warnings": (safety_warnings + ([warning] if warning else [])) if not weak else safety_warnings + [WEAK_EVIDENCE_MESSAGE],
         "duration_ms": duration_ms,
         "route": "rag",
     }

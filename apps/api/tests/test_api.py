@@ -1,7 +1,10 @@
 from fastapi.testclient import TestClient
 
 from app.audit import audit_sink
+from app.config import settings
 from app.main import app
+from app.models import Role
+from app.security import create_session_token, hash_password, verify_password
 
 
 client = TestClient(app)
@@ -24,5 +27,93 @@ def test_auth_model_records_login_audit_event():
     response = client.post("/auth/login", json={"username": "tech", "password": "local-password"})
     assert response.status_code == 200
     assert response.json()["user"]["roles"] == ["Technician"]
+    assert response.json()["token"] != "local-development-placeholder-token"
     assert audit_sink.entries[-1].action == "login"
 
+
+def test_password_hashing_verifies_and_rejects_wrong_password():
+    encoded = hash_password("correct horse battery staple")
+
+    assert encoded.startswith("pbkdf2_sha256$")
+    assert verify_password("correct horse battery staple", encoded)
+    assert not verify_password("wrong password", encoded)
+    assert "correct horse battery staple" not in encoded
+
+
+def test_login_rejects_invalid_credentials(monkeypatch):
+    monkeypatch.setattr("app.main.authenticate_user", lambda *_args, **_kwargs: None)
+
+    response = client.post("/auth/login", json={"username": "tech", "password": "wrong"})
+
+    assert response.status_code == 401
+    assert "Invalid username or password" in response.json()["detail"]
+
+
+def test_login_rejects_disabled_users(monkeypatch):
+    monkeypatch.setattr(
+        "app.main.authenticate_user",
+        lambda *_args, **_kwargs: {"username": "tech", "roles": [Role.technician.value], "disabled": True},
+    )
+
+    response = client.post("/auth/login", json={"username": "tech", "password": "local-password"})
+
+    assert response.status_code == 403
+    assert "disabled" in response.json()["detail"].lower()
+
+
+def test_auth_me_validates_signed_session_token():
+    token = create_session_token("tech", [Role.technician.value])["token"]
+
+    response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    assert response.json()["user"]["username"] == "tech"
+    assert response.json()["user"]["roles"] == ["Technician"]
+
+
+def test_auth_me_rejects_missing_or_tampered_token():
+    missing = client.get("/auth/me")
+    tampered = client.get("/auth/me", headers={"Authorization": "Bearer v1.invalid.token"})
+
+    assert missing.status_code == 401
+    assert tampered.status_code == 401
+
+
+def test_route_auth_is_default_off_for_basic_auth_deployment(monkeypatch):
+    monkeypatch.setattr(settings, "app_route_auth_required", False)
+
+    response = client.get("/settings")
+
+    assert response.status_code == 200
+
+
+def test_route_auth_rejects_missing_token_when_enabled(monkeypatch):
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+
+    public_ready = client.get("/ready")
+    protected = client.get("/settings")
+
+    assert public_ready.status_code == 200
+    assert protected.status_code == 401
+
+
+def test_route_auth_accepts_bearer_token_when_enabled(monkeypatch):
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    token = create_session_token("tech", [Role.technician.value])["token"]
+
+    response = client.get("/settings", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+
+
+def test_admin_route_requires_admin_role_when_route_auth_enabled(monkeypatch):
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.main.update_operations_settings", lambda payload: payload)
+    readonly_token = create_session_token("reader", [Role.readonly.value])["token"]
+    admin_token = create_session_token("admin", [Role.admin.value])["token"]
+
+    denied = client.post("/api/operations/pause", headers={"Authorization": f"Bearer {readonly_token}"})
+    allowed = client.post("/api/operations/pause", headers={"Authorization": f"Bearer {admin_token}"})
+
+    assert denied.status_code == 403
+    assert allowed.status_code == 200

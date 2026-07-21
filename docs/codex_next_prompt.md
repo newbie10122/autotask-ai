@@ -4,19 +4,28 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 ## Immediate run objective
 
-Complete the current Milestone 0 CI PR and certification handoff:
+Continue Milestone 1 from branch `agent/m1-auth-rbac-foundation`:
 
-1. Review draft PR `newbie10122/autotask-ai#3` from `agent/m0-ci-validation` to `main`.
-2. Confirm latest GitHub Actions result for the PR head. Run `29849731532` passed for implementation commit `c092bfa6f1f958f46f0512fa3817d5911d8f3b3f`; later receipt commits may trigger a newer run that must also be checked.
-3. Do not mark Milestone 0 `verified_complete` until the PR is merged and fuller certification matrix/Quality Streak evidence is recorded.
-4. After the PR is merged or materially changes, update the existing governed Autotask AI Second Brain projection per `AGENTS.override.md`; do not create an unrelated Second Brain PR.
-5. Continue to the next eligible safe slice without routine user questions or notifications.
+1. Push/open a draft PR for the current auth/RBAC and answer-safety foundation if it is not already open.
+2. Confirm the latest GitHub Actions result for that PR head.
+3. Update the existing governed Autotask AI Second Brain projection PR after the Autotask AI PR exists or materially changes.
+4. Continue immediately to durable identity-linked audit and full company-scope propagation.
+5. Do not mark Milestone 1 `verified_complete` until full API/UI RBAC, persistent audit, fail-closed client isolation, independent verifier breadth, and three-run Quality Streak evidence all pass.
 
-Next eligible safe work after CI PR creation:
+Current foundation evidence:
 
-- Authentication and RBAC test-first design.
-- Durable identity-linked audit design.
-- Fail-closed client/company isolation tests.
-- Prompt-injection scanning and independent answer-verifier contract tests.
+- PBKDF2 password hashing, signed expiring tokens, `/auth/me`, optional bearer-token middleware, disabled-user rejection, invalid-login rejection, and admin-operation role denial tests exist.
+- Pre-prompt prompt-injection/secret source filtering and citation-subset answer verification tests exist.
+- `_retrieve_sources` has an `authorized_company_ids` filter contract, but authenticated actor-to-company scope is not wired end to end.
+- `./scripts/validate-ci.sh` passed on the M1 branch with 7 ordered migrations and full pytest `65 passed`.
+- Initial PR #4 run `29854738844` failed from a non-hermetic admin-route test that expected a live `postgres` hostname, and the amended branch fixes that test.
+
+Next eligible safe work:
+
+- Durable identity-linked audit tables and denial events.
+- User-company scope tables, helpers, and fail-closed dependencies.
+- Assistant, recurring analytics, query source, feedback, memory, future cache/export scope propagation.
+- UI auth/RBAC states and API denial coverage for all roles.
+- Verifier expansion for unsupported claims, scope violations, guidance labeling, secrets, injection, weak evidence, and fallback behavior.
 
 Do not perform production deployment, access secrets, expand customer-data scope, make irreversible migrations, or implement any Autotask write capability.

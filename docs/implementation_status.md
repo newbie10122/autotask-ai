@@ -3,7 +3,7 @@
 **Updated:** 2026-07-21  
 **Management target:** 99% verified roadmap completion  
 **Current state:** `partial`  
-**Active milestone:** Milestone 0 — Governance, status truth, and continuous validation
+**Active milestone:** Milestone 1 — Security, identity, isolation, and answer trust
 
 ## Status confidence
 
@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- GitHub Actions CI workflow and local validation harness are integrated on branch `agent/m0-ci-validation` from canonical base `792eca2c943e4276cc3b8e93093d5dc193c6174f`; local source commit preserved as `dc18106`.
+- GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`; canonical `main` is `fec62ba9963e0ade35e292f88b337bbbe8bf5714`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, and static web JavaScript syntax checks.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
 - FastAPI API and technician/admin web interface.
@@ -23,14 +23,14 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Operations scheduler with locks, pause, disk, conflict, and Autotask-threshold controls.
 - Sensitive/private-entity redaction and read-only enforcement tests.
 - Pending known-fix candidate creation.
+- Milestone 1 branch `agent/m1-auth-rbac-foundation` adds PBKDF2 password hashing, signed expiring session tokens, disabled-user and throttling hooks, optional fail-closed API route authentication, admin-operation role denial tests, pre-prompt prompt-injection/secret source filtering, and deterministic answer-verifier citation checks.
 
 ## Verified gaps blocking production readiness
 
-- Placeholder authentication and token behavior remain.
-- RBAC is not enforced end to end.
+- Route authentication/RBAC is implemented as an opt-in foundation but is not yet enforced end to end in production defaults or UI.
 - Audit logging is not fully persistent and identity-linked.
-- Retrieval does not yet prove fail-closed company/client authorization scope.
-- Prompt-injection scanning and independent answer verification are not complete.
+- Retrieval has an `authorized_company_ids` filter contract, but request identity-to-company scope is not fully wired through every route, analytics path, citation, cache, and UI flow.
+- Prompt-injection scanning and deterministic answer verification have initial tests, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
 - Ticket-health data synchronization and analytics are incomplete.
@@ -39,8 +39,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 | Milestone | State | Next evidence required |
 |---|---|---|
-| 0. Governance and continuous validation | active | Merge governed CI PR and start certification matrix/Quality Streak records |
-| 1. Security, identity, isolation, answer trust | not_started | Auth/RBAC/audit/scope/verifier design and tests |
+| 0. Governance and continuous validation | partial | CI PR merged; certification matrix/Quality Streak records still required |
+| 1. Security, identity, isolation, answer trust | active | Complete durable audit, full route/UI RBAC, company scope wiring, verifier breadth, and three-run evidence |
 | 2. Complete operational Autotask data | not_started | Field inventory and resumable scoped sync |
 | 3. Ticket Health Analytics | not_started | Deterministic APIs/UI with evidence |
 | 4. Redis and CPU performance | not_started | Scoped cache design and benchmarks |
@@ -53,10 +53,11 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge the governed CI validation PR after review.
-2. Create fuller capability certification/Quality Streak records without marking capabilities certified prematurely.
-3. Begin Milestone 1 with authentication/RBAC test-first design.
-4. Prepare the existing governed Second Brain projection update after the Autotask AI CI PR state materially changes.
+1. Complete durable identity-linked audit tables and denial audit events.
+2. Wire authenticated actor/company scope through assistant retrieval, recurring analytics, query sources, feedback, memory, and future cache/export contracts.
+3. Expand route and UI RBAC for Admin, Technician, and ReadOnly across all API actions.
+4. Expand deterministic verifier coverage for unsupported claims, source subset, section labeling, injection, secrets, and scope violations.
+5. Prepare the existing governed Second Brain projection update after this M1 branch PR is opened.
 
 Parallel-safe work after roadmap merge:
 
@@ -72,14 +73,28 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 0 CI reconciliation
+## Latest receipt — Milestone 1 auth/RBAC and answer-safety foundation
+
+- **Slice:** Add local authentication/RBAC foundation plus first deterministic answer-safety gates on branch `agent/m1-auth-rbac-foundation` from canonical `main` `fec62ba9963e0ade35e292f88b337bbbe8bf5714`.
+- **State:** `partial`; Milestone 1 is active, not verified complete.
+- **Files changed:** `.env.example`, `apps/api/app/config.py`, `apps/api/app/security.py`, `apps/api/app/answer_safety.py`, `apps/api/app/main.py`, `apps/api/app/db.py`, `apps/api/migrations/007_auth_rbac_foundation.sql`, `apps/api/app/assistant.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_guardrails.py`, and `apps/api/tests/test_ingestion_rag.py`.
+- **Implemented:** PBKDF2-SHA256 password hashing, signed expiring HMAC session tokens, DB-backed `app_users` and `app_login_attempts` schema, disabled-user and login-throttle hooks, `/auth/me`, optional fail-closed bearer-token middleware, admin role checks for operations mutation routes when app route auth is enabled, prompt-injection detection, unsafe source filtering before prompt context, and citation-subset answer verification.
+- **Compatibility boundary:** `APP_ROUTE_AUTH_REQUIRED=false` remains the default so existing Nginx Basic Auth deployments continue to work while app-level auth is certified.
+- **Company-scope status:** `_retrieve_sources` now accepts `authorized_company_ids` and SQL includes `source_metadata->>'company_id'` filtering when supplied; full request identity-to-company scope propagation remains unfinished and release-blocking.
+- **Validation:** `docker compose run --rm -T --no-deps -v "$PWD":/workspace -w /workspace api sh -c 'python -m compileall -q apps/api/app workers && pytest -q apps/api/tests/test_api.py apps/api/tests/test_guardrails.py apps/api/tests/test_ingestion_rag.py'` passed with `54 passed`. `docker compose run --rm -T --no-deps -e DATABASE_URL=postgresql://autotask_ai:change-me@postgres-missing:5432/autotask_ai -v "$PWD":/workspace -w /workspace api sh -c 'python -m compileall -q apps/api/app workers && pytest -q apps/api/tests/test_api.py'` passed with `12 passed`, covering CI's no-Postgres test environment.
+- **Full CI validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 7 ordered migrations, API image build, API/worker Python compile, full pytest `65 passed`, and static web JavaScript syntax validation.
+- **Remote CI repair:** Initial PR #4 run `29854738844` failed because an admin-route RBAC test depended on a reachable `postgres` hostname after auth succeeded; the test was made hermetic by monkeypatching the operations settings write after RBAC authorization is proven.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit or set `APP_ROUTE_AUTH_REQUIRED=false`; migration is additive and leaves new local auth tables inert if unused.
+
+## Previous receipt — Milestone 0 CI reconciliation
 
 - **Slice:** Preserve local CI commit `dc18106` on governed branch `agent/m0-ci-validation` based on canonical `origin/main` `792eca2c943e4276cc3b8e93093d5dc193c6174f`.
-- **State:** `partial`; CI is implemented and remotely proven on the implementation commit, but Milestone 0 still needs merge plus fuller certification matrix/Quality Streak records before `verified_complete`.
+- **State:** `partial`; CI was implemented, remotely proven, and merged, but Milestone 0 still needs fuller certification matrix/Quality Streak records before `verified_complete`.
 - **Backup:** Local branch `backup/dc18106-ci-harness` points to source commit `dc18106`.
 - **Files preserved/reconciled:** `.github/workflows/ci.yml`, `scripts/validate-ci.sh`, `docs/CI_VALIDATION.md`, `apps/api/tests/test_repo_hygiene.py`, `README.md`, `docs/implementation_status.md`, `docs/acceptance_criteria.md`, `docs/known_risks.md`, and `docs/codex_next_prompt.md`.
 - **Local validation:** `./scripts/validate-ci.sh` passed on the reconciled branch with redacted Compose validation, 6 ordered migrations, API image build, API/worker Python compile, full canonical pytest result `53 passed`, and static web JavaScript syntax validation.
-- **GitHub CI evidence:** Draft PR `newbie10122/autotask-ai#3` opened from `agent/m0-ci-validation` to `main`. GitHub Actions run `29849731532` passed workflow `CI`, job `Validate Autotask AI`, for implementation head `c092bfa6f1f958f46f0512fa3817d5911d8f3b3f`.
+- **GitHub CI evidence:** PR `newbie10122/autotask-ai#3` was merged after latest GitHub Actions run `29850162173` passed workflow `CI`, job `Validate Autotask AI`, for head `67de41334d7c609bfdb9fd52580addd139804ac7`.
 - **Additional validation:** `git diff --check` passed; `python3 -m compileall apps/api/app apps/api/tests` passed; `./scripts/compose-config-redacted.sh >/tmp/autotask-ai-compose-redacted.txt` passed; standalone static web JavaScript syntax check passed.
 - **Host limitation:** `cd apps/api && pytest` could not run on the host because `pytest` is not installed there; pytest passed inside the API container through the CI validator.
 - **Runtime sanity:** Local non-production rebuild of `api` and `web` passed; `/health` returned `{"status":"ok"}`, `/ready` returned `{"status":"ready","database":"available","autotask":"configured"}`, and the local Nginx UI returned `HTTP 200`.
@@ -89,8 +104,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, exact branch head `3ea289ada8ec6410c70ba07b31600b4c67de3a23`. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote `Validate knowledge` run `29850044428` failed twice before checkout/setup with no job steps and `runner_id=0`; this is recorded on PR #6 and still needs follow-up before merge. Do not mark `merged` until PR #6 is merged.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, exact branch head `a624c6caf1bfead3e9af87adf45a54d4c40871cd` records the Autotask AI PR #3 merge. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote `Validate knowledge` run `29854057777` failed before useful job steps with no runner/job detail; this is recorded on PR #6 and still needs follow-up before merge. Do not mark `merged` until PR #6 is merged. This M1 branch will require another sanitized projection after its Autotask AI PR is opened.
 
 ## Exact next action
 
-Review and merge draft PR `newbie10122/autotask-ai#3` when ready. After merge or material PR-state change, update the existing governed Second Brain projection, then continue Milestone 0 certification matrix/Quality Streak evidence and parallel-safe Milestone 1 test/design work.
+Open a draft PR for branch `agent/m1-auth-rbac-foundation`, let GitHub CI run, update the existing governed Second Brain projection with the M1 branch/PR evidence, then continue Milestone 1 durable audit and full company-scope wiring.
