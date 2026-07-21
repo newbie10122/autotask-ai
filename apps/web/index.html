@@ -57,7 +57,7 @@
         <textarea id="question" placeholder="Describe the support issue..."></textarea>
         <div class="ask-actions">
           <button id="askButton" type="button">Ask</button>
-          <span>Local CPU model: normal answers can take up to a minute; Deep Dive may take longer.</span>
+          <span id="askStatus" class="ask-status" aria-live="polite">Ready. Local CPU model: normal answers can take up to a minute; Deep Dive may take longer.</span>
         </div>
         <div class="answer-shell">
           <div class="section-row">
@@ -242,6 +242,27 @@
       };
 
       let currentAnswerId = null;
+      let askStatusTimer = null;
+      let askStartedAt = 0;
+      const askStatus = document.getElementById("askStatus");
+      const setAskStatus = (state, message) => {
+        askStatus.dataset.state = state;
+        askStatus.textContent = message;
+      };
+      const stopAskTimer = () => {
+        if (askStatusTimer) window.clearInterval(askStatusTimer);
+        askStatusTimer = null;
+      };
+      const startAskTimer = () => {
+        stopAskTimer();
+        askStartedAt = Date.now();
+        const update = () => {
+          const elapsedSeconds = Math.max(1, Math.round((Date.now() - askStartedAt) / 1000));
+          setAskStatus("running", `Waiting for assistant response... ${elapsedSeconds}s elapsed.`);
+        };
+        update();
+        askStatusTimer = window.setInterval(update, 1000);
+      };
       async function loadAuthState() {
         if (!authToken) {
           authUser = null;
@@ -511,6 +532,12 @@
         const button = document.getElementById("askButton");
         button.disabled = true;
         button.textContent = "Asking";
+        currentAnswerId = null;
+        document.getElementById("confidence").textContent = "Confidence: Pending";
+        renderAnswer("Waiting for assistant response...");
+        writeList(document.getElementById("basedOnTickets"), [], "No related tickets selected yet.");
+        writeList(document.getElementById("warnings"), [], "Request still running.");
+        startAskTimer();
         try {
           const data = await api("/api/assistant/ask", {
             method: "POST",
@@ -525,10 +552,17 @@
           document.getElementById("confidence").textContent = `Confidence: ${data.confidence}`;
           writeList(document.getElementById("basedOnTickets"), data.based_on_tickets, "No related tickets selected.");
           writeList(document.getElementById("warnings"), data.warnings, "None");
+          setAskStatus("done", "Assistant response complete.");
           await loadAudit();
         } catch (error) {
           renderAnswer(`Warnings\n- ${error.message}`);
+          document.getElementById("confidence").textContent = "Confidence: None";
+          writeList(document.getElementById("basedOnTickets"), [], "No related tickets selected.");
+          writeList(document.getElementById("warnings"), [error.message], "None");
+          const timedOut = /timed out|still working/i.test(error.message);
+          setAskStatus(timedOut ? "timeout" : "error", timedOut ? "Assistant request timed out or is still working server-side. Retry, use Deep Dive, or narrow the question." : `Assistant request failed: ${error.message}`);
         } finally {
+          stopAskTimer();
           button.disabled = false;
           button.textContent = "Ask";
         }
