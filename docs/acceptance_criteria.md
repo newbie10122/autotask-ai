@@ -57,6 +57,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused no-Postgres API/RAG test command passed with `52 passed`; full `./scripts/validate-ci.sh` passed with 10 ordered migrations and `71 passed`. This is foundation evidence only; UI enforcement, verifier scope checks, future cache/export contracts, and Quality Streak evidence remain required.
 - Current branch evidence on `agent/m1-verifier-scope-foundation`: answer verifier rejects sources outside the effective authorized company scope and assistant calls the verifier with effective scope.
 - Current branch validation: focused no-Postgres guardrail/RAG test command passed with `43 passed`; full `./scripts/validate-ci.sh` passed with 10 ordered migrations and `72 passed`. This is foundation evidence only; unsupported-claim verifier breadth, UI enforcement, future cache/export contracts, and Quality Streak evidence remain required.
+- Current branch evidence on `agent/m1-ui-auth-rbac-foundation`: static web login/logout token handling, Bearer headers, role display, role-aware admin/technician control disabling, and clearer 401/403 UI messages exist.
+- Current branch validation: full `./scripts/validate-ci.sh` passed with 10 ordered migrations, full pytest `72 passed`, and static web JavaScript syntax. This is foundation evidence only; browser/accessibility checks, production auth enablement, cache/export contracts, and Quality Streak evidence remain required.
 
 ## Milestone 2
 

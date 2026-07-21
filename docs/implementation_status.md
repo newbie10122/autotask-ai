@@ -28,12 +28,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 company-scope branch `agent/m1-company-scope-foundation` adds user-company scope tables, fail-closed assistant/analytics route scope checks, and scoped retrieval/recurring-analytics filters.
 - Milestone 1 scope-snapshot branch `agent/m1-scope-snapshots-foundation` adds actor/effective-scope snapshots for assistant queries, sources, feedback, and pending memory candidates.
 - Milestone 1 verifier-scope branch `agent/m1-verifier-scope-foundation` adds deterministic out-of-scope source rejection in answer verification.
+- Milestone 1 UI-auth branch `agent/m1-ui-auth-rbac-foundation` adds static-web token login/logout support, Bearer request headers, app-auth status, role-aware disabled controls, and clearer 401/403 messages.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation but is not yet enforced end to end in production defaults or UI.
 - Audit logging is database-backed for foundation events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, and answer verification have first scope plumbing, but scope is not yet wired through every route, UI flow, cache, and export contract.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, and static web controls have first scope/RBAC plumbing, but scope is not yet wired through cache/export contracts or fully certified with browser/accessibility checks.
 - Prompt-injection scanning and deterministic answer verification have initial tests, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -57,8 +58,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Publish and verify the verifier-scope foundation PR.
-2. Wire authenticated actor/company scope through remaining UI and future cache/export contracts.
+1. Publish and verify the UI auth/RBAC foundation PR.
+2. Wire authenticated actor/company scope through future cache/export contracts and broaden verifier unsupported-claim checks.
 3. Expand route and UI RBAC for Admin, Technician, and ReadOnly across all API actions.
 4. Expand deterministic verifier coverage for unsupported claims, source subset, section labeling, injection, secrets, and scope violations.
 5. Prepare the existing governed Second Brain projection update after this durable-audit branch PR is opened.
@@ -124,7 +125,7 @@ None currently identified for documentation and non-production implementation wo
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
 - **Rollback:** Revert this branch commit; migration is additive and default app-route auth remains off.
 
-## Latest receipt — Milestone 1 verifier scope foundation
+## Previous receipt — Milestone 1 verifier scope foundation
 
 - **Slice:** Add deterministic verifier rejection for sources outside the effective authorized company scope on branch `agent/m1-verifier-scope-foundation` from canonical `main` `76292b640f4843659b504d19168e0352909cb73c`.
 - **State:** `partial`; answer verification now checks source scope, but Milestone 1 still requires broader unsupported-claim verifier work, UI enforcement, cache/export contracts, and Quality Streak evidence.
@@ -134,6 +135,16 @@ None currently identified for documentation and non-production implementation wo
 - **Full CI validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `72 passed`, and static web JavaScript syntax validation.
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
 - **Rollback:** Revert this branch commit; no migration is included in this slice.
+
+## Latest receipt — Milestone 1 UI auth/RBAC foundation
+
+- **Slice:** Add static-web app-auth token support and role-aware controls on branch `agent/m1-ui-auth-rbac-foundation` from canonical `main` `b846be3a4e76e3621ab05eec22432b2a421cb084`.
+- **State:** `partial`; UI now participates in auth/RBAC state, but Milestone 1 still requires browser/accessibility verification, complete production auth enablement, broader verifier checks, cache/export contracts, and Quality Streak evidence.
+- **Files changed:** `apps/web/index.html`, `apps/web/styles.css`, and project status docs.
+- **Implemented:** local login/logout panel, stored Bearer token header propagation, `/auth/me` role display, role-aware disabled controls for admin/technician actions, dynamic admin controls generated from jobs/runs, and clearer 401/403 UI messages.
+- **Validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `72 passed`, and static web JavaScript syntax validation.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; default Basic Auth deployment remains compatible because app-route auth remains off unless explicitly enabled.
 
 ## Previous receipt — Milestone 0 CI reconciliation
 
@@ -156,4 +167,4 @@ None currently identified for documentation and non-production implementation wo
 
 ## Exact next action
 
-Open a draft PR for branch `agent/m1-verifier-scope-foundation`, let GitHub CI run, update the existing governed Second Brain projection with verifier-scope branch/PR evidence, then continue Milestone 1 UI enforcement and remaining verifier breadth.
+Open a draft PR for branch `agent/m1-ui-auth-rbac-foundation`, let GitHub CI run, update the existing governed Second Brain projection with UI-auth branch/PR evidence, then continue Milestone 1 remaining verifier breadth and cache/export scope contracts.

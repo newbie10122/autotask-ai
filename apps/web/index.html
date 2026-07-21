@@ -29,7 +29,14 @@
           <div class="status-pills">
             <span id="apiStatus">Checking</span>
             <span>Read-only</span>
+            <span id="authStatus">Outer auth</span>
           </div>
+        </div>
+        <div class="auth-panel">
+          <input id="loginUsername" autocomplete="username" placeholder="Username" />
+          <input id="loginPassword" autocomplete="current-password" placeholder="Password" type="password" />
+          <button id="loginButton" type="button">Sign In</button>
+          <button id="logoutButton" type="button">Sign Out</button>
         </div>
       </section>
 
@@ -59,10 +66,10 @@
           <ul id="warnings"><li>None</li></ul>
         </div>
         <div class="feedback">
-          <button data-rating="Good" type="button">Good</button>
-          <button data-rating="Bad" type="button">Bad</button>
-          <button data-rating="Needs Edit" type="button">Needs Edit</button>
-          <button data-rating="Save as Known Fix" type="button">Save as Known Fix</button>
+          <button data-rating="Good" data-requires-role="Technician" type="button">Good</button>
+          <button data-rating="Bad" data-requires-role="Technician" type="button">Bad</button>
+          <button data-rating="Needs Edit" data-requires-role="Technician" type="button">Needs Edit</button>
+          <button data-rating="Save as Known Fix" data-requires-role="Technician" type="button">Save as Known Fix</button>
         </div>
       </section>
 
@@ -77,8 +84,8 @@
           <div><span>Reference Labels</span><strong id="referenceLabels">Loading</strong></div>
         </div>
         <div class="actions">
-          <button data-action="/api/sync/reference-data/start" type="button">Sync Reference Labels</button>
-          <button data-action="/api/analytics/classify-tickets" type="button">Classify Tickets</button>
+          <button data-action="/api/sync/reference-data/start" data-requires-role="Admin" type="button">Sync Reference Labels</button>
+          <button data-action="/api/analytics/classify-tickets" data-requires-role="Admin" type="button">Classify Tickets</button>
         </div>
         <div id="analyticsWarnings" class="result">No analytics warnings loaded.</div>
         <div id="recurringIssues" class="issue-list">Loading recurring issue groups.</div>
@@ -89,8 +96,8 @@
           <h2>Operations</h2>
           <div class="button-row">
             <button id="refreshOperations" type="button">Refresh</button>
-            <button id="pauseOperations" type="button">Pause</button>
-            <button id="resumeOperations" type="button">Resume</button>
+            <button id="pauseOperations" data-requires-role="Admin" type="button">Pause</button>
+            <button id="resumeOperations" data-requires-role="Admin" type="button">Resume</button>
           </div>
         </div>
         <div class="connection-grid">
@@ -106,12 +113,12 @@
         </div>
         <h3>Run Now</h3>
         <div class="actions">
-          <button data-job="recent_sync" type="button">Run Recent Sync Now</button>
-          <button data-job="sync_reference_data" type="button">Run Reference Sync Now</button>
-          <button data-job="classify_tickets" type="button">Classify Tickets Now</button>
-          <button data-job="build_documents" type="button">Build Documents Batch Now</button>
-          <button data-job="reclassify_chunks" type="button">Reclassify Chunks Now</button>
-          <button data-job="run_embeddings" type="button">Run Embedding Batch Now</button>
+          <button data-job="recent_sync" data-requires-role="Admin" type="button">Run Recent Sync Now</button>
+          <button data-job="sync_reference_data" data-requires-role="Admin" type="button">Run Reference Sync Now</button>
+          <button data-job="classify_tickets" data-requires-role="Admin" type="button">Classify Tickets Now</button>
+          <button data-job="build_documents" data-requires-role="Admin" type="button">Build Documents Batch Now</button>
+          <button data-job="reclassify_chunks" data-requires-role="Admin" type="button">Reclassify Chunks Now</button>
+          <button data-job="run_embeddings" data-requires-role="Admin" type="button">Run Embedding Batch Now</button>
         </div>
         <div id="operationsResult" class="result">No operation run yet.</div>
         <h3>Scheduled Jobs</h3>
@@ -150,14 +157,14 @@
           <div><span>Embedding Backlog</span><strong id="embeddingBacklog">Loading</strong></div>
         </div>
         <div class="actions">
-          <button data-action="/api/autotask/threshold" data-method="GET" type="button">Test Autotask Connection</button>
-          <button data-action="/api/autotask/test/companies" type="button">Test Companies</button>
-          <button data-action="/api/autotask/test/tickets" type="button">Test Tickets</button>
-          <button data-action="/api/sync/companies/start" type="button">Sync Companies</button>
-          <button data-action="/api/sync/tickets/start" type="button">Sync Tickets</button>
-          <button data-action="/api/sync/ticket-notes/start" type="button">Sync Ticket Notes</button>
-          <button data-action="/api/documents/build" type="button">Build Documents</button>
-          <button data-action="/api/embeddings/run" type="button">Run Embeddings</button>
+          <button data-action="/api/autotask/threshold" data-method="GET" data-requires-role="Admin" type="button">Test Autotask Connection</button>
+          <button data-action="/api/autotask/test/companies" data-requires-role="Admin" type="button">Test Companies</button>
+          <button data-action="/api/autotask/test/tickets" data-requires-role="Admin" type="button">Test Tickets</button>
+          <button data-action="/api/sync/companies/start" data-requires-role="Admin" type="button">Sync Companies</button>
+          <button data-action="/api/sync/tickets/start" data-requires-role="Admin" type="button">Sync Tickets</button>
+          <button data-action="/api/sync/ticket-notes/start" data-requires-role="Admin" type="button">Sync Ticket Notes</button>
+          <button data-action="/api/documents/build" data-requires-role="Admin" type="button">Build Documents</button>
+          <button data-action="/api/embeddings/run" data-requires-role="Admin" type="button">Run Embeddings</button>
         </div>
         <div id="operationResult" class="result">No operation run yet.</div>
         <table>
@@ -181,9 +188,29 @@
       <section id="audit"><h2>Audit Log</h2><div id="auditLog">Loading</div></section>
     </main>
     <script>
+      let authToken = window.localStorage.getItem("autotaskAiToken") || "";
+      let authUser = null;
+      const roleRank = { ReadOnly: 1, Technician: 2, Admin: 3 };
+      const hasRole = (requiredRole) => {
+        if (!authUser) return true;
+        const actual = Math.max(...(authUser.roles || []).map((role) => roleRank[role] || 0), 0);
+        return actual >= (roleRank[requiredRole] || 0);
+      };
+      const updateRoleControls = () => {
+        document.getElementById("authStatus").textContent = authUser
+          ? `${authUser.username}: ${(authUser.roles || []).join(", ")}`
+          : "Outer auth";
+        document.querySelectorAll("[data-requires-role]").forEach((button) => {
+          const allowed = hasRole(button.dataset.requiresRole);
+          button.disabled = !allowed;
+          button.title = allowed ? "" : `${button.dataset.requiresRole} role required`;
+        });
+      };
       const api = async (path, options = {}) => {
+        const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+        if (authToken) headers.Authorization = `Bearer ${authToken}`;
         const response = await fetch(path, {
-          headers: { "Content-Type": "application/json" },
+          headers,
           credentials: "same-origin",
           ...options,
         });
@@ -194,7 +221,10 @@
             throw new Error("The local CPU model is still working or the proxy timed out. Try Deep Dive, ask a narrower question, or wait and retry.");
           }
           if (response.status === 401) {
-            throw new Error("Your Basic Auth session is not available for this request. Refresh the page and sign in again.");
+            throw new Error("Your session is not available for this request. Sign in or refresh the page.");
+          }
+          if (response.status === 403) {
+            throw new Error("Your role or company scope does not allow this action.");
           }
           const detail = typeof data === "object" && data ? data.detail : null;
           throw new Error(detail || `Request failed (${response.status}).`);
@@ -206,6 +236,22 @@
       };
 
       let currentAnswerId = null;
+      async function loadAuthState() {
+        if (!authToken) {
+          authUser = null;
+          updateRoleControls();
+          return;
+        }
+        try {
+          const data = await api("/auth/me");
+          authUser = data.user;
+        } catch (_error) {
+          authToken = "";
+          authUser = null;
+          window.localStorage.removeItem("autotaskAiToken");
+        }
+        updateRoleControls();
+      }
       const writeList = (el, items, empty) => {
         el.innerHTML = "";
         (items && items.length ? items : [empty]).forEach((item) => {
@@ -404,7 +450,9 @@
           const controls = document.createElement("td");
           const toggle = document.createElement("button");
           toggle.type = "button";
+          toggle.dataset.requiresRole = "Admin";
           toggle.textContent = job.enabled ? "Disable" : "Enable";
+          toggle.disabled = !hasRole("Admin");
           toggle.addEventListener("click", async () => {
             await api(`/api/operations/jobs/${job.job_name}/${job.enabled ? "disable" : "enable"}`, { method: "POST" });
             await loadOperations();
@@ -426,7 +474,9 @@
           const stopCell = document.createElement("td");
           const stop = document.createElement("button");
           stop.type = "button";
+          stop.dataset.requiresRole = "Admin";
           stop.textContent = "Stop";
+          stop.disabled = !hasRole("Admin");
           stop.addEventListener("click", async () => {
             await api(`/api/operations/jobs/${run.id}/request-stop`, { method: "POST" });
             await loadOperations();
@@ -474,6 +524,33 @@
           button.disabled = false;
           button.textContent = "Ask";
         }
+      });
+
+      document.getElementById("loginButton").addEventListener("click", async () => {
+        try {
+          const data = await api("/auth/login", {
+            method: "POST",
+            body: JSON.stringify({
+              username: document.getElementById("loginUsername").value,
+              password: document.getElementById("loginPassword").value,
+            }),
+          });
+          authToken = data.token;
+          authUser = data.user;
+          window.localStorage.setItem("autotaskAiToken", authToken);
+          document.getElementById("loginPassword").value = "";
+          updateRoleControls();
+        } catch (error) {
+          document.getElementById("authStatus").textContent = error.message;
+        }
+      });
+
+      document.getElementById("logoutButton").addEventListener("click", async () => {
+        authToken = "";
+        authUser = null;
+        window.localStorage.removeItem("autotaskAiToken");
+        await api("/auth/logout", { method: "POST" }).catch(() => null);
+        updateRoleControls();
       });
 
       document.querySelectorAll(".feedback button").forEach((button) => {
@@ -529,7 +606,7 @@
       document.getElementById("refreshAnalytics").addEventListener("click", loadAnalytics);
       document.getElementById("refreshOperations").addEventListener("click", loadOperations);
       document.getElementById("refreshMemory").addEventListener("click", loadMemory);
-      Promise.all([loadSettings(), loadSync(), loadAnalytics(), loadOperations(), loadMemory(), loadAudit()]).catch((error) => {
+      Promise.all([loadAuthState(), loadSettings(), loadSync(), loadAnalytics(), loadOperations(), loadMemory(), loadAudit()]).catch((error) => {
         document.getElementById("apiStatus").textContent = error.message;
       });
     </script>

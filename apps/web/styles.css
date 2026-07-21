@@ -105,6 +105,13 @@ h3 { font-size: 15px; margin-top: 18px; }
   font-weight: 800;
   padding: 7px 12px;
 }
+.auth-panel {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) minmax(140px, 220px) auto auto;
+  gap: 10px;
+  align-items: center;
+}
 
 form, .metrics { display: grid; gap: 14px; }
 label { display: grid; gap: 6px; color: var(--muted); font-weight: 600; }
@@ -131,6 +138,11 @@ button {
   cursor: pointer;
 }
 button:hover { background: var(--accent-dark); }
+button:disabled {
+  cursor: not-allowed;
+  background: #94a3b8;
+  color: #f8fafc;
+}
 
 .metrics, .connection-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -245,6 +257,7 @@ th, td {
   }
   .metrics, .connection-grid { grid-template-columns: 1fr; }
   .hero { align-items: flex-start; flex-direction: column; }
+  .auth-panel { grid-template-columns: 1fr; }
   .status-pills { justify-content: flex-start; }
   .section-row { align-items: stretch; flex-direction: column; }
   .section-row select { max-width: none; }
