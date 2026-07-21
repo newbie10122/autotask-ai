@@ -26,7 +26,7 @@
 **State:** Partially mitigated
 **Impact:** Retrieved untrusted content could influence answers or unsupported claims could appear with insufficient evidence.
 **Existing controls:** Branch `agent/m1-auth-rbac-foundation` adds deterministic prompt-injection detection, unsafe source filtering before model prompt assembly, and citation-subset verification for generated answers.
-**Next mitigation:** Add unsupported-claim checks, source-sufficiency checks for deterministic paths, independent verifier receipts, and three-run adversarial evidence.
+**Next mitigation:** Broaden source-sufficiency checks for deterministic paths, independent verifier receipts, and three-run adversarial evidence.
 
 ### R4 — Audit evidence is not fully durable and identity-linked
 
