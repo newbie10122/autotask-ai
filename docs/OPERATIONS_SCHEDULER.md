@@ -17,6 +17,16 @@ Jobs:
 - `recent_sync`
 - `raw_backfill_tickets`
 - `raw_backfill_ticket_notes`
+- `ticket_note_gaps`
+- `raw_backfill_time_entries`
+- `ticket_time_entry_gaps`
+- `open_ticket_time_entry_gaps`
+- `raw_backfill_ticket_history`
+- `targeted_waiting_ticket_history`
+- `status_sample_ticket_history`
+- `ticket_history_gaps`
+- `open_ticket_history_gaps`
+- `related_data_work_plan`
 - `raw_backfill_companies`
 - `sync_reference_data`
 - `classify_tickets`
@@ -24,13 +34,17 @@ Jobs:
 - `reclassify_chunks`
 - `run_embeddings`
 - `nightly_pipeline`
+- `customer_success_score_snapshot`
 
 ## Default Safety
 
 Defaults are conservative:
 
 - Recent sync is enabled every 15 minutes.
-- Raw historical backfill is disabled until an admin enables it.
+- Recent sync pulls companies, tickets, ticket notes, and TimeEntries in bounded batches.
+- Open-ticket TimeEntries and TicketHistory gap jobs are enabled every 15 minutes.
+- Estate-wide TimeEntries and TicketHistory gap jobs are enabled hourly.
+- Raw historical backfill and targeted/manual sampling jobs are disabled until an admin enables them.
 - Document build is disabled until an admin enables it.
 - Ticket and chunk classification are enabled in bounded batches.
 - Embeddings are disabled until an admin enables quiet-hours batches.
@@ -45,6 +59,7 @@ The page shows:
 
 - API, DB, Ollama, Autotask threshold, and disk status.
 - Local counts for companies, tickets, notes, documents, chunks, noise, useful chunks, embeddings, and missing eligible embeddings.
+- Related-data coverage for open-ticket and estate TimeEntries/TicketHistory.
 - Running jobs with stop-request controls.
 - Scheduled jobs with enable/disable controls.
 - Run-now buttons for bounded maintenance jobs.
@@ -52,11 +67,19 @@ The page shows:
 
 ## Recent Sync
 
-`recent_sync` pulls small recent batches and does not automatically build documents or embeddings. Use this for normal low-impact freshness.
+`recent_sync` pulls small recent batches of companies, tickets, ticket notes, and TimeEntries. It does not automatically build documents or embeddings. Use this for normal low-impact freshness.
+
+## Related Data Gaps
+
+The scheduler continuously fills local TimeEntries and TicketHistory coverage without writing to Autotask:
+
+- `open_ticket_time_entry_gaps` and `open_ticket_history_gaps` prioritize open tickets every 15 minutes.
+- `ticket_time_entry_gaps` and `ticket_history_gaps` sweep the broader local ticket estate hourly.
+- Raw backfill and targeted status-sampling jobs remain manual/bounded controls for catch-up work.
 
 ## Raw Backfill
 
-Raw backfill is disabled by default. When enabled, ticket, note, and company jobs run in configured batches. They do not trigger full embeddings.
+Raw backfill is disabled by default. When enabled, ticket, note, time-entry, ticket-history, and company jobs run in configured batches. They do not trigger full embeddings.
 
 ## Nightly Pipeline
 

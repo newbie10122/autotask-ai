@@ -1,10 +1,15 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
+from threading import Lock
 
 import psycopg
 from psycopg.rows import dict_row
 
 from .config import settings
+
+
+_schema_init_lock = Lock()
+_schema_initialized = False
 
 
 @contextmanager
@@ -21,6 +26,17 @@ def db_connection() -> Iterator[psycopg.Connection]:
 
 
 def init_schema() -> None:
+    global _schema_initialized
+    if _schema_initialized:
+        return
+    with _schema_init_lock:
+        if _schema_initialized:
+            return
+        _init_schema_once()
+        _schema_initialized = True
+
+
+def _init_schema_once() -> None:
     statements = [
         "CREATE EXTENSION IF NOT EXISTS vector",
         "CREATE EXTENSION IF NOT EXISTS pgcrypto",
@@ -105,6 +121,17 @@ def init_schema() -> None:
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS assigned_resource_id BIGINT",
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS assigned_resource_name TEXT",
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS completed_at_autotask TIMESTAMPTZ",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS contact_autotask_id BIGINT",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS due_at_autotask TIMESTAMPTZ",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS first_response_at_autotask TIMESTAMPTZ",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS first_response_due_at_autotask TIMESTAMPTZ",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS resolution_plan_at_autotask TIMESTAMPTZ",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS resolution_plan_due_at_autotask TIMESTAMPTZ",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS resolved_due_at_autotask TIMESTAMPTZ",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS sla_id BIGINT",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS sla_met BOOLEAN",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS sla_paused_next_event_hours NUMERIC(10,2)",
+        "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS completed_by_resource_id BIGINT",
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS ticket_class TEXT",
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS is_support_issue BOOLEAN NOT NULL DEFAULT TRUE",
         "ALTER TABLE autotask_tickets ADD COLUMN IF NOT EXISTS is_system_generated BOOLEAN NOT NULL DEFAULT FALSE",
@@ -140,6 +167,94 @@ def init_schema() -> None:
         "CREATE INDEX IF NOT EXISTS autotask_tickets_analytics_exclude_idx ON autotask_tickets(analytics_exclude, updated_at_autotask DESC NULLS LAST)",
         "CREATE INDEX IF NOT EXISTS autotask_tickets_issue_class_idx ON autotask_tickets(ticket_class, category, issue_type, subissue_type)",
         "CREATE INDEX IF NOT EXISTS autotask_tickets_classified_at_idx ON autotask_tickets(classified_at DESC NULLS LAST)",
+        "CREATE INDEX IF NOT EXISTS autotask_tickets_sla_risk_idx ON autotask_tickets(sla_met, resolved_due_at_autotask, due_at_autotask)",
+        "CREATE INDEX IF NOT EXISTS autotask_tickets_contact_autotask_id_idx ON autotask_tickets(contact_autotask_id)",
+        """
+        CREATE INDEX IF NOT EXISTS autotask_tickets_routing_exact_completed_idx
+        ON autotask_tickets(category, issue_type, subissue_type, assigned_resource_id)
+        WHERE assigned_resource_id IS NOT NULL
+          AND completed_at_autotask IS NOT NULL
+          AND NOT analytics_exclude
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS autotask_tickets_routing_open_workload_idx
+        ON autotask_tickets(assigned_resource_id)
+        WHERE assigned_resource_id IS NOT NULL
+          AND completed_at_autotask IS NULL
+          AND NOT analytics_exclude
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS autotask_tickets_routing_customer_completed_idx
+        ON autotask_tickets(company_id, assigned_resource_id)
+        WHERE assigned_resource_id IS NOT NULL
+          AND company_id IS NOT NULL
+          AND completed_at_autotask IS NOT NULL
+          AND NOT analytics_exclude
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS autotask_tickets_routing_category_completed_idx
+        ON autotask_tickets(category, assigned_resource_id)
+        WHERE assigned_resource_id IS NOT NULL
+          AND completed_at_autotask IS NOT NULL
+          AND NOT analytics_exclude
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS autotask_tickets_routing_issue_completed_idx
+        ON autotask_tickets(issue_type, assigned_resource_id)
+        WHERE assigned_resource_id IS NOT NULL
+          AND completed_at_autotask IS NOT NULL
+          AND NOT analytics_exclude
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS autotask_time_entries (
+            id BIGSERIAL PRIMARY KEY,
+            autotask_id BIGINT NOT NULL UNIQUE,
+            ticket_id BIGINT REFERENCES autotask_tickets(id),
+            autotask_ticket_id BIGINT,
+            resource_id BIGINT,
+            resource_name TEXT,
+            summary TEXT,
+            hours NUMERIC(8,2),
+            created_at_autotask TIMESTAMPTZ,
+            updated_at_autotask TIMESTAMPTZ,
+            raw JSONB NOT NULL DEFAULT '{}'
+        )
+        """,
+        "ALTER TABLE autotask_time_entries ADD COLUMN IF NOT EXISTS autotask_ticket_id BIGINT",
+        "ALTER TABLE autotask_time_entries ADD COLUMN IF NOT EXISTS resource_id BIGINT",
+        "ALTER TABLE autotask_time_entries ADD COLUMN IF NOT EXISTS updated_at_autotask TIMESTAMPTZ",
+        "CREATE INDEX IF NOT EXISTS autotask_time_entries_ticket_id_idx ON autotask_time_entries(ticket_id, created_at_autotask DESC NULLS LAST)",
+        "CREATE INDEX IF NOT EXISTS autotask_time_entries_autotask_ticket_id_idx ON autotask_time_entries(autotask_ticket_id, created_at_autotask DESC NULLS LAST)",
+        "CREATE INDEX IF NOT EXISTS autotask_time_entries_resource_id_idx ON autotask_time_entries(resource_id)",
+        """
+        CREATE TABLE IF NOT EXISTS autotask_ticket_history (
+            id BIGSERIAL PRIMARY KEY,
+            autotask_id BIGINT NOT NULL UNIQUE,
+            ticket_id BIGINT REFERENCES autotask_tickets(id),
+            autotask_ticket_id BIGINT NOT NULL,
+            action TEXT,
+            detail TEXT,
+            resource_id BIGINT,
+            happened_at TIMESTAMPTZ,
+            raw JSONB NOT NULL DEFAULT '{}',
+            synced_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS autotask_ticket_history_ticket_idx ON autotask_ticket_history(ticket_id, happened_at DESC NULLS LAST)",
+        "CREATE INDEX IF NOT EXISTS autotask_ticket_history_autotask_ticket_idx ON autotask_ticket_history(autotask_ticket_id, happened_at DESC NULLS LAST)",
+        "CREATE INDEX IF NOT EXISTS autotask_ticket_history_action_idx ON autotask_ticket_history(action)",
+        """
+        CREATE TABLE IF NOT EXISTS ticket_gap_sync_checks (
+            ticket_id BIGINT REFERENCES autotask_tickets(id) ON DELETE CASCADE,
+            sync_type TEXT NOT NULL,
+            last_checked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            last_run_id BIGINT,
+            last_result_count INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            PRIMARY KEY (ticket_id, sync_type)
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS ticket_gap_sync_checks_type_checked_idx ON ticket_gap_sync_checks(sync_type, last_checked_at)",
         """
         CREATE TABLE IF NOT EXISTS autotask_reference_values (
             field_name TEXT NOT NULL,
@@ -206,6 +321,20 @@ def init_schema() -> None:
             owner TEXT NOT NULL
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS scheduler_heartbeats (
+            worker_name TEXT PRIMARY KEY,
+            heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            interval_seconds INTEGER NOT NULL DEFAULT 60,
+            status TEXT NOT NULL DEFAULT 'running',
+            last_error TEXT,
+            last_tick_started_at TIMESTAMPTZ,
+            last_tick_finished_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS scheduler_heartbeats_status_idx ON scheduler_heartbeats(status, heartbeat_at DESC)",
         """
         CREATE TABLE IF NOT EXISTS documents (
             id BIGSERIAL PRIMARY KEY,
@@ -331,6 +460,67 @@ def init_schema() -> None:
         "ALTER TABLE assistant_feedback ADD COLUMN IF NOT EXISTS actor_username TEXT",
         "ALTER TABLE assistant_feedback ADD COLUMN IF NOT EXISTS effective_scope JSONB NOT NULL DEFAULT '{}'",
         """
+        CREATE TABLE IF NOT EXISTS routing_recommendation_feedback (
+            id BIGSERIAL PRIMARY KEY,
+            ticket_id BIGINT REFERENCES autotask_tickets(id),
+            ticket_autotask_id BIGINT,
+            recommended_resource_id BIGINT,
+            recommended_resource_name TEXT,
+            outcome TEXT NOT NULL CHECK (outcome IN ('accepted', 'rejected', 'needs_review')),
+            notes TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS routing_recommendation_feedback_ticket_idx ON routing_recommendation_feedback(ticket_id, created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS routing_recommendation_feedback_resource_idx ON routing_recommendation_feedback(recommended_resource_id, created_at DESC)",
+        """
+        CREATE TABLE IF NOT EXISTS ticket_health_risk_feedback (
+            id BIGSERIAL PRIMARY KEY,
+            ticket_id BIGINT REFERENCES autotask_tickets(id),
+            ticket_autotask_id BIGINT,
+            ticket_number TEXT,
+            health_score INTEGER,
+            risk_bucket TEXT,
+            outcome TEXT NOT NULL CHECK (outcome IN ('accurate', 'too_high', 'too_low', 'needs_review')),
+            notes TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS ticket_health_risk_feedback_ticket_idx ON ticket_health_risk_feedback(ticket_id, created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS ticket_health_risk_feedback_outcome_idx ON ticket_health_risk_feedback(outcome, created_at DESC)",
+        """
+        CREATE TABLE IF NOT EXISTS customer_success_risk_feedback (
+            id BIGSERIAL PRIMARY KEY,
+            company_id BIGINT REFERENCES autotask_companies(id),
+            company_autotask_id BIGINT,
+            company_name TEXT,
+            risk_bucket TEXT,
+            outcome TEXT NOT NULL CHECK (outcome IN ('confirmed_risk', 'dismissed', 'needs_review')),
+            notes TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS customer_success_risk_feedback_company_idx ON customer_success_risk_feedback(company_id, created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS customer_success_risk_feedback_outcome_idx ON customer_success_risk_feedback(outcome, created_at DESC)",
+        """
+        CREATE TABLE IF NOT EXISTS customer_success_score_snapshots (
+            id BIGSERIAL PRIMARY KEY,
+            company_id BIGINT REFERENCES autotask_companies(id),
+            company_autotask_id BIGINT,
+            company_name TEXT,
+            customer_health_score INTEGER NOT NULL,
+            risk_bucket TEXT NOT NULL,
+            calibrated_review_score INTEGER,
+            open_tickets INTEGER NOT NULL DEFAULT 0,
+            overdue_open_tickets INTEGER NOT NULL DEFAULT 0,
+            stale_open_tickets INTEGER NOT NULL DEFAULT 0,
+            repeat_issue_groups INTEGER NOT NULL DEFAULT 0,
+            snapshot_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS customer_success_score_snapshots_company_idx ON customer_success_score_snapshots(company_id, snapshot_at DESC)",
+        "CREATE INDEX IF NOT EXISTS customer_success_score_snapshots_bucket_idx ON customer_success_score_snapshots(risk_bucket, snapshot_at DESC)",
+        """
         CREATE TABLE IF NOT EXISTS curated_memory (
             id BIGSERIAL PRIMARY KEY,
             title TEXT NOT NULL,
@@ -412,6 +602,7 @@ def init_schema() -> None:
         "CREATE INDEX IF NOT EXISTS app_user_company_scopes_company_idx ON app_user_company_scopes(company_id)",
     ]
     with db_connection() as conn:
+        conn.execute("SELECT pg_advisory_xact_lock(hashtext('autotask_ai_init_schema'))")
         for statement in statements:
             conn.execute(statement)
 

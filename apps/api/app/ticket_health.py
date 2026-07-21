@@ -1,0 +1,1916 @@
+from __future__ import annotations
+
+from collections import Counter
+import time
+from datetime import UTC, datetime
+import re
+from typing import Any
+
+from fastapi.encoders import jsonable_encoder
+
+from .cache import cache_delete_namespace, cache_get_json, cache_key, cache_set_json
+from .config import settings
+from .db import db_connection, init_schema
+
+
+REQUIRED_FIELDS: tuple[dict[str, Any], ...] = (
+    {
+        "key": "ticket_creation_date",
+        "label": "Ticket creation date",
+        "source": "autotask_tickets.created_at_autotask / raw.createDate",
+        "sql": "count(*) FILTER (WHERE created_at_autotask IS NOT NULL OR NULLIF(raw->>'createDate', '') IS NOT NULL)",
+        "needed_for": "Ticket age and open-duration calculations.",
+    },
+    {
+        "key": "ticket_open_date",
+        "label": "Ticket open date",
+        "source": "Autotask createDate treated as open date until status history is synced",
+        "sql": "count(*) FILTER (WHERE created_at_autotask IS NOT NULL OR NULLIF(raw->>'createDate', '') IS NOT NULL)",
+        "needed_for": "Open ticket age baseline.",
+    },
+    {
+        "key": "ticket_status",
+        "label": "Ticket status",
+        "source": "autotask_tickets.status / raw.status",
+        "sql": "count(*) FILTER (WHERE NULLIF(status, '') IS NOT NULL OR NULLIF(raw->>'status', '') IS NOT NULL)",
+        "needed_for": "Open, closed, waiting, and overdue filters.",
+    },
+    {
+        "key": "ticket_status_history",
+        "label": "Ticket status history",
+        "source": "autotask_ticket_history from TicketHistory",
+        "history_sql": "count(*)",
+        "needed_for": "Accurate time spent in waiting/customer/vendor/technician states.",
+        "missing_reason": "No local ticket history records have been synced yet.",
+        "partial_reason": "TicketHistory has been synced for a subset of tickets; continue backfill for full duration analytics.",
+    },
+    {
+        "key": "time_entries",
+        "label": "Time entries",
+        "source": "autotask_time_entries",
+        "table": "autotask_time_entries",
+        "needed_for": "Labor totals and high-labor warnings.",
+    },
+    {
+        "key": "labor_hours",
+        "label": "Labor hours",
+        "source": "autotask_time_entries.hours",
+        "table_sql": "count(*) FILTER (WHERE hours IS NOT NULL AND hours > 0)",
+        "needed_for": "High-labor and effort trend analytics.",
+    },
+    {
+        "key": "sla_information",
+        "label": "SLA information",
+        "source": "SLA raw fields and normalized SLA columns",
+        "sql": "count(*) FILTER (WHERE sla_id IS NOT NULL OR raw ? 'serviceLevelAgreementID' OR raw ? 'serviceLevelAgreementHasBeenMet' OR raw ? 'firstResponseDueDateTime' OR raw ? 'resolvedDueDateTime')",
+        "needed_for": "SLA risk and overdue status.",
+    },
+    {
+        "key": "technician_assignment",
+        "label": "Technician assignment",
+        "source": "assigned_resource_id / assigned_resource_name",
+        "sql": "count(*) FILTER (WHERE assigned_resource_id IS NOT NULL OR NULLIF(assigned_resource_name, '') IS NOT NULL OR NULLIF(raw->>'assignedResourceID', '') IS NOT NULL)",
+        "needed_for": "Technician involvement and routing analytics.",
+    },
+    {
+        "key": "customer_responses",
+        "label": "Customer responses",
+        "source": "ticket notes with createdByContactID",
+        "note_sql": "count(*) FILTER (WHERE NULLIF(raw->>'createdByContactID', '') IS NOT NULL AND raw->>'createdByContactID' <> '0')",
+        "needed_for": "Time since last customer action.",
+    },
+    {
+        "key": "technician_responses",
+        "label": "Technician responses",
+        "source": "ticket notes with resource_id / creatorResourceID",
+        "note_sql": "count(*) FILTER (WHERE resource_id IS NOT NULL OR NULLIF(raw->>'creatorResourceID', '') IS NOT NULL)",
+        "needed_for": "Time since last technician action.",
+    },
+    {
+        "key": "waiting_states",
+        "label": "Waiting states",
+        "source": "Current status plus TicketHistory transitions when synced",
+        "sql": "count(*) FILTER (WHERE NULLIF(status, '') IS NOT NULL OR NULLIF(raw->>'status', '') IS NOT NULL)",
+        "needed_for": "Waiting-on-customer/vendor/technician durations.",
+        "partial_reason": "Current status is available, but TicketHistory records are required for precise durations.",
+    },
+    {
+        "key": "priority",
+        "label": "Priority",
+        "source": "priority / raw.priority",
+        "sql": "count(*) FILTER (WHERE NULLIF(priority, '') IS NOT NULL OR NULLIF(raw->>'priority', '') IS NOT NULL)",
+        "needed_for": "Risk and urgency filters.",
+    },
+    {
+        "key": "category",
+        "label": "Category",
+        "source": "category / issue_type / subissue_type",
+        "sql": "count(*) FILTER (WHERE NULLIF(category, '') IS NOT NULL OR NULLIF(issue_type, '') IS NOT NULL OR NULLIF(subissue_type, '') IS NOT NULL)",
+        "needed_for": "Ticket grouping and routing.",
+    },
+    {
+        "key": "queue",
+        "label": "Queue",
+        "source": "queue / raw.queueID",
+        "sql": "count(*) FILTER (WHERE NULLIF(queue, '') IS NOT NULL OR NULLIF(raw->>'queueID', '') IS NOT NULL)",
+        "needed_for": "Operational ownership and queue-based reporting.",
+    },
+    {
+        "key": "company",
+        "label": "Company",
+        "source": "company_id / raw.companyID",
+        "sql": "count(*) FILTER (WHERE company_id IS NOT NULL OR NULLIF(raw->>'companyID', '') IS NOT NULL)",
+        "needed_for": "Customer context and support history.",
+    },
+    {
+        "key": "contact",
+        "label": "Contact",
+        "source": "contact_autotask_id / raw.contactID",
+        "sql": "count(*) FILTER (WHERE contact_autotask_id IS NOT NULL OR NULLIF(raw->>'contactID', '') IS NOT NULL)",
+        "needed_for": "Customer response attribution.",
+    },
+)
+
+CLOSED_STATUS_IDS = {"5", "16", "20"}
+TICKET_HEALTH_FEEDBACK_OUTCOMES = {"accurate", "too_high", "too_low", "needs_review"}
+CALIBRATION_MIN_FEEDBACK = 10
+CALIBRATION_MIN_REVIEWED_ENTITIES = 5
+
+
+def invalidate_ticket_health_summary_cache() -> int:
+    return cache_delete_namespace("ticket-health-summary")
+
+
+def _status(available: int, total: int, *, partial: bool = False, forced_missing: bool = False) -> str:
+    if forced_missing or total == 0 or available == 0:
+        return "missing"
+    if partial or available < total:
+        return "partial"
+    return "available"
+
+
+def _percent(available: int, total: int) -> float:
+    if total <= 0:
+        return 0.0
+    return round((available / total) * 100, 1)
+
+
+def _num(value: Any, default: float = 0.0) -> float:
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _priority_points(priority: Any) -> tuple[int, str | None]:
+    clean = str(priority or "").strip()
+    if clean == "4":
+        return 25, "Critical priority"
+    if clean == "1":
+        return 18, "High priority"
+    if clean == "2":
+        return 8, "Medium priority"
+    return 0, None
+
+
+def _risk_bucket(score: int) -> str:
+    if score >= 75:
+        return "critical"
+    if score >= 50:
+        return "high"
+    if score >= 25:
+        return "watch"
+    return "normal"
+
+
+def _ticket_score(row: dict[str, Any]) -> dict[str, Any]:
+    score = 0
+    factors: list[str] = []
+    warnings: list[str] = []
+
+    age_hours = _num(row.get("age_hours"))
+    age_days = round(age_hours / 24, 1) if age_hours > 0 else 0.0
+    if age_hours >= 24 * 14:
+        score += 25
+        factors.append(f"Open {age_days} days")
+    elif age_hours >= 24 * 7:
+        score += 18
+        factors.append(f"Open {age_days} days")
+    elif age_hours >= 24 * 3:
+        score += 10
+        factors.append(f"Open {age_days} days")
+
+    priority_points, priority_label = _priority_points(row.get("priority"))
+    if priority_points:
+        score += priority_points
+        factors.append(priority_label or "Priority risk")
+
+    if row.get("resolved_overdue"):
+        score += 25
+        factors.append("Resolution due date passed")
+    elif row.get("due_overdue"):
+        score += 15
+        factors.append("Due date passed")
+    elif row.get("first_response_overdue"):
+        score += 12
+        factors.append("First response due date passed")
+
+    labor_hours = _num(row.get("labor_hours"))
+    if labor_hours >= 12:
+        score += 18
+        factors.append(f"{labor_hours:.1f} labor hours")
+    elif labor_hours >= 6:
+        score += 12
+        factors.append(f"{labor_hours:.1f} labor hours")
+    elif labor_hours >= 3:
+        score += 6
+        factors.append(f"{labor_hours:.1f} labor hours")
+
+    if not row.get("assigned_resource_id") and not row.get("assigned_resource_name"):
+        score += 8
+        factors.append("No technician assignment")
+
+    status_label = str(row.get("status_label") or row.get("status") or "").lower()
+    if any(word in status_label for word in ("waiting", "hold", "customer", "vendor")):
+        score += 8
+        factors.append("Waiting status")
+
+    history_events = int(row.get("history_events") or 0)
+    if history_events == 0:
+        warnings.append("TicketHistory not backfilled for this ticket; waiting-duration factors use current status only.")
+
+    if not factors:
+        factors.append("No elevated risk factors")
+
+    score = min(score, 100)
+    return {
+        "health_score": score,
+        "risk_bucket": _risk_bucket(score),
+        "factors": factors,
+        "warnings": warnings,
+        "age_days": age_days,
+        "labor_hours": round(labor_hours, 2),
+        "history_events": history_events,
+    }
+
+
+def _ticket_health_feedback_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = {outcome: 0 for outcome in sorted(TICKET_HEALTH_FEEDBACK_OUTCOMES)}
+    for row in rows:
+        outcome = str(row.get("outcome") or "")
+        if outcome in counts:
+            counts[outcome] += 1
+    total = sum(counts.values())
+    return {
+        "total_feedback": total,
+        "counts": counts,
+        "latest_feedback_at": rows[0].get("created_at") if rows else None,
+        "review_only": True,
+        "message": "Local Ticket Health feedback calibrates the heuristic score for human review only and does not change Autotask.",
+    }
+
+
+def _ticket_health_feedback_calibration(base_score: int, feedback_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = _ticket_health_feedback_summary(feedback_rows)["counts"]
+    adjustment = 0
+    factors: list[str] = []
+    if counts["too_high"]:
+        change = min(counts["too_high"] * 8, 24)
+        adjustment -= change
+        factors.append(f"{counts['too_high']} local review(s) marked score too high")
+    if counts["too_low"]:
+        change = min(counts["too_low"] * 8, 24)
+        adjustment += change
+        factors.append(f"{counts['too_low']} local review(s) marked score too low")
+    if counts["accurate"]:
+        factors.append(f"{counts['accurate']} local review(s) marked score accurate")
+    if counts["needs_review"]:
+        factors.append(f"{counts['needs_review']} local review(s) requested review")
+    adjusted = max(0, min(100, int(base_score or 0) + adjustment))
+    return {
+        "base_score": int(base_score or 0),
+        "calibrated_review_score": adjusted,
+        "score_adjustment": adjustment,
+        "risk_bucket": _risk_bucket(adjusted),
+        "source": "local_ticket_health_feedback",
+        "factors": factors or ["No local Ticket Health calibration feedback for this ticket."],
+        "review_only": True,
+    }
+
+
+def _calibration_readiness(
+    total_feedback: int,
+    reviewed_entities: int,
+    decisive_outcome_counts: dict[str, int],
+    entity_label: str,
+) -> dict[str, Any]:
+    decisive_outcome_groups = sum(1 for count in decisive_outcome_counts.values() if count > 0)
+    blockers = []
+    if total_feedback < CALIBRATION_MIN_FEEDBACK:
+        blockers.append(f"Need at least {CALIBRATION_MIN_FEEDBACK} local feedback rows before score-weight review.")
+    if reviewed_entities < CALIBRATION_MIN_REVIEWED_ENTITIES:
+        blockers.append(
+            f"Need at least {CALIBRATION_MIN_REVIEWED_ENTITIES} reviewed {entity_label} before score-weight review."
+        )
+    if decisive_outcome_groups < 2:
+        blockers.append("Need at least two decisive feedback outcome groups before score-weight review.")
+    return {
+        "status": "ready_for_human_weight_review" if not blockers else "collecting_evidence",
+        "ready_for_weight_review": not blockers,
+        "minimum_feedback": CALIBRATION_MIN_FEEDBACK,
+        "minimum_reviewed_entities": CALIBRATION_MIN_REVIEWED_ENTITIES,
+        "decisive_outcome_groups": decisive_outcome_groups,
+        "blockers": blockers,
+        "interpretation": (
+            "Local feedback volume is sufficient for a human score-weight review; no automatic tuning is applied."
+            if not blockers
+            else "Local feedback remains too sparse for score-weight changes; keep calibration review-only."
+        ),
+    }
+
+
+CHANGE_RE = re.compile(r"^(?P<field>.+?) changed from (?P<from>.*?) to (?P<to>.*)$", re.IGNORECASE)
+
+
+def _clean_history_value(value: Any) -> str | None:
+    clean = str(value or "").strip()
+    if not clean or clean.lower() in {"[blank]", "blank"}:
+        return None
+    return clean
+
+
+def parse_history_transition(action: Any, detail: Any) -> dict[str, Any]:
+    action_text = str(action or "").strip()
+    detail_text = str(detail or "").strip()
+    match = CHANGE_RE.match(detail_text)
+    field = action_text.removesuffix(" Changed").strip() if action_text else None
+    if match:
+        field = match.group("field").strip() or field
+        return {
+            "is_transition": True,
+            "field": field,
+            "from": _clean_history_value(match.group("from")),
+            "to": _clean_history_value(match.group("to")),
+        }
+    if "status" in action_text.lower() and detail_text:
+        return {"is_transition": True, "field": "Status", "from": None, "to": _clean_history_value(detail_text)}
+    return {"is_transition": False, "field": field, "from": None, "to": None}
+
+
+def classify_history_transition_field(field: Any) -> str:
+    clean = str(field or "").strip().lower()
+    if not clean:
+        return "unknown"
+    if "status" in clean:
+        return "status"
+    if "customer" in clean or "client" in clean:
+        return "customer_activity"
+    if "resource" in clean or "assigned" in clean or "co-managing" in clean:
+        return "assignment"
+    if "service level" in clean or "sla" in clean:
+        return "sla"
+    if "resolution" in clean:
+        return "resolution"
+    if "date" in clean or "time" in clean or "activity" in clean or "target" in clean or "due" in clean:
+        return "date_timing"
+    if "checklist" in clean:
+        return "checklist"
+    if any(term in clean for term in ("created", "edited", "deleted", "merged", "absorbed")):
+        return "lifecycle"
+    return "other"
+
+
+def _waiting_bucket(status: Any) -> str | None:
+    clean = str(status or "").strip().lower()
+    if not clean:
+        return None
+    if "vendor" in clean:
+        return "vendor"
+    if "customer" in clean or "client" in clean:
+        return "customer"
+    if "technician" in clean or "tech" in clean or "internal" in clean:
+        return "technician"
+    if "waiting" in clean or "hold" in clean:
+        return "other"
+    return None
+
+
+def status_duration_summary(
+    transitions: list[dict[str, Any]],
+    *,
+    current_status: Any = None,
+    fallback_started_at: datetime | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    status_transitions = [
+        transition
+        for transition in transitions
+        if str(transition.get("field") or "").strip().lower() == "status" and transition.get("happened_at")
+    ]
+    status_transitions.sort(key=lambda transition: transition["happened_at"])
+    waiting_hours = {"customer": 0.0, "vendor": 0.0, "technician": 0.0, "other": 0.0}
+    fallback_status = current_status
+    current_status = None
+    current_status_started_at = None
+    reference_now = now or datetime.now(UTC)
+    for index, transition in enumerate(status_transitions):
+        started_at = transition["happened_at"]
+        ended_at = status_transitions[index + 1]["happened_at"] if index + 1 < len(status_transitions) else reference_now
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=UTC)
+        if ended_at.tzinfo is None:
+            ended_at = ended_at.replace(tzinfo=UTC)
+        hours = max((ended_at - started_at).total_seconds(), 0) / 3600
+        status = transition.get("to")
+        bucket = _waiting_bucket(status)
+        if bucket:
+            waiting_hours[bucket] += hours
+        current_status = status
+        current_status_started_at = started_at
+
+    duration_source = "status_transitions" if status_transitions else "missing"
+    if not status_transitions:
+        current_status = fallback_status
+        bucket = _waiting_bucket(current_status)
+        if bucket and fallback_started_at:
+            started_at = fallback_started_at
+            if started_at.tzinfo is None:
+                started_at = started_at.replace(tzinfo=UTC)
+            hours = max((reference_now - started_at).total_seconds(), 0) / 3600
+            waiting_hours[bucket] += hours
+            current_status_started_at = started_at
+            duration_source = "current_status_lower_bound"
+
+    rounded = {key: round(value, 1) for key, value in waiting_hours.items()}
+    total_waiting = round(sum(rounded.values()), 1)
+    return {
+        "status_transitions": len(status_transitions),
+        "current_status": current_status,
+        "current_status_started_at": current_status_started_at,
+        "duration_source": duration_source,
+        "waiting_hours": rounded,
+        "total_waiting_hours": total_waiting,
+        "warnings": [
+            warning
+            for warning in (
+                "No parsed local status transitions; current waiting duration is a lower-bound estimate from the latest local ticket timestamp."
+                if duration_source == "current_status_lower_bound"
+                else "No parsed local status transitions; waiting-duration analytics remain partial."
+                if not status_transitions
+                else "",
+            )
+            if warning
+        ],
+    }
+
+
+def ticket_history_transition_diagnostics(limit: int = 5000) -> dict[str, Any]:
+    started = time.monotonic()
+    row_limit = min(max(limit, 1), 20000)
+    init_schema()
+    with db_connection() as conn:
+        counts = conn.execute(
+            """
+            SELECT
+              count(*) AS ticket_history,
+              count(*) FILTER (
+                WHERE lower(COALESCE(action, '')) LIKE '%status%'
+                   OR lower(COALESCE(detail, '')) LIKE '%status%'
+              ) AS status_candidate_rows,
+              count(*) FILTER (
+                WHERE lower(COALESCE(detail, '')) LIKE '%waiting%'
+                   OR lower(COALESCE(detail, '')) LIKE '%hold%'
+                   OR lower(COALESCE(detail, '')) LIKE '%vendor%'
+                   OR lower(COALESCE(detail, '')) LIKE '%technician%'
+              ) AS waiting_keyword_rows,
+              count(*) FILTER (
+                WHERE lower(COALESCE(action, '')) LIKE '%customer%'
+                   OR lower(COALESCE(detail, '')) LIKE '%customer%'
+              ) AS customer_activity_rows
+            FROM autotask_ticket_history
+            """
+        ).fetchone()
+        action_rows = list(
+            conn.execute(
+                """
+                SELECT COALESCE(NULLIF(action, ''), '[Blank]') AS action, count(*) AS count
+                FROM autotask_ticket_history
+                GROUP BY COALESCE(NULLIF(action, ''), '[Blank]')
+                ORDER BY count(*) DESC, action
+                LIMIT 20
+                """
+            ).fetchall()
+        )
+        rows = list(
+            conn.execute(
+                """
+                SELECT id, ticket_id, action, detail, happened_at
+                FROM autotask_ticket_history
+                ORDER BY happened_at DESC NULLS LAST, id DESC
+                LIMIT %s
+                """,
+                (row_limit,),
+            ).fetchall()
+        )
+        source_row = conn.execute(
+            """
+            WITH observed_keys AS (
+                SELECT DISTINCT key
+                FROM autotask_ticket_history
+                CROSS JOIN LATERAL jsonb_object_keys(raw) AS key
+            ),
+            raw_counts AS (
+                SELECT
+                    count(*) FILTER (WHERE raw::text ILIKE '%status%') AS raw_status_string_rows
+                FROM autotask_ticket_history
+            )
+            SELECT
+                COALESCE(array_agg(key ORDER BY key), ARRAY[]::text[]) AS observed_raw_fields,
+                COALESCE(
+                    array_agg(key ORDER BY key) FILTER (WHERE lower(key) LIKE '%status%'),
+                    ARRAY[]::text[]
+                ) AS observed_status_field_names,
+                raw_counts.raw_status_string_rows
+            FROM observed_keys
+            CROSS JOIN raw_counts
+            GROUP BY raw_counts.raw_status_string_rows
+            """
+        ).fetchone()
+
+    field_counts: Counter[str] = Counter()
+    category_counts: Counter[str] = Counter()
+    status_candidate_samples: list[dict[str, Any]] = []
+    parsed_transitions = 0
+    parsed_status_transitions = 0
+    for row in rows:
+        parsed = parse_history_transition(row.get("action"), row.get("detail"))
+        field = str(parsed.get("field") or "").strip() or "[Blank]"
+        if parsed["is_transition"]:
+            parsed_transitions += 1
+            field_counts[field] += 1
+            category_counts[classify_history_transition_field(field)] += 1
+            if field.lower() == "status":
+                parsed_status_transitions += 1
+        row_text = f"{row.get('action') or ''} {row.get('detail') or ''}".lower()
+        if len(status_candidate_samples) < 12 and any(
+            term in row_text for term in ("status", "waiting", "hold", "vendor", "technician")
+        ):
+            status_candidate_samples.append(
+                {
+                    "id": row["id"],
+                    "ticket_id": row["ticket_id"],
+                    "action": row["action"],
+                    "detail": row["detail"],
+                    "happened_at": row["happened_at"],
+                    "parsed": parsed,
+                }
+            )
+
+    total_history = int(counts["ticket_history"] or 0)
+    inspected = len(rows)
+    warnings = [
+        "No parsed local status transitions were found in the inspected TicketHistory rows."
+        if parsed_status_transitions == 0
+        else "",
+        "Current local TicketHistory is dominated by non-status activity/date/SLA changes; duration analytics remain partial until status-change events are backfilled."
+        if int(counts["status_candidate_rows"] or 0) == 0 or parsed_status_transitions == 0
+        else "",
+        "Observed local TicketHistory raw fields do not include a status field; exact status durations require status changes to appear in action/detail history rows or another read-only source."
+        if not list((source_row or {}).get("observed_status_field_names") or [])
+        else "",
+    ]
+    observed_raw_fields = list((source_row or {}).get("observed_raw_fields") or [])
+    observed_status_field_names = list((source_row or {}).get("observed_status_field_names") or [])
+    raw_status_string_rows = int((source_row or {}).get("raw_status_string_rows") or 0)
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "counts": {
+            "ticket_history": total_history,
+            "inspected_history": inspected,
+            "parsed_transitions": parsed_transitions,
+            "parsed_status_transitions": parsed_status_transitions,
+            "status_candidate_rows": int(counts["status_candidate_rows"] or 0),
+            "waiting_keyword_rows": int(counts["waiting_keyword_rows"] or 0),
+            "customer_activity_rows": int(counts["customer_activity_rows"] or 0),
+        },
+        "coverage": {
+            "parsed_transition_percent": _percent(parsed_transitions, inspected),
+            "parsed_status_transition_percent": _percent(parsed_status_transitions, inspected),
+        },
+        "top_actions": [dict(row) for row in action_rows],
+        "parsed_field_counts": [{"field": field, "count": count} for field, count in field_counts.most_common(20)],
+        "parsed_transition_categories": [
+            {"category": category, "count": count} for category, count in category_counts.most_common()
+        ],
+        "status_candidate_samples": status_candidate_samples,
+        "source_capability": {
+            "observed_raw_fields": observed_raw_fields,
+            "observed_status_field_names": observed_status_field_names,
+            "raw_status_string_rows": raw_status_string_rows,
+            "has_observed_status_field": bool(observed_status_field_names),
+            "interpretation": (
+                "Local TicketHistory raw rows include status-like fields or values; parser calibration should inspect the samples."
+                if observed_status_field_names or raw_status_string_rows
+                else "Local TicketHistory raw rows currently expose action/detail/date/resource/ticket identifiers only, with no status-like raw field or value."
+            ),
+        },
+        "warnings": [warning for warning in warnings if warning],
+    }
+
+
+def ticket_history_coverage_report(limit: int = 10) -> dict[str, Any]:
+    row_limit = min(max(limit, 1), 100)
+    init_schema()
+    with db_connection() as conn:
+        summary = conn.execute(
+            """
+            WITH open_tickets AS (
+                SELECT t.id
+                FROM autotask_tickets t
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+            ),
+            history AS (
+                SELECT ticket_id, count(*) AS history_count, max(synced_at) AS last_history_synced_at
+                FROM autotask_ticket_history
+                GROUP BY ticket_id
+            )
+            SELECT
+                count(*) AS open_tickets,
+                count(*) FILTER (WHERE COALESCE(history.history_count, 0) > 0) AS open_tickets_with_history,
+                count(*) FILTER (WHERE COALESCE(history.history_count, 0) = 0) AS open_tickets_without_history,
+                count(*) FILTER (WHERE gap_check.last_checked_at IS NOT NULL) AS open_tickets_checked_for_history,
+                count(*) FILTER (
+                    WHERE COALESCE(history.history_count, 0) = 0
+                      AND gap_check.last_checked_at IS NOT NULL
+                      AND COALESCE(gap_check.last_result_count, 0) = 0
+                ) AS open_tickets_checked_empty_history,
+                count(*) FILTER (
+                    WHERE COALESCE(history.history_count, 0) = 0
+                      AND gap_check.last_checked_at IS NULL
+                ) AS open_tickets_unchecked_history,
+                COALESCE(sum(history.history_count), 0) AS open_ticket_history_rows
+            FROM open_tickets
+            LEFT JOIN history ON history.ticket_id=open_tickets.id
+            LEFT JOIN ticket_gap_sync_checks gap_check
+              ON gap_check.ticket_id=open_tickets.id AND gap_check.sync_type='open_ticket_history_gaps'
+            """,
+            (list(CLOSED_STATUS_IDS),),
+        ).fetchone()
+        by_status = list(
+            conn.execute(
+                """
+                WITH history AS (
+                    SELECT ticket_id, count(*) AS history_count, max(synced_at) AS last_history_synced_at
+                    FROM autotask_ticket_history
+                    GROUP BY ticket_id
+                )
+                SELECT
+                    COALESCE(status_ref.label, t.status, '[Blank]') AS status_label,
+                    count(*) AS open_tickets,
+                    count(*) FILTER (WHERE COALESCE(history.history_count, 0) > 0) AS with_history,
+                    count(*) FILTER (WHERE COALESCE(history.history_count, 0) = 0) AS without_history,
+                    max(history.last_history_synced_at) AS latest_history_synced_at
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values status_ref
+                  ON status_ref.field_name='status' AND status_ref.value=t.status
+                LEFT JOIN history ON history.ticket_id=t.id
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+                GROUP BY COALESCE(status_ref.label, t.status, '[Blank]')
+                ORDER BY without_history DESC, open_tickets DESC, status_label
+                LIMIT 25
+                """,
+                (list(CLOSED_STATUS_IDS),),
+            ).fetchall()
+        )
+        next_targets = list(
+            conn.execute(
+                """
+                WITH history AS (
+                    SELECT ticket_id, count(*) AS history_count, max(synced_at) AS last_history_synced_at
+                    FROM autotask_ticket_history
+                    GROUP BY ticket_id
+                )
+                SELECT
+                    t.id,
+                    t.autotask_id,
+                    t.ticket_number,
+                    t.title,
+                    COALESCE(status_ref.label, t.status, '[Blank]') AS status_label,
+                    t.updated_at_autotask,
+                    COALESCE(history.history_count, 0) AS history_count,
+                    history.last_history_synced_at,
+                    gap_check.last_checked_at AS last_gap_checked_at,
+                    gap_check.last_result_count AS last_gap_result_count
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values status_ref
+                  ON status_ref.field_name='status' AND status_ref.value=t.status
+                LEFT JOIN history ON history.ticket_id=t.id
+                LEFT JOIN ticket_gap_sync_checks gap_check
+                  ON gap_check.ticket_id=t.id AND gap_check.sync_type='open_ticket_history_gaps'
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+                ORDER BY
+                    (COALESCE(history.history_count, 0) = 0) DESC,
+                    gap_check.last_checked_at NULLS FIRST,
+                    history.last_history_synced_at NULLS FIRST,
+                    t.updated_at_autotask DESC NULLS LAST,
+                    t.id
+                LIMIT %s
+                """,
+                (list(CLOSED_STATUS_IDS), row_limit),
+            ).fetchall()
+        )
+
+    open_tickets = int(summary["open_tickets"] or 0)
+    with_history = int(summary["open_tickets_with_history"] or 0)
+    without_history = int(summary["open_tickets_without_history"] or 0)
+    coverage_percent = round((with_history / open_tickets) * 100, 2) if open_tickets else 100.0
+    warnings = []
+    if without_history:
+        warnings.append(
+            f"{without_history} open local tickets do not have local TicketHistory yet; use bounded open-ticket gap sync before trusting duration coverage."
+        )
+    return {
+        "ok": True,
+        "summary": {
+            "open_tickets": open_tickets,
+            "open_tickets_with_history": with_history,
+            "open_tickets_without_history": without_history,
+            "open_tickets_checked_for_history": int(summary["open_tickets_checked_for_history"] or 0),
+            "open_tickets_checked_empty_history": int(summary["open_tickets_checked_empty_history"] or 0),
+            "open_tickets_unchecked_history": int(summary["open_tickets_unchecked_history"] or 0),
+            "open_ticket_history_rows": int(summary["open_ticket_history_rows"] or 0),
+            "coverage_percent": coverage_percent,
+        },
+        "by_status": [dict(row) for row in by_status],
+        "next_targets": [dict(row) for row in next_targets],
+        "warnings": warnings,
+    }
+
+
+def labor_coverage_report(limit: int = 10) -> dict[str, Any]:
+    row_limit = min(max(limit, 1), 100)
+    init_schema()
+    with db_connection() as conn:
+        summary = conn.execute(
+            """
+            WITH open_tickets AS (
+                SELECT t.id
+                FROM autotask_tickets t
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+            ),
+            labor AS (
+                SELECT
+                    ticket_id,
+                    count(*) AS entry_count,
+                    sum(COALESCE(hours, 0)) AS labor_hours,
+                    max(COALESCE(updated_at_autotask, created_at_autotask)) AS last_time_entry_observed_at
+                FROM autotask_time_entries
+                GROUP BY ticket_id
+            )
+            SELECT
+                count(*) AS open_tickets,
+                count(*) FILTER (WHERE COALESCE(labor.entry_count, 0) > 0) AS open_tickets_with_time_entries,
+                count(*) FILTER (WHERE COALESCE(labor.entry_count, 0) = 0) AS open_tickets_without_time_entries,
+                count(*) FILTER (WHERE gap_check.last_checked_at IS NOT NULL) AS open_tickets_checked_for_time_entries,
+                count(*) FILTER (
+                    WHERE COALESCE(labor.entry_count, 0) = 0
+                      AND gap_check.last_checked_at IS NOT NULL
+                      AND COALESCE(gap_check.last_result_count, 0) = 0
+                ) AS open_tickets_checked_empty_time_entries,
+                count(*) FILTER (
+                    WHERE COALESCE(labor.entry_count, 0) = 0
+                      AND gap_check.last_checked_at IS NULL
+                ) AS open_tickets_unchecked_time_entries,
+                COALESCE(sum(labor.entry_count), 0) AS open_ticket_time_entry_rows,
+                COALESCE(sum(labor.labor_hours), 0) AS open_ticket_labor_hours
+            FROM open_tickets
+            LEFT JOIN labor ON labor.ticket_id=open_tickets.id
+            LEFT JOIN ticket_gap_sync_checks gap_check
+              ON gap_check.ticket_id=open_tickets.id AND gap_check.sync_type='open_ticket_time_entry_gaps'
+            """,
+            (list(CLOSED_STATUS_IDS),),
+        ).fetchone()
+        by_status = list(
+            conn.execute(
+                """
+                WITH labor AS (
+                    SELECT
+                        ticket_id,
+                        count(*) AS entry_count,
+                        sum(COALESCE(hours, 0)) AS labor_hours,
+                        max(COALESCE(updated_at_autotask, created_at_autotask)) AS last_time_entry_observed_at
+                    FROM autotask_time_entries
+                    GROUP BY ticket_id
+                )
+                SELECT
+                    COALESCE(status_ref.label, t.status, '[Blank]') AS status_label,
+                    count(*) AS open_tickets,
+                    count(*) FILTER (WHERE COALESCE(labor.entry_count, 0) > 0) AS with_time_entries,
+                    count(*) FILTER (WHERE COALESCE(labor.entry_count, 0) = 0) AS without_time_entries,
+                    count(*) FILTER (WHERE gap_check.last_checked_at IS NOT NULL) AS checked_for_time_entries,
+                    count(*) FILTER (
+                        WHERE COALESCE(labor.entry_count, 0) = 0
+                          AND gap_check.last_checked_at IS NOT NULL
+                          AND COALESCE(gap_check.last_result_count, 0) = 0
+                    ) AS checked_empty_time_entries,
+                    count(*) FILTER (
+                        WHERE COALESCE(labor.entry_count, 0) = 0
+                          AND gap_check.last_checked_at IS NULL
+                    ) AS unchecked_time_entries,
+                    COALESCE(sum(labor.labor_hours), 0) AS labor_hours,
+                    max(labor.last_time_entry_observed_at) AS latest_time_entry_observed_at
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values status_ref
+                  ON status_ref.field_name='status' AND status_ref.value=t.status
+                LEFT JOIN labor ON labor.ticket_id=t.id
+                LEFT JOIN ticket_gap_sync_checks gap_check
+                  ON gap_check.ticket_id=t.id AND gap_check.sync_type='open_ticket_time_entry_gaps'
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+                GROUP BY COALESCE(status_ref.label, t.status, '[Blank]')
+                ORDER BY without_time_entries DESC, open_tickets DESC, status_label
+                LIMIT 25
+                """,
+                (list(CLOSED_STATUS_IDS),),
+            ).fetchall()
+        )
+        next_targets = list(
+            conn.execute(
+                """
+                WITH labor AS (
+                    SELECT
+                        ticket_id,
+                        count(*) AS entry_count,
+                        sum(COALESCE(hours, 0)) AS labor_hours,
+                        max(COALESCE(updated_at_autotask, created_at_autotask)) AS last_time_entry_observed_at
+                    FROM autotask_time_entries
+                    GROUP BY ticket_id
+                )
+                SELECT
+                    t.id,
+                    t.autotask_id,
+                    t.ticket_number,
+                    t.title,
+                    COALESCE(status_ref.label, t.status, '[Blank]') AS status_label,
+                    t.updated_at_autotask,
+                    COALESCE(labor.entry_count, 0) AS time_entry_count,
+                    COALESCE(labor.labor_hours, 0) AS labor_hours,
+                    labor.last_time_entry_observed_at,
+                    gap_check.last_checked_at AS last_gap_checked_at,
+                    gap_check.last_result_count AS last_gap_result_count
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values status_ref
+                  ON status_ref.field_name='status' AND status_ref.value=t.status
+                LEFT JOIN labor ON labor.ticket_id=t.id
+                LEFT JOIN ticket_gap_sync_checks gap_check
+                  ON gap_check.ticket_id=t.id AND gap_check.sync_type='open_ticket_time_entry_gaps'
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+                ORDER BY
+                    (COALESCE(labor.entry_count, 0) = 0) DESC,
+                    gap_check.last_checked_at NULLS FIRST,
+                    labor.last_time_entry_observed_at NULLS FIRST,
+                    t.updated_at_autotask DESC NULLS LAST,
+                    t.id
+                LIMIT %s
+                """,
+                (list(CLOSED_STATUS_IDS), row_limit),
+            ).fetchall()
+        )
+
+    open_tickets = int(summary["open_tickets"] or 0)
+    with_time_entries = int(summary["open_tickets_with_time_entries"] or 0)
+    without_time_entries = int(summary["open_tickets_without_time_entries"] or 0)
+    coverage_percent = round((with_time_entries / open_tickets) * 100, 2) if open_tickets else 100.0
+    warnings = []
+    if without_time_entries:
+        warnings.append(
+            f"{without_time_entries} open local tickets do not have local TimeEntries yet; use bounded open-ticket labor gap sync before trusting labor coverage."
+        )
+    return {
+        "ok": True,
+        "summary": {
+            "open_tickets": open_tickets,
+            "open_tickets_with_time_entries": with_time_entries,
+            "open_tickets_without_time_entries": without_time_entries,
+            "open_tickets_checked_for_time_entries": int(summary["open_tickets_checked_for_time_entries"] or 0),
+            "open_tickets_checked_empty_time_entries": int(summary["open_tickets_checked_empty_time_entries"] or 0),
+            "open_tickets_unchecked_time_entries": int(summary["open_tickets_unchecked_time_entries"] or 0),
+            "open_ticket_time_entry_rows": int(summary["open_ticket_time_entry_rows"] or 0),
+            "open_ticket_labor_hours": round(float(summary["open_ticket_labor_hours"] or 0), 2),
+            "coverage_percent": coverage_percent,
+        },
+        "by_status": [dict(row) for row in by_status],
+        "next_targets": [dict(row) for row in next_targets],
+        "warnings": warnings,
+    }
+
+
+def _summary_where(queue: str | None, assigned_resource_id: int | None) -> tuple[str, list[Any]]:
+    clauses = ["t.completed_at_autotask IS NULL", "NOT t.analytics_exclude", "COALESCE(t.status, '') <> ALL(%s)"]
+    params: list[Any] = [list(CLOSED_STATUS_IDS)]
+    if queue:
+        clauses.append("t.queue = %s")
+        params.append(queue)
+    if assigned_resource_id is not None:
+        clauses.append("t.assigned_resource_id = %s")
+        params.append(assigned_resource_id)
+    return " AND ".join(clauses), params
+
+
+def _score_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    tickets: list[dict[str, Any]] = []
+    buckets = {"critical": 0, "high": 0, "watch": 0, "normal": 0, "partial_history_tickets": 0}
+    for row in rows:
+        score = _ticket_score(row)
+        buckets["partial_history_tickets"] += 1 if score["history_events"] == 0 else 0
+        buckets[score["risk_bucket"]] += 1
+        tickets.append(
+            {
+                "id": row["id"],
+                "autotask_id": row["autotask_id"],
+                "ticket_number": row["ticket_number"],
+                "title": row["title"],
+                "status": row["status"],
+                "status_label": row["status_label"],
+                "priority": row["priority"],
+                "priority_label": row["priority_label"],
+                "queue": row["queue"],
+                "queue_label": row["queue_label"],
+                "assigned_resource_id": row["assigned_resource_id"],
+                "assigned_resource_name": row["assigned_resource_name"],
+                "created_at_autotask": row["created_at_autotask"],
+                "updated_at_autotask": row["updated_at_autotask"],
+                "due_at_autotask": row["due_at_autotask"],
+                "resolved_due_at_autotask": row["resolved_due_at_autotask"],
+                **score,
+            }
+        )
+    tickets.sort(key=lambda item: (-int(item["health_score"]), str(item.get("ticket_number") or "")))
+    return tickets, buckets
+
+
+def field_coverage_report() -> dict[str, Any]:
+    started = time.monotonic()
+    init_schema()
+    with db_connection() as conn:
+        counts = conn.execute(
+            """
+            SELECT
+              (SELECT count(*) FROM autotask_tickets) AS tickets,
+              (SELECT count(*) FROM autotask_ticket_notes) AS ticket_notes,
+              (SELECT count(*) FROM autotask_time_entries) AS time_entries,
+              (SELECT count(*) FROM autotask_ticket_history) AS ticket_history,
+              (
+                SELECT count(*)
+                FROM autotask_ticket_history
+                WHERE lower(COALESCE(action, '')) LIKE '%status%'
+                   OR lower(COALESCE(detail, '')) LIKE '%status%'
+                   OR lower(COALESCE(detail, '')) LIKE '%waiting%'
+                   OR lower(COALESCE(detail, '')) LIKE '%hold%'
+                   OR lower(COALESCE(detail, '')) LIKE '%vendor%'
+                   OR lower(COALESCE(detail, '')) LIKE '%technician%'
+              ) AS ticket_history_status_candidates
+            """
+        ).fetchone()
+        ticket_total = int(counts["tickets"] or 0)
+        note_total = int(counts["ticket_notes"] or 0)
+        time_total = int(counts["time_entries"] or 0)
+        history_total = int(counts["ticket_history"] or 0)
+        history_status_candidates = int(counts.get("ticket_history_status_candidates", 0) or 0)
+
+        ticket_specs = [spec for spec in REQUIRED_FIELDS if "sql" in spec]
+        note_specs = [spec for spec in REQUIRED_FIELDS if "note_sql" in spec]
+        time_specs = [spec for spec in REQUIRED_FIELDS if "table_sql" in spec]
+        history_specs = [spec for spec in REQUIRED_FIELDS if "history_sql" in spec]
+        ticket_counts: dict[str, int] = {}
+        note_counts: dict[str, int] = {}
+        time_counts: dict[str, int] = {}
+        history_counts: dict[str, int] = {}
+
+        if ticket_specs:
+            select_list = ", ".join(f"{spec['sql']} AS {spec['key']}" for spec in ticket_specs)
+            ticket_counts = dict(conn.execute(f"SELECT {select_list} FROM autotask_tickets").fetchone())
+        if note_specs:
+            select_list = ", ".join(f"{spec['note_sql']} AS {spec['key']}" for spec in note_specs)
+            note_counts = dict(conn.execute(f"SELECT {select_list} FROM autotask_ticket_notes").fetchone())
+        if time_specs:
+            select_list = ", ".join(f"{spec['table_sql']} AS {spec['key']}" for spec in time_specs)
+            time_counts = dict(conn.execute(f"SELECT {select_list} FROM autotask_time_entries").fetchone())
+        if history_specs:
+            select_list = ", ".join(f"{spec['history_sql']} AS {spec['key']}" for spec in history_specs)
+            history_counts = dict(conn.execute(f"SELECT {select_list} FROM autotask_ticket_history").fetchone())
+
+        rows: list[dict[str, Any]] = []
+        for spec in REQUIRED_FIELDS:
+            if "table" in spec:
+                available = time_total
+                denominator = time_total
+            elif "table_sql" in spec:
+                available = int(time_counts.get(spec["key"], 0) or 0)
+                denominator = time_total
+            elif "history_sql" in spec:
+                available = int(history_counts.get(spec["key"], 0) or 0)
+                denominator = ticket_total
+            elif "note_sql" in spec:
+                available = int(note_counts.get(spec["key"], 0) or 0)
+                denominator = note_total
+            else:
+                available = int(ticket_counts.get(spec["key"], 0) or 0)
+                denominator = ticket_total
+
+            partial = bool(spec.get("partial_reason"))
+            if spec["key"] == "waiting_states":
+                partial = history_status_candidates == 0 or history_total < ticket_total
+            status = _status(
+                available,
+                denominator,
+                partial=partial,
+                forced_missing=bool(spec.get("missing_reason")) and available == 0,
+            )
+            note = ""
+            if status == "missing":
+                note = str(spec.get("missing_reason") or "")
+            elif status == "partial":
+                note = str(spec.get("partial_reason") or "")
+                if spec["key"] == "waiting_states" and history_total > 0 and history_status_candidates == 0:
+                    note = (
+                        "Current status is available, but local TicketHistory has no status/waiting transition candidates yet; "
+                        "precise waiting durations remain partial."
+                    )
+            rows.append(
+                {
+                    "key": spec["key"],
+                    "label": spec["label"],
+                    "status": status,
+                    "available_count": available,
+                    "total_count": denominator,
+                    "coverage_percent": _percent(available, denominator),
+                    "source": spec["source"],
+                    "needed_for": spec["needed_for"],
+                    "note": note,
+                }
+            )
+
+    missing = [row["key"] for row in rows if row["status"] == "missing"]
+    partial = [row["key"] for row in rows if row["status"] == "partial"]
+    ready_for_ticket_health = not missing and not partial
+    blockers = [
+        "Sync Autotask time entries before labor-hour analytics."
+        if "time_entries" in missing or "labor_hours" in missing
+        else "",
+        "Add status-history ingestion before precise waiting-state duration analytics."
+        if "ticket_status_history" in missing
+        else "",
+        "Local TicketHistory has no status/waiting transition candidates yet; precise waiting durations need status-change action/detail events or another read-only source."
+        if history_total > 0 and history_status_candidates == 0 and ("ticket_status_history" in partial or "waiting_states" in partial)
+        else "Continue TicketHistory backfill before precise waiting-state duration analytics."
+        if "ticket_status_history" in partial or "waiting_states" in partial
+        else "",
+    ]
+    blockers = [item for item in blockers if item]
+
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "counts": {
+            "tickets": ticket_total,
+            "ticket_notes": note_total,
+            "time_entries": time_total,
+            "ticket_history": history_total,
+            "ticket_history_status_candidates": history_status_candidates,
+        },
+        "ready_for_ticket_health": ready_for_ticket_health,
+        "available_fields": [row["key"] for row in rows if row["status"] == "available"],
+        "partial_fields": partial,
+        "missing_fields": missing,
+        "blockers": blockers,
+        "fields": rows,
+    }
+
+
+def ticket_status_source_diagnostics() -> dict[str, Any]:
+    started = time.monotonic()
+    init_schema()
+    with db_connection() as conn:
+        counts = conn.execute(
+            """
+            SELECT
+              count(*) AS tickets,
+              count(*) FILTER (WHERE NULLIF(status, '') IS NOT NULL OR NULLIF(raw->>'status', '') IS NOT NULL)
+                AS tickets_with_current_status,
+              count(*) FILTER (WHERE updated_at_autotask IS NOT NULL) AS tickets_with_autotask_updated_at
+            FROM autotask_tickets
+            """
+        ).fetchone()
+        status_field_rows = list(
+            conn.execute(
+                """
+                SELECT key, count(*) AS ticket_count
+                FROM autotask_tickets
+                CROSS JOIN LATERAL jsonb_object_keys(raw) AS key
+                WHERE lower(key) LIKE '%status%'
+                GROUP BY key
+                ORDER BY key
+                """
+            ).fetchall()
+        )
+        timestamp_field_rows = list(
+            conn.execute(
+                """
+                SELECT key, count(*) AS ticket_count
+                FROM autotask_tickets
+                CROSS JOIN LATERAL jsonb_object_keys(raw) AS key
+                WHERE lower(key) LIKE '%date%'
+                   OR lower(key) LIKE '%time%'
+                   OR lower(key) LIKE '%activity%'
+                   OR lower(key) LIKE '%response%'
+                   OR lower(key) LIKE '%resolved%'
+                   OR lower(key) LIKE '%completed%'
+                GROUP BY key
+                ORDER BY key
+                """
+            ).fetchall()
+        )
+        distribution_rows = list(
+            conn.execute(
+                """
+                SELECT
+                    COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]') AS status_label,
+                    NULLIF(t.status, '') AS status,
+                    count(*) AS ticket_count,
+                    min(t.updated_at_autotask) AS oldest_autotask_update,
+                    max(t.updated_at_autotask) AS newest_autotask_update
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values ref
+                  ON ref.field_name='status' AND ref.value=t.status
+                GROUP BY COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]'), NULLIF(t.status, '')
+                ORDER BY count(*) DESC, status_label
+                LIMIT 20
+                """
+            ).fetchall()
+        )
+        status_sample_rows = list(
+            conn.execute(
+                """
+                WITH history_probe AS (
+                    SELECT
+                        ticket_id,
+                        count(*) AS history_rows,
+                        count(*) FILTER (
+                            WHERE lower(COALESCE(action, '')) LIKE '%%status%%'
+                               OR lower(COALESCE(detail, '')) LIKE '%%status%%'
+                        ) AS status_candidate_rows,
+                        count(*) FILTER (
+                            WHERE lower(COALESCE(detail, '')) LIKE '%%waiting%%'
+                               OR lower(COALESCE(detail, '')) LIKE '%%hold%%'
+                               OR lower(COALESCE(detail, '')) LIKE '%%vendor%%'
+                               OR lower(COALESCE(detail, '')) LIKE '%%technician%%'
+                        ) AS waiting_keyword_rows
+                    FROM autotask_ticket_history
+                    GROUP BY ticket_id
+                )
+                SELECT
+                    COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]') AS status_label,
+                    NULLIF(t.status, '') AS status,
+                    count(*) AS open_tickets,
+                    count(sample_check.ticket_id) AS sampled_tickets,
+                    count(*) FILTER (
+                        WHERE sample_check.ticket_id IS NOT NULL
+                          AND COALESCE(sample_check.last_result_count, 0) = 0
+                    ) AS sampled_empty_tickets,
+                    COALESCE(sum(sample_check.last_result_count), 0) AS sampled_history_rows,
+                    COALESCE(
+                        sum(history_probe.status_candidate_rows) FILTER (WHERE sample_check.ticket_id IS NOT NULL),
+                        0
+                    ) AS sampled_status_candidate_rows,
+                    COALESCE(
+                        sum(history_probe.waiting_keyword_rows) FILTER (WHERE sample_check.ticket_id IS NOT NULL),
+                        0
+                    ) AS sampled_waiting_keyword_rows,
+                    count(*) FILTER (
+                        WHERE sample_check.ticket_id IS NOT NULL
+                          AND COALESCE(sample_check.last_result_count, 0) > 0
+                          AND COALESCE(history_probe.status_candidate_rows, 0) = 0
+                    ) AS sampled_tickets_without_status_candidates,
+                    min(sample_check.last_checked_at) AS first_sampled_at,
+                    max(sample_check.last_checked_at) AS last_sampled_at
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values ref
+                  ON ref.field_name='status' AND ref.value=t.status
+                LEFT JOIN ticket_gap_sync_checks sample_check
+                  ON sample_check.ticket_id=t.id
+                 AND sample_check.sync_type='status_sample_ticket_history'
+                LEFT JOIN history_probe ON history_probe.ticket_id=t.id
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+                GROUP BY COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]'), NULLIF(t.status, '')
+                ORDER BY count(sample_check.ticket_id) ASC, count(*) DESC, status_label
+                """,
+                (["5", "16", "20"],),
+            ).fetchall()
+        )
+        open_history_context = conn.execute(
+            """
+            WITH open_tickets AS (
+                SELECT t.id
+                FROM autotask_tickets t
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+            ),
+            history AS (
+                SELECT ticket_id, count(*) AS history_count
+                FROM autotask_ticket_history
+                GROUP BY ticket_id
+            )
+            SELECT
+                count(*) AS open_tickets,
+                count(*) FILTER (WHERE COALESCE(history.history_count, 0) > 0) AS open_tickets_with_history,
+                count(*) FILTER (WHERE COALESCE(history.history_count, 0) = 0) AS open_tickets_without_history,
+                count(*) FILTER (WHERE gap_check.last_checked_at IS NOT NULL) AS open_tickets_checked_for_history,
+                count(*) FILTER (
+                    WHERE COALESCE(history.history_count, 0) = 0
+                      AND gap_check.last_checked_at IS NOT NULL
+                      AND COALESCE(gap_check.last_result_count, 0) = 0
+                ) AS open_tickets_checked_empty_history,
+                count(*) FILTER (
+                    WHERE COALESCE(history.history_count, 0) = 0
+                      AND gap_check.last_checked_at IS NULL
+                ) AS open_tickets_unchecked_history,
+                COALESCE(sum(history.history_count), 0) AS open_ticket_history_rows
+            FROM open_tickets
+            LEFT JOIN history ON history.ticket_id=open_tickets.id
+            LEFT JOIN ticket_gap_sync_checks gap_check
+              ON gap_check.ticket_id=open_tickets.id AND gap_check.sync_type='open_ticket_history_gaps'
+            """,
+            (list(CLOSED_STATUS_IDS),),
+        ).fetchone()
+
+    status_fields = [dict(row) for row in status_field_rows]
+    timestamp_fields = [dict(row) for row in timestamp_field_rows]
+    status_keys = {str(row["key"]).strip() for row in status_fields}
+    timestamp_keys = {str(row["key"]).strip() for row in timestamp_fields}
+    exact_status_transition_fields = sorted(
+        key
+        for key in status_keys | timestamp_keys
+        if "status" in key.lower()
+        and any(token in key.lower() for token in ("date", "time", "changed", "modified", "activity"))
+        and key not in {"status", "rmaStatus", "changeApprovalStatus"}
+    )
+    proxy_timestamp_candidates = [
+        key
+        for key in (
+            "lastActivityDate",
+            "lastTrackedModificationDateTime",
+            "lastCustomerNotificationDateTime",
+            "lastCustomerVisibleActivityDateTime",
+            "firstResponseDateTime",
+            "resolvedDateTime",
+            "completedDate",
+        )
+        if key in timestamp_keys
+    ]
+    ticket_total = int(counts["tickets"] or 0)
+    current_status_count = int(counts["tickets_with_current_status"] or 0)
+    status_sample_coverage = [dict(row) for row in status_sample_rows]
+    for row in status_sample_coverage:
+        for key in (
+            "open_tickets",
+            "sampled_tickets",
+            "sampled_empty_tickets",
+            "sampled_history_rows",
+            "sampled_status_candidate_rows",
+            "sampled_waiting_keyword_rows",
+            "sampled_tickets_without_status_candidates",
+        ):
+            row[key] = int(row.get(key) or 0)
+    open_status_groups = len(status_sample_coverage)
+    sampled_status_groups = sum(1 for row in status_sample_coverage if int(row.get("sampled_tickets") or 0) > 0)
+    sampled_history_rows = sum(int(row.get("sampled_history_rows") or 0) for row in status_sample_coverage)
+    sampled_status_candidate_rows = sum(
+        int(row.get("sampled_status_candidate_rows") or 0) for row in status_sample_coverage
+    )
+    sampled_waiting_keyword_rows = sum(
+        int(row.get("sampled_waiting_keyword_rows") or 0) for row in status_sample_coverage
+    )
+    sampled_status_groups_without_status_candidates = sum(
+        1
+        for row in status_sample_coverage
+        if int(row.get("sampled_tickets") or 0) > 0 and int(row.get("sampled_status_candidate_rows") or 0) == 0
+    )
+    open_history_total = int(open_history_context["open_tickets"] or 0)
+    open_history_with = int(open_history_context["open_tickets_with_history"] or 0)
+    open_history_without = int(open_history_context["open_tickets_without_history"] or 0)
+    open_history_unchecked = int(open_history_context["open_tickets_unchecked_history"] or 0)
+    warnings = [
+        "Local Tickets expose current status but no exact status-transition timestamp field.",
+        "Proxy ticket timestamps can explain activity freshness, but they must not be treated as precise status-duration evidence.",
+        f"{open_history_without} open local tickets still lack TicketHistory; continue bounded open-ticket history gap sync before treating status-duration coverage as complete."
+        if open_history_without
+        else "",
+        "Status-sample TicketHistory probes have covered every open status group but found no status-change candidate rows; treat precise status-duration analytics as source-limited until another read-only source or new event shape appears."
+        if open_status_groups > 0
+        and sampled_status_groups == open_status_groups
+        and sampled_status_candidate_rows == 0
+        and not exact_status_transition_fields
+        else "",
+    ]
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "counts": {
+            "tickets": ticket_total,
+            "tickets_with_current_status": current_status_count,
+            "tickets_with_autotask_updated_at": int(counts["tickets_with_autotask_updated_at"] or 0),
+            "current_status_coverage_percent": _percent(current_status_count, ticket_total),
+        },
+        "source_capability": {
+            "current_status_field_available": current_status_count > 0,
+            "exact_status_transition_timestamp_fields": exact_status_transition_fields,
+            "has_exact_status_transition_timestamp": bool(exact_status_transition_fields),
+            "proxy_timestamp_fields": proxy_timestamp_candidates,
+            "interpretation": (
+                "Local ticket raw fields include exact status-transition timestamp candidates."
+                if exact_status_transition_fields
+                else "Local ticket raw fields provide current status and activity timestamps, but no exact status-transition timestamp."
+            ),
+        },
+        "status_fields": status_fields,
+        "timestamp_fields": timestamp_fields,
+        "status_distribution": [dict(row) for row in distribution_rows],
+        "status_sample_coverage": {
+            "open_status_groups": open_status_groups,
+            "sampled_status_groups": sampled_status_groups,
+            "unsampled_status_groups": max(open_status_groups - sampled_status_groups, 0),
+            "coverage_percent": _percent(sampled_status_groups, open_status_groups),
+            "sampled_history_rows": sampled_history_rows,
+            "sampled_status_candidate_rows": sampled_status_candidate_rows,
+            "sampled_waiting_keyword_rows": sampled_waiting_keyword_rows,
+            "sampled_status_groups_without_status_candidates": sampled_status_groups_without_status_candidates,
+            "by_status": status_sample_coverage,
+        },
+        "open_ticket_history_context": {
+            "open_tickets": open_history_total,
+            "open_tickets_with_history": open_history_with,
+            "open_tickets_without_history": open_history_without,
+            "open_tickets_checked_for_history": int(open_history_context["open_tickets_checked_for_history"] or 0),
+            "open_tickets_checked_empty_history": int(
+                open_history_context["open_tickets_checked_empty_history"] or 0
+            ),
+            "open_tickets_unchecked_history": open_history_unchecked,
+            "open_ticket_history_rows": int(open_history_context["open_ticket_history_rows"] or 0),
+            "coverage_percent": _percent(open_history_with, open_history_total),
+            "interpretation": (
+                "Open-ticket TicketHistory coverage is complete; remaining status-duration limitations are source/parser related."
+                if open_history_total and open_history_without == 0
+                else "Open-ticket TicketHistory coverage is still incomplete; use bounded gap sync to reduce unchecked tickets before treating status-duration evidence as complete."
+                if open_history_unchecked
+                else "Open-ticket TicketHistory has been checked for current gaps; remaining status-duration limitations are likely source/parser related."
+            ),
+        },
+        "warnings": [] if exact_status_transition_fields else [warning for warning in warnings if warning],
+    }
+
+
+def ticket_health_summary(limit: int = 50, queue: str | None = None, assigned_resource_id: int | None = None) -> dict[str, Any]:
+    started = time.monotonic()
+    row_limit = min(max(limit, 1), 200)
+    summary_cache_key = cache_key(
+        "ticket-health-summary",
+        {
+            "limit": row_limit,
+            "queue": queue,
+            "assigned_resource_id": assigned_resource_id,
+            "closed_status_ids": sorted(CLOSED_STATUS_IDS),
+        },
+    )
+    cached = cache_get_json(summary_cache_key)
+    if cached is not None:
+        cached["cache"] = {"hit": True, "ttl_seconds": settings.ticket_health_summary_cache_ttl_seconds}
+        return cached
+
+    now = datetime.now(UTC)
+    where_sql, filter_params = _summary_where(queue, assigned_resource_id)
+    with db_connection() as conn:
+        rows = list(
+            conn.execute(
+                f"""
+                WITH labor AS (
+                    SELECT ticket_id, sum(COALESCE(hours, 0)) AS labor_hours
+                    FROM autotask_time_entries
+                    GROUP BY ticket_id
+                ),
+                history AS (
+                    SELECT ticket_id, count(*) AS history_events, max(happened_at) AS last_history_at
+                    FROM autotask_ticket_history
+                    GROUP BY ticket_id
+                )
+                SELECT
+                    t.id,
+                    t.autotask_id,
+                    t.ticket_number,
+                    t.title,
+                    t.status,
+                    COALESCE(status_ref.label, t.status) AS status_label,
+                    t.priority,
+                    COALESCE(priority_ref.label, t.priority) AS priority_label,
+                    t.queue,
+                    COALESCE(queue_ref.label, t.queue) AS queue_label,
+                    t.company_id,
+                    t.assigned_resource_id,
+                    COALESCE(NULLIF(t.assigned_resource_name, ''), resource_ref.label) AS assigned_resource_name,
+                    t.created_at_autotask,
+                    t.updated_at_autotask,
+                    t.due_at_autotask,
+                    t.first_response_due_at_autotask,
+                    t.resolved_due_at_autotask,
+                    t.sla_met,
+                    EXTRACT(EPOCH FROM (%s::timestamptz - COALESCE(t.created_at_autotask, t.updated_at_autotask, %s::timestamptz))) / 3600 AS age_hours,
+                    COALESCE(labor.labor_hours, 0) AS labor_hours,
+                    COALESCE(history.history_events, 0) AS history_events,
+                    history.last_history_at,
+                    t.due_at_autotask IS NOT NULL AND t.due_at_autotask < %s::timestamptz AS due_overdue,
+                    t.first_response_due_at_autotask IS NOT NULL
+                        AND t.first_response_at_autotask IS NULL
+                        AND t.first_response_due_at_autotask < %s::timestamptz AS first_response_overdue,
+                    t.resolved_due_at_autotask IS NOT NULL
+                        AND t.completed_at_autotask IS NULL
+                        AND t.resolved_due_at_autotask < %s::timestamptz AS resolved_overdue
+                FROM autotask_tickets t
+                LEFT JOIN labor ON labor.ticket_id = t.id
+                LEFT JOIN history ON history.ticket_id = t.id
+                LEFT JOIN autotask_reference_values status_ref
+                    ON status_ref.field_name='status' AND status_ref.value=t.status
+                LEFT JOIN autotask_reference_values priority_ref
+                    ON priority_ref.field_name='priority' AND priority_ref.value=t.priority
+                LEFT JOIN autotask_reference_values queue_ref
+                    ON queue_ref.field_name='queue' AND queue_ref.value=t.queue
+                LEFT JOIN autotask_reference_values resource_ref
+                    ON resource_ref.field_name='resource' AND resource_ref.value=t.assigned_resource_id::text
+                WHERE {where_sql}
+                ORDER BY
+                    t.resolved_due_at_autotask NULLS LAST,
+                    t.due_at_autotask NULLS LAST,
+                    t.created_at_autotask NULLS LAST,
+                    t.id DESC
+                LIMIT %s
+                """,
+                (now, now, now, now, now, *filter_params, row_limit),
+            ).fetchall()
+        )
+        queue_options = list(
+            conn.execute(
+                """
+                SELECT t.queue AS value, COALESCE(queue_ref.label, t.queue) AS label, count(*) AS count
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values queue_ref
+                    ON queue_ref.field_name='queue' AND queue_ref.value=t.queue
+                WHERE t.completed_at_autotask IS NULL
+                  AND NOT t.analytics_exclude
+                  AND COALESCE(t.status, '') <> ALL(%s)
+                  AND NULLIF(t.queue, '') IS NOT NULL
+                GROUP BY t.queue, COALESCE(queue_ref.label, t.queue)
+                ORDER BY count(*) DESC, label
+                LIMIT 50
+                """,
+                (list(CLOSED_STATUS_IDS),),
+            ).fetchall()
+        )
+        technician_options = list(
+            conn.execute(
+                """
+                SELECT t.assigned_resource_id AS value,
+                       COALESCE(NULLIF(t.assigned_resource_name, ''), resource_ref.label, t.assigned_resource_id::text) AS label,
+                       count(*) AS count
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values resource_ref
+                    ON resource_ref.field_name='resource' AND resource_ref.value=t.assigned_resource_id::text
+                WHERE t.completed_at_autotask IS NULL
+                  AND NOT t.analytics_exclude
+                  AND COALESCE(t.status, '') <> ALL(%s)
+                  AND t.assigned_resource_id IS NOT NULL
+                GROUP BY t.assigned_resource_id, COALESCE(NULLIF(t.assigned_resource_name, ''), resource_ref.label, t.assigned_resource_id::text)
+                ORDER BY count(*) DESC, label
+                LIMIT 50
+                """,
+                (list(CLOSED_STATUS_IDS),),
+            ).fetchall()
+        )
+
+    tickets, buckets = _score_rows([dict(row) for row in rows])
+    partial_history_count = buckets["partial_history_tickets"]
+    result = {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "cache": {"hit": False, "ttl_seconds": settings.ticket_health_summary_cache_ttl_seconds},
+        "limit": row_limit,
+        "filters": {"queue": queue, "assigned_resource_id": assigned_resource_id},
+        "filter_options": {
+            "queues": [dict(row) for row in queue_options],
+            "technicians": [dict(row) for row in technician_options],
+        },
+        "summary": {
+            "open_tickets_sampled": len(tickets),
+            "critical": buckets["critical"],
+            "high": buckets["high"],
+            "watch": buckets["watch"],
+            "normal": buckets["normal"],
+            "partial_history_tickets": partial_history_count,
+        },
+        "warnings": [
+            warning
+            for warning in (
+                "Some tickets lack local TicketHistory; waiting-duration scoring falls back to current status."
+                if partial_history_count
+                else "",
+            )
+            if warning
+        ],
+        "tickets": tickets,
+    }
+    encoded_result = jsonable_encoder(result)
+    cache_set_json(summary_cache_key, encoded_result, settings.ticket_health_summary_cache_ttl_seconds)
+    return encoded_result
+
+
+def store_ticket_health_risk_feedback(
+    ticket_id: int,
+    health_score: int | None,
+    risk_bucket: str | None,
+    outcome: str,
+    notes: str | None = None,
+) -> dict[str, Any]:
+    if outcome not in TICKET_HEALTH_FEEDBACK_OUTCOMES:
+        return {"ok": False, "reason": "invalid_outcome"}
+
+    with db_connection() as conn:
+        ticket = conn.execute(
+            "SELECT id, autotask_id, ticket_number FROM autotask_tickets WHERE id=%s",
+            (ticket_id,),
+        ).fetchone()
+        if not ticket:
+            return {"ok": False, "reason": "ticket_not_found"}
+        row = conn.execute(
+            """
+            INSERT INTO ticket_health_risk_feedback(
+                ticket_id, ticket_autotask_id, ticket_number, health_score, risk_bucket, outcome, notes
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, created_at
+            """,
+            (
+                ticket["id"],
+                ticket["autotask_id"],
+                ticket["ticket_number"],
+                health_score,
+                risk_bucket,
+                outcome,
+                notes,
+            ),
+        ).fetchone()
+
+    invalidate_ticket_health_summary_cache()
+    return {
+        "ok": True,
+        "feedback_id": row["id"],
+        "created_at": row["created_at"],
+        "message": "Ticket Health risk feedback stored locally. No Autotask ticket was changed.",
+    }
+
+
+def ticket_health_calibration_report(limit: int = 25) -> dict[str, Any]:
+    row_limit = min(max(limit, 1), 100)
+    with db_connection() as conn:
+        summary = conn.execute(
+            """
+            SELECT
+                count(*) AS total_feedback,
+                count(*) FILTER (WHERE outcome = 'accurate') AS accurate,
+                count(*) FILTER (WHERE outcome = 'too_high') AS too_high,
+                count(*) FILTER (WHERE outcome = 'too_low') AS too_low,
+                count(*) FILTER (WHERE outcome = 'needs_review') AS needs_review,
+                count(DISTINCT ticket_id) AS reviewed_tickets,
+                max(created_at) AS latest_feedback_at
+            FROM ticket_health_risk_feedback
+            """
+        ).fetchone()
+        recent = list(
+            conn.execute(
+                """
+                SELECT id, ticket_id, ticket_autotask_id, ticket_number, health_score, risk_bucket, outcome, notes, created_at
+                FROM ticket_health_risk_feedback
+                ORDER BY created_at DESC, id DESC
+                LIMIT %s
+                """,
+                (row_limit,),
+            ).fetchall()
+        )
+    summary_row = dict(summary or {})
+    total_feedback = int(summary_row.get("total_feedback") or 0)
+    accurate = int(summary_row.get("accurate") or 0)
+    too_high = int(summary_row.get("too_high") or 0)
+    too_low = int(summary_row.get("too_low") or 0)
+    needs_review = int(summary_row.get("needs_review") or 0)
+    reviewed_tickets = int(summary_row.get("reviewed_tickets") or 0)
+    readiness = _calibration_readiness(
+        total_feedback,
+        reviewed_tickets,
+        {"accurate": accurate, "too_high": too_high, "too_low": too_low},
+        "tickets",
+    )
+    return {
+        "ok": True,
+        "summary": {
+            "total_feedback": total_feedback,
+            "accurate": accurate,
+            "too_high": too_high,
+            "too_low": too_low,
+            "needs_review": needs_review,
+            "reviewed_tickets": reviewed_tickets,
+            "latest_feedback_at": summary_row.get("latest_feedback_at"),
+        },
+        "recent_feedback": [dict(row) for row in recent],
+        "calibration_readiness": readiness,
+        "warnings": [
+            "Ticket Health calibration is review-only local evidence and does not automatically change score weights.",
+            "No Autotask ticket is updated by this report or feedback capture.",
+            *readiness["blockers"],
+        ],
+    }
+
+
+def _ticket_health_feedback_counts(ticket_ids: list[int]) -> dict[int, dict[str, int]]:
+    if not ticket_ids:
+        return {}
+    with db_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                ticket_id,
+                count(*) AS total_feedback,
+                count(*) FILTER (WHERE outcome = 'accurate') AS accurate,
+                count(*) FILTER (WHERE outcome = 'too_high') AS too_high,
+                count(*) FILTER (WHERE outcome = 'too_low') AS too_low,
+                count(*) FILTER (WHERE outcome = 'needs_review') AS needs_review
+            FROM ticket_health_risk_feedback
+            WHERE ticket_id = ANY(%s)
+            GROUP BY ticket_id
+            """,
+            (ticket_ids,),
+        ).fetchall()
+    return {
+        int(row["ticket_id"]): {
+            "total_feedback": int(row.get("total_feedback") or 0),
+            "accurate": int(row.get("accurate") or 0),
+            "too_high": int(row.get("too_high") or 0),
+            "too_low": int(row.get("too_low") or 0),
+            "needs_review": int(row.get("needs_review") or 0),
+        }
+        for row in rows
+    }
+
+
+def ticket_health_review_queue(
+    limit: int = 25,
+    queue: str | None = None,
+    assigned_resource_id: int | None = None,
+    risk_bucket: str | None = None,
+    min_priority: int = 0,
+    needs_review_only: bool = False,
+) -> dict[str, Any]:
+    row_limit = min(max(limit, 1), 100)
+    priority_floor = min(max(int(min_priority or 0), 0), 100)
+    allowed_bucket = risk_bucket if risk_bucket in {"critical", "high", "watch", "normal"} else None
+    summary = ticket_health_summary(limit=100, queue=queue, assigned_resource_id=assigned_resource_id)
+    tickets = list(summary.get("tickets", []))
+    feedback_by_ticket = _ticket_health_feedback_counts([int(ticket["id"]) for ticket in tickets])
+    items: list[dict[str, Any]] = []
+    for ticket in tickets:
+        feedback = feedback_by_ticket.get(int(ticket["id"]), {})
+        reasons: list[str] = []
+        factors = ticket.get("factors") or []
+        warnings = ticket.get("warnings") or []
+        if feedback.get("needs_review"):
+            reasons.append(f"{feedback['needs_review']} local needs-review feedback outcomes")
+        if ticket.get("risk_bucket") in {"critical", "high"}:
+            reasons.append(f"{ticket.get('risk_bucket')} heuristic ticket risk")
+        if warnings:
+            reasons.append("partial local evidence warnings")
+        for factor in factors:
+            if any(word in str(factor).lower() for word in ("overdue", "critical", "high priority", "labor", "waiting", "assignment")):
+                reasons.append(str(factor))
+        if not reasons:
+            continue
+        review_priority = min(
+            int(ticket.get("health_score") or 0)
+            + (30 if feedback.get("needs_review") else 0)
+            + (10 if warnings else 0),
+            100,
+        )
+        if allowed_bucket and ticket.get("risk_bucket") != allowed_bucket:
+            continue
+        if needs_review_only and not feedback.get("needs_review"):
+            continue
+        if review_priority < priority_floor:
+            continue
+        items.append(
+            {
+                "ticket_id": ticket["id"],
+                "ticket_autotask_id": ticket["autotask_id"],
+                "ticket_number": ticket["ticket_number"],
+                "title": ticket.get("title"),
+                "risk_bucket": ticket["risk_bucket"],
+                "health_score": ticket["health_score"],
+                "review_priority": review_priority,
+                "status_label": ticket.get("status_label") or ticket.get("status"),
+                "queue_label": ticket.get("queue_label") or ticket.get("queue"),
+                "assigned_resource_name": ticket.get("assigned_resource_name"),
+                "feedback": feedback,
+                "reasons": list(dict.fromkeys(reasons)),
+            }
+        )
+    items.sort(key=lambda item: (-int(item["review_priority"]), str(item.get("ticket_number") or "")))
+    return {
+        "ok": True,
+        "limit": row_limit,
+        "filters": {
+            "queue": queue,
+            "assigned_resource_id": assigned_resource_id,
+            "risk_bucket": allowed_bucket,
+            "min_priority": priority_floor,
+            "needs_review_only": bool(needs_review_only),
+        },
+        "summary": {
+            "review_candidates": len(items),
+            "returned": min(len(items), row_limit),
+            "needs_review_feedback_tickets": sum(1 for item in items if item["feedback"].get("needs_review")),
+        },
+        "items": items[:row_limit],
+        "guidance": [
+            "This queue is local and review-only.",
+            "Use it to prioritize human Ticket Health review; it does not write to Autotask or change tickets.",
+        ],
+    }
+
+
+def ticket_health_detail(ticket_id: int) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    with db_connection() as conn:
+        rows = list(
+            conn.execute(
+                """
+                WITH labor AS (
+                    SELECT ticket_id, sum(COALESCE(hours, 0)) AS labor_hours
+                    FROM autotask_time_entries
+                    GROUP BY ticket_id
+                ),
+                history AS (
+                    SELECT ticket_id, count(*) AS history_events, max(happened_at) AS last_history_at
+                    FROM autotask_ticket_history
+                    GROUP BY ticket_id
+                )
+                SELECT
+                    t.id,
+                    t.autotask_id,
+                    t.ticket_number,
+                    t.title,
+                    t.status,
+                    COALESCE(status_ref.label, t.status) AS status_label,
+                    t.priority,
+                    COALESCE(priority_ref.label, t.priority) AS priority_label,
+                    t.queue,
+                    COALESCE(queue_ref.label, t.queue) AS queue_label,
+                    t.company_id,
+                    t.assigned_resource_id,
+                    COALESCE(NULLIF(t.assigned_resource_name, ''), resource_ref.label) AS assigned_resource_name,
+                    t.created_at_autotask,
+                    t.updated_at_autotask,
+                    t.due_at_autotask,
+                    t.first_response_due_at_autotask,
+                    t.resolved_due_at_autotask,
+                    t.sla_met,
+                    EXTRACT(EPOCH FROM (%s::timestamptz - COALESCE(t.created_at_autotask, t.updated_at_autotask, %s::timestamptz))) / 3600 AS age_hours,
+                    COALESCE(labor.labor_hours, 0) AS labor_hours,
+                    COALESCE(history.history_events, 0) AS history_events,
+                    history.last_history_at,
+                    t.due_at_autotask IS NOT NULL AND t.due_at_autotask < %s::timestamptz AS due_overdue,
+                    t.first_response_due_at_autotask IS NOT NULL
+                        AND t.first_response_at_autotask IS NULL
+                        AND t.first_response_due_at_autotask < %s::timestamptz AS first_response_overdue,
+                    t.resolved_due_at_autotask IS NOT NULL
+                        AND t.completed_at_autotask IS NULL
+                        AND t.resolved_due_at_autotask < %s::timestamptz AS resolved_overdue
+                FROM autotask_tickets t
+                LEFT JOIN labor ON labor.ticket_id = t.id
+                LEFT JOIN history ON history.ticket_id = t.id
+                LEFT JOIN autotask_reference_values status_ref
+                    ON status_ref.field_name='status' AND status_ref.value=t.status
+                LEFT JOIN autotask_reference_values priority_ref
+                    ON priority_ref.field_name='priority' AND priority_ref.value=t.priority
+                LEFT JOIN autotask_reference_values queue_ref
+                    ON queue_ref.field_name='queue' AND queue_ref.value=t.queue
+                LEFT JOIN autotask_reference_values resource_ref
+                    ON resource_ref.field_name='resource' AND resource_ref.value=t.assigned_resource_id::text
+                WHERE t.id = %s
+                """,
+                (now, now, now, now, now, ticket_id),
+            ).fetchall()
+        )
+        if not rows:
+            return {"ok": False, "error": "ticket_not_found", "ticket_id": ticket_id}
+        ticket = _score_rows([dict(rows[0])])[0][0]
+        history_rows = list(
+            conn.execute(
+                """
+                SELECT id, autotask_id, action, detail, resource_id, happened_at
+                FROM autotask_ticket_history
+                WHERE ticket_id=%s
+                ORDER BY happened_at DESC NULLS LAST, id DESC
+                LIMIT 100
+                """,
+                (ticket_id,),
+            ).fetchall()
+        )
+        labor_rows = list(
+            conn.execute(
+                """
+                SELECT id, resource_id, resource_name, summary, hours, created_at_autotask
+                FROM autotask_time_entries
+                WHERE ticket_id=%s
+                ORDER BY created_at_autotask DESC NULLS LAST, id DESC
+                LIMIT 100
+                """,
+                (ticket_id,),
+            ).fetchall()
+        )
+        feedback_rows = list(
+            conn.execute(
+                """
+                SELECT id, health_score, risk_bucket, outcome, notes, created_at
+                FROM ticket_health_risk_feedback
+                WHERE ticket_id=%s
+                ORDER BY created_at DESC, id DESC
+                LIMIT 20
+                """,
+                (ticket_id,),
+            ).fetchall()
+        )
+
+    history_events = []
+    transitions = []
+    for row in history_rows:
+        event = dict(row)
+        parsed = parse_history_transition(event.get("action"), event.get("detail"))
+        event["transition"] = parsed
+        history_events.append(event)
+        if parsed["is_transition"]:
+            transitions.append({"happened_at": event.get("happened_at"), **parsed})
+
+    return {
+        "ok": True,
+        "ticket": ticket,
+        "history_events": history_events,
+        "transitions": transitions,
+        "status_duration_summary": status_duration_summary(
+            transitions,
+            current_status=ticket.get("status_label") or ticket.get("status"),
+            fallback_started_at=ticket.get("updated_at_autotask") or ticket.get("created_at_autotask"),
+        ),
+        "labor_entries": [dict(row) for row in labor_rows],
+        "feedback": {
+            "summary": _ticket_health_feedback_summary([dict(row) for row in feedback_rows]),
+            "recent_feedback": [dict(row) for row in feedback_rows],
+        },
+        "calibration": _ticket_health_feedback_calibration(
+            int(ticket.get("health_score") or 0),
+            [dict(row) for row in feedback_rows],
+        ),
+        "warnings": ticket["warnings"],
+    }
+
+
+def ticket_health_detail_by_number(ticket_number: str) -> dict[str, Any]:
+    ticket_lookup = (ticket_number or "").strip()
+    if not ticket_lookup:
+        return {"ok": False, "error": "ticket_number_required", "ticket_number": ticket_lookup}
+    with db_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id
+            FROM autotask_tickets
+            WHERE ticket_number = %s OR autotask_id::text = %s
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (ticket_lookup, ticket_lookup),
+        ).fetchone()
+    if not row:
+        return {"ok": False, "error": "ticket_not_found", "ticket_number": ticket_lookup}
+    return ticket_health_detail(int(row["id"]))
