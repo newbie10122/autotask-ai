@@ -10,6 +10,7 @@ import app.documents as documents_module
 from app.documents import create_documents_from_tickets, noise_report, reclassify_chunks
 import app.embeddings as embeddings_module
 from app.embeddings import run_embedding_batch
+import app.customer_success as customer_success_module
 from app.main import app
 from app.models import AuditAction
 import app.operations as operations_module
@@ -18,6 +19,7 @@ from app.quality import classify_chunk, is_recurring_issues_question
 import app.sync as sync_module
 from app.sync import sync_companies, sync_ticket_notes, sync_tickets
 from app.ticket_analytics import format_recurring_issues_answer, issue_group_label
+import app.ticket_health as ticket_health_module
 from app.ticket_classifier import classify_ticket
 
 
@@ -911,3 +913,70 @@ def test_operations_status_cache_key_uses_scope_role_and_auth_contract():
     assert readonly.startswith("autotask-ai:operations-status:")
     assert outer != readonly
     assert readonly != admin
+
+
+def test_ticket_health_summary_cache_key_uses_scope_role_and_filter_contract():
+    payload = {
+        "limit": 50,
+        "queue": "Support",
+        "assigned_resource_id": None,
+        "closed_status_ids": ["Complete"],
+    }
+    outer = ticket_health_module.ticket_health_summary_cache_key(payload)
+    readonly = ticket_health_module.ticket_health_summary_cache_key(
+        payload,
+        authority_class="authenticated-read",
+        roles=["ReadOnly"],
+        scope={"company_ids": [123], "global": False},
+    )
+    admin = ticket_health_module.ticket_health_summary_cache_key(
+        payload,
+        authority_class="authenticated-read",
+        roles=["Admin"],
+        scope={"company_ids": [123], "global": False},
+    )
+    other_scope = ticket_health_module.ticket_health_summary_cache_key(
+        payload,
+        authority_class="authenticated-read",
+        roles=["ReadOnly"],
+        scope={"company_ids": [456], "global": False},
+    )
+
+    assert outer.startswith("autotask-ai:ticket-health-summary:")
+    assert readonly.startswith("autotask-ai:ticket-health-summary:")
+    assert outer != readonly
+    assert readonly != admin
+    assert readonly != other_scope
+
+
+def test_customer_success_summary_cache_key_uses_scope_role_and_window_contract():
+    payload = {
+        "limit": 25,
+        "recent_days": 30,
+        "closed_status_ids": ["Complete"],
+    }
+    outer = customer_success_module.customer_success_summary_cache_key(payload)
+    readonly = customer_success_module.customer_success_summary_cache_key(
+        payload,
+        authority_class="authenticated-read",
+        roles=["ReadOnly"],
+        scope={"company_ids": [123], "global": False},
+    )
+    admin = customer_success_module.customer_success_summary_cache_key(
+        payload,
+        authority_class="authenticated-read",
+        roles=["Admin"],
+        scope={"company_ids": [123], "global": False},
+    )
+    other_scope = customer_success_module.customer_success_summary_cache_key(
+        payload,
+        authority_class="authenticated-read",
+        roles=["ReadOnly"],
+        scope={"company_ids": [456], "global": False},
+    )
+
+    assert outer.startswith("autotask-ai:customer-success-summary:")
+    assert readonly.startswith("autotask-ai:customer-success-summary:")
+    assert outer != readonly
+    assert readonly != admin
+    assert readonly != other_scope

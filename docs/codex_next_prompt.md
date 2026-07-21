@@ -5,11 +5,11 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `5f308551234d37b2622eb5d31ecb6e2e6680a6c4`
-- Latest merged PR: `newbie10122/autotask-ai#26`, `Verify generated assistant answer paths`
-- Latest PR #26 CI: GitHub Actions run `29866540110`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed validation: `./scripts/answer-safety-quality-streak.sh` passed 3/3 runs with `20 passed` per run, and `./scripts/validate-ci.sh && git diff --check` passed with production-auth preflight, full pytest `102 passed`, and Playwright browser smoke `6 passed` on branch `agent/m1-answer-safety-quality-streak`.
-- Current working branch objective: `agent/m1-answer-safety-quality-streak` adds repeatable conversational answer-safety Quality Streak evidence.
+- Canonical `main`: `2b5485c00dcb940650b3076d44ccbfb8a7d9381d`
+- Latest merged PR: `newbie10122/autotask-ai#27`, `Add answer safety quality streak harness`
+- Latest PR #27 CI: GitHub Actions run `29866943237`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local governed validation: `./scripts/validate-ci.sh && git diff --check` passed with production-auth preflight, full pytest `104 passed`, and Playwright browser smoke `6 passed` on branch `agent/m1-summary-cache-scope-contracts`.
+- Current working branch objective: `agent/m1-summary-cache-scope-contracts` moves ticket-health and customer-success summary cache keys onto the scoped cache contract.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -28,9 +28,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge branch `agent/m1-answer-safety-quality-streak` after full validation and GitHub CI pass.
-2. Update the existing Second Brain projection PR with the answer-safety streak evidence.
-3. Continue Milestone 1 closeout with live production-auth deployment evidence, remaining scope/cache certification, and remaining capability Quality Streak receipts.
+1. Merge branch `agent/m1-summary-cache-scope-contracts` after full validation and GitHub CI pass.
+2. Update the existing Second Brain projection PR with the summary-cache scope evidence.
+3. Continue Milestone 1 closeout with live production-auth deployment evidence, broader ticket-health/customer-success/routing scope certification, and remaining capability Quality Streak receipts.
 
 ## Milestone status
 
@@ -52,6 +52,6 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Existing projection branch: `agent/autotask-ai-governed-roadmap-projection`.
 Existing PR: `newbie10122/helix-second-brain#6`.
-Latest pushed projection head `6ba46c3` records PR #26, canonical commit, generated-answer verifier evidence, adversarial conversational verifier evidence, bootstrap app-user tooling, production-auth preflight validation, active scoped-cache consumer validation, source-sufficiency verifier checks, keyboard/focus browser smoke, browser accessibility smoke, capability certification matrix, validation-harness streak tracking, browser UI RBAC, unsupported-claim verifier breadth, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
+Latest pushed projection head `72eea2c` records PR #27, canonical commit, answer-safety Quality Streak harness, generated-answer verifier evidence, adversarial conversational verifier evidence, bootstrap app-user tooling, production-auth preflight validation, active scoped-cache consumer validation, source-sufficiency verifier checks, keyboard/focus browser smoke, browser accessibility smoke, capability certification matrix, validation-harness streak tracking, browser UI RBAC, unsupported-claim verifier breadth, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
 
 Update the existing projection after the next material Autotask AI slice. Do not create duplicate projection PRs, and do not mark Second Brain state `merged` until PR #6 is actually merged.
