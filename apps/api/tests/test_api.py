@@ -294,6 +294,14 @@ def test_api_route_authority_matrix_classifies_every_route():
     }
     company_scoped = {
         ("GET", "/api/analytics/recurring-issues"),
+        ("GET", "/api/ticket-health/summary"),
+        ("GET", "/api/ticket-health/tickets/{ticket_id}"),
+        ("GET", "/api/ticket-health/ticket-number/{ticket_number}"),
+        ("GET", "/api/customer-success/summary"),
+        ("GET", "/api/customer-success/companies/{company_id}"),
+        ("GET", "/api/routing/technician-skill-profiles"),
+        ("GET", "/api/routing/tickets/{ticket_id}/recommendation"),
+        ("GET", "/api/realtime/events"),
         ("POST", "/api/assistant/ask"),
         ("POST", "/api/assistant/feedback"),
     }
@@ -420,6 +428,71 @@ def test_assistant_ask_passes_authorized_company_scope(monkeypatch):
     assert response.status_code == 200
     assert captured["authorized_company_ids"] == [123]
     assert captured["actor_username"] == "tech"
+
+
+def test_ticket_health_summary_route_passes_scope_and_cache_context(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [123])
+
+    def fake_ticket_health_summary(limit, queue, assigned_resource_id, cache_context, authorized_company_ids):
+        captured["limit"] = limit
+        captured["queue"] = queue
+        captured["assigned_resource_id"] = assigned_resource_id
+        captured["cache_context"] = cache_context
+        captured["authorized_company_ids"] = authorized_company_ids
+        return {"ok": True}
+
+    monkeypatch.setattr("app.main.ticket_health_summary", fake_ticket_health_summary)
+    token = create_session_token("tech", [Role.technician.value])["token"]
+
+    response = client.get(
+        "/api/ticket-health/summary?limit=12&queue=Support&assigned_resource_id=44",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert captured["limit"] == 12
+    assert captured["queue"] == "Support"
+    assert captured["assigned_resource_id"] == 44
+    assert captured["authorized_company_ids"] == [123]
+    assert captured["cache_context"] == {
+        "authority_class": "authenticated-read",
+        "roles": [Role.technician.value],
+        "scope": {"global": False, "company_ids": [123]},
+    }
+
+
+def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [123])
+
+    def fake_customer_success_detail(company_id, recent_days, authorized_company_ids):
+        captured["customer_success_detail"] = (company_id, recent_days, authorized_company_ids)
+        return {"ok": True}
+
+    def fake_ticket_routing_recommendation(ticket_id, limit, authorized_company_ids):
+        captured["ticket_routing_recommendation"] = (ticket_id, limit, authorized_company_ids)
+        return {"ok": True}
+
+    def fake_recent_realtime_events(limit, authorized_company_ids):
+        captured["recent_realtime_events"] = (limit, authorized_company_ids)
+        return {"ok": True}
+
+    monkeypatch.setattr("app.main.customer_success_detail", fake_customer_success_detail)
+    monkeypatch.setattr("app.main.ticket_routing_recommendation", fake_ticket_routing_recommendation)
+    monkeypatch.setattr("app.main.recent_realtime_events", fake_recent_realtime_events)
+    token = create_session_token("tech", [Role.technician.value])["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    assert client.get("/api/customer-success/companies/77?recent_days=14", headers=headers).status_code == 200
+    assert client.get("/api/routing/tickets/88/recommendation?limit=4", headers=headers).status_code == 200
+    assert client.get("/api/realtime/events?limit=9", headers=headers).status_code == 200
+
+    assert captured["customer_success_detail"] == (77, 14, [123])
+    assert captured["ticket_routing_recommendation"] == (88, 4, [123])
+    assert captured["recent_realtime_events"] == (9, [123])
 
 
 def test_admin_assistant_ask_uses_explicit_global_scope(monkeypatch):

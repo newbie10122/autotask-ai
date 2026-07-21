@@ -10,6 +10,7 @@ from .audit import audit_sink
 from .assistant import ask_assistant, pending_memory, store_feedback
 from .autotask import AutotaskReadOnlyClient
 from .config import settings
+from .customer_success import customer_success_detail, customer_success_summary
 from .db import database_available, db_connection, init_schema
 from .documents import create_documents_from_tickets, noise_report
 from .embeddings import run_embedding_batch
@@ -24,8 +25,11 @@ from .operations import (
     set_job_enabled,
     update_operations_settings,
 )
+from .realtime import recent_realtime_events
+from .routing import technician_skill_profiles, ticket_routing_recommendation
 from .sync import sync_companies, sync_recent, sync_runs, sync_status as get_sync_status, sync_ticket_notes, sync_tickets
 from .ticket_analytics import classify_tickets, recurring_issues_report, reference_data_status, sync_reference_data, ticket_class_report
+from .ticket_health import ticket_health_detail_by_number_scoped, ticket_health_detail_scoped, ticket_health_summary
 from .security import authenticate_user, create_session_token, verify_session_token
 
 app = FastAPI(title="Autotask AI API", version="0.1.0")
@@ -183,6 +187,17 @@ def audit_scope(authorized_company_ids: list[int] | None = None) -> dict:
     if authorized_company_ids is None:
         return {"global": True}
     return {"global": False, "company_ids": authorized_company_ids}
+
+
+def cache_context_for_request(request: Request, authorized_company_ids: list[int] | None) -> dict | None:
+    if not settings.app_route_auth_required:
+        return None
+    user = current_user(request)
+    return {
+        "authority_class": "authenticated-read",
+        "roles": user.get("roles") or ["Authenticated"],
+        "scope": audit_scope(authorized_company_ids),
+    }
 
 
 def audit_actor(user: dict | None = None) -> str:
@@ -475,6 +490,158 @@ def api_recurring_issues(
         getattr(request.state, "user", None),
         audit_scope(authorized_company_ids),
         {"limit": limit, "include_excluded": include_excluded},
+    )
+    return result
+
+
+@app.get("/api/ticket-health/summary")
+def api_ticket_health_summary(
+    request: Request,
+    limit: int = 50,
+    queue: str | None = None,
+    assigned_resource_id: int | None = None,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = ticket_health_summary(
+        limit=limit,
+        queue=queue,
+        assigned_resource_id=assigned_resource_id,
+        cache_context=cache_context_for_request(request, authorized_company_ids),
+        authorized_company_ids=authorized_company_ids,
+    )
+    record_success_audit(
+        AuditAction.search,
+        "ticket_health.summary",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"limit": limit, "queue": queue, "assigned_resource_id": assigned_resource_id},
+    )
+    return result
+
+
+@app.get("/api/ticket-health/tickets/{ticket_id}")
+def api_ticket_health_detail(
+    ticket_id: int,
+    request: Request,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = ticket_health_detail_scoped(ticket_id, authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "ticket_health.detail",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"ticket_id": ticket_id},
+    )
+    return result
+
+
+@app.get("/api/ticket-health/ticket-number/{ticket_number}")
+def api_ticket_health_detail_by_number(
+    ticket_number: str,
+    request: Request,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = ticket_health_detail_by_number_scoped(ticket_number, authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "ticket_health.detail_by_number",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"ticket_number": ticket_number},
+    )
+    return result
+
+
+@app.get("/api/customer-success/summary")
+def api_customer_success_summary(
+    request: Request,
+    limit: int = 25,
+    recent_days: int = 30,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = customer_success_summary(
+        limit=limit,
+        recent_days=recent_days,
+        cache_context=cache_context_for_request(request, authorized_company_ids),
+        authorized_company_ids=authorized_company_ids,
+    )
+    record_success_audit(
+        AuditAction.search,
+        "customer_success.summary",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"limit": limit, "recent_days": recent_days},
+    )
+    return result
+
+
+@app.get("/api/customer-success/companies/{company_id}")
+def api_customer_success_detail(
+    company_id: int,
+    request: Request,
+    recent_days: int = 30,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = customer_success_detail(company_id, recent_days=recent_days, authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "customer_success.detail",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"company_id": company_id, "recent_days": recent_days},
+    )
+    return result
+
+
+@app.get("/api/routing/technician-skill-profiles")
+def api_technician_skill_profiles(
+    request: Request,
+    limit: int = 25,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = technician_skill_profiles(limit=limit, authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "routing.technician_skill_profiles",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"limit": limit},
+    )
+    return result
+
+
+@app.get("/api/routing/tickets/{ticket_id}/recommendation")
+def api_ticket_routing_recommendation(
+    ticket_id: int,
+    request: Request,
+    limit: int = 5,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = ticket_routing_recommendation(ticket_id, limit=limit, authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "routing.ticket_recommendation",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"ticket_id": ticket_id, "limit": limit},
+    )
+    return result
+
+
+@app.get("/api/realtime/events")
+def api_realtime_events(
+    request: Request,
+    limit: int = 25,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = recent_realtime_events(limit=limit, authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "realtime.events",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"limit": limit},
     )
     return result
 
