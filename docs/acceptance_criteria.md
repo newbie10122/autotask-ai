@@ -105,6 +105,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused API/RAG tests passed with `79 passed`; full `./scripts/validate-ci.sh` passed with production-auth preflight, 10 ordered migrations, full pytest `111 passed`, static web JavaScript syntax, Playwright browser smoke `6 passed`, and `git diff --check`. This is local feedback route-contract evidence only; live production-auth enforcement and broader capability Quality Streak evidence remain required.
 - Current branch evidence on `agent/m1-cache-export-consumer-certification`: current active cache consumers are certified to use scoped cache machinery, direct unscoped cache-key imports are absent from active cache modules, and export/download API routes remain absent.
 - Current branch validation: focused API/RAG tests passed with `49 passed`; full `./scripts/validate-ci.sh` passed with production-auth preflight, 10 ordered migrations, full pytest `112 passed`, static web JavaScript syntax, Playwright browser smoke `6 passed`, and `git diff --check`. This is cache/export certification evidence only; live production-auth enforcement and broader capability Quality Streak evidence remain required.
+- Current branch evidence on `agent/m1-security-isolation-quality-streak`: `scripts/security-isolation-quality-streak.sh` runs the existing auth, route RBAC, audit, scope, scoped-cache, realtime, feedback, and verifier subset three consecutive times inside the API container.
+- Current branch validation: `./scripts/security-isolation-quality-streak.sh` passed 3/3 runs, each with `46 passed`. This is local synthetic Quality Streak evidence only; live production-auth deployment evidence remains required.
 
 ## Milestone 2
 

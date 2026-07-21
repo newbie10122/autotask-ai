@@ -67,3 +67,15 @@ Use this command for repeatable conversational answer-safety certification evide
 The script runs the guardrail and RAG conversational test subset three consecutive times inside the API container. It covers prompt-injection detection, secret filtering, ticket citation checks, source sufficiency, generated-answer verifier fallback, verifier-failure audit, metadata ticket IDs, cross-ticket evidence mismatch, weak no-evidence fallback language, required answer sections, and redaction preserving answer headers.
 
 This is a candidate answer-safety Quality Streak harness. It does not certify production authentication enforcement, production deployment, live model quality, live customer-data expansion, or any Autotask write capability.
+
+## Security/Isolation Quality Streak
+
+Use this command for repeatable Milestone 1 security and isolation certification evidence:
+
+```bash
+./scripts/security-isolation-quality-streak.sh
+```
+
+The script runs the API, RAG, and guardrail security/isolation subset three consecutive times inside the API container. It covers authentication, route RBAC, denial and success audit events, company scope propagation, scoped local capability routes, local feedback role gates, scoped cache contracts, export/download route absence, realtime scope filtering, and verifier fail-closed behavior.
+
+This is a candidate security/isolation Quality Streak harness. It does not certify live production authentication enforcement, production deployment, live customer-data expansion, scheduler catch-up completeness, or any Autotask write capability.
