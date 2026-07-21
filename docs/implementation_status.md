@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `cd1a0b4e1f6dda9ba3eadd6fb44fe5934d1f1b65`, which merged PR `newbie10122/autotask-ai#18`.
+- Canonical `main` is `6ea8a91e5a42aa6650a3f6fe05202227a11639c3`, which merged PR `newbie10122/autotask-ai#19`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -39,12 +39,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 unsupported-claim verifier branch `agent/m1-unsupported-claim-verifier` rejects unsupported ticket-history resolution claims when retrieved source evidence lacks meaningful overlap.
 - Milestone 1 browser RBAC branch `agent/m1-browser-rbac-smoke` adds Playwright browser smoke coverage for anonymous, Admin, and ReadOnly UI authorization states.
 - Milestone 1 browser accessibility branch `agent/m1-browser-accessibility-smoke` adds Playwright axe smoke coverage for serious/critical accessibility violations and login accessible-name behavior.
+- Milestone 1 keyboard/focus branch `agent/m1-keyboard-focus-smoke` adds explicit focus-visible styling and Playwright keyboard traversal evidence for navigation, auth, and ask workflow controls.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix, but production defaults still keep app-route auth off.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, future scoped cache contracts, browser RBAC smoke coverage, and first browser accessibility smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with keyboard/focus checks or active scoped cache consumers.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, future scoped cache contracts, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with active scoped cache consumers or production-auth deployment evidence.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, and first unsupported ticket-history resolution claims; broader source sufficiency remains open.
 - Capability-specific three-run Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -68,7 +69,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Add keyboard/focus accessibility evidence and source-sufficiency certification.
+1. Add source-sufficiency certification and active scoped cache consumer validation.
 2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
 3. Build capability-specific Quality Streak receipts without marking milestones complete prematurely.
 
@@ -86,7 +87,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 browser accessibility smoke
+## Latest receipt — Milestone 1 keyboard/focus browser smoke
+
+- **Slice:** Add keyboard/focus browser accessibility evidence on branch `agent/m1-keyboard-focus-smoke` from canonical `main` `6ea8a91e5a42aa6650a3f6fe05202227a11639c3`.
+- **State:** `partial`; keyboard/focus browser evidence is stronger, but Milestone 1 still requires source-sufficiency certification, production auth enablement, active scoped cache consumer validation, and Quality Streak records.
+- **Files changed:** `apps/web/styles.css`, `apps/web/tests/accessibility.spec.js`, and project status docs.
+- **Implemented:** Navigation links, buttons, inputs, textareas, and selects now share an explicit focus-visible indicator. Playwright verifies keyboard Tab traversal through primary navigation, login controls, mode selection, question entry, and the Ask action with visible focus on each step.
+- **Validation:** `npm run test:web` passed with `6 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `88 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added; browser tests stub API calls.
+- **Rollback:** Revert this branch commit; behavior change is limited to visible keyboard focus styling and stronger browser validation.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 browser accessibility smoke
 
 - **Slice:** Add Playwright axe accessibility smoke coverage on branch `agent/m1-browser-accessibility-smoke` from canonical `main` `cd1a0b4e1f6dda9ba3eadd6fb44fe5934d1f1b65`.
 - **State:** `partial`; browser accessibility evidence is broader, but Milestone 1 still requires keyboard/focus evidence, source-sufficiency certification, production auth enablement, active scoped cache consumer validation, and Quality Streak records.
@@ -95,7 +107,7 @@ None currently identified for documentation and non-production implementation wo
 - **Validation:** `npm run test:web` passed with `5 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `88 passed`, static web JavaScript syntax validation, Playwright browser smoke `5 passed`, and `git diff --check`.
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added; browser tests stub API calls.
 - **Rollback:** Revert this branch commit; application behavior is unchanged except the Ask mode selector label and stronger browser validation.
-- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+- **Second Brain state:** `updated`; existing projection PR #6 records PR #19 at commit `f5ddb53`.
 
 ## Previous receipt — Certification matrix and validation-harness streak tracking
 

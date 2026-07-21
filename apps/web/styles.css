@@ -47,6 +47,14 @@ nav a {
   border-radius: 6px;
 }
 nav a:hover { background: rgba(255,255,255,.1); }
+nav a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(15, 118, 110, .42);
+  outline-offset: 2px;
+}
 nav a.active { background: rgba(255,255,255,.14); color: #ffffff; }
 
 main {
