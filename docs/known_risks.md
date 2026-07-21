@@ -8,8 +8,8 @@
 
 **Severity:** Critical for production
 **State:** Partially mitigated
-**Impact:** Branch `agent/m1-auth-rbac-foundation` replaces placeholder token behavior with hashed passwords, signed expiring tokens, optional route enforcement, and admin denial tests. Branch `agent/m1-route-authority-audit-matrix` adds admin gates and a route inventory contract for sensitive routes. Branch `agent/m1-browser-rbac-smoke` adds first real-browser UI RBAC smoke coverage, but production defaults still keep app-route auth off behind Nginx Basic Auth and broader accessibility evidence is not complete.
-**Mitigation:** Finish bootstrap/admin-user operations, broader accessibility evidence, and three-run security evidence before production enforcement.
+**Impact:** Branch `agent/m1-auth-rbac-foundation` replaces placeholder token behavior with hashed passwords, signed expiring tokens, optional route enforcement, and admin denial tests. Branch `agent/m1-route-authority-audit-matrix` adds admin gates and a route inventory contract for sensitive routes. Branches `agent/m1-browser-rbac-smoke` and `agent/m1-browser-accessibility-smoke` add first real-browser UI RBAC and axe accessibility smoke coverage, but production defaults still keep app-route auth off behind Nginx Basic Auth and keyboard/focus evidence is not complete.
+**Mitigation:** Finish bootstrap/admin-user operations, keyboard/focus accessibility evidence, and three-run security evidence before production enforcement.
 **Approval gate:** Production authentication changes require security review and controlled deployment.
 
 ### R2 — Client/company isolation is not yet proven fail-closed
