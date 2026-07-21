@@ -127,4 +127,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #6 has an updated Autotask AI projection with local validation passing, but its remote `Validate knowledge` workflow is failing before job steps; this blocks merging the projection but does not block independent Autotask AI engineering.

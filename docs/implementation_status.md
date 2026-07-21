@@ -89,7 +89,7 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, exact branch head `acf1863ae5623cf3004fba107deab19c3f627659`. The repository `Validate knowledge` workflow is required before merge. Do not mark `merged` until PR #6 is merged. The Autotask AI CI PR is now open as `newbie10122/autotask-ai#3`; update the existing governed Second Brain projection after this PR is merged or otherwise materially changes.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, exact branch head `3ea289ada8ec6410c70ba07b31600b4c67de3a23`. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote `Validate knowledge` run `29850044428` failed twice before checkout/setup with no job steps and `runner_id=0`; this is recorded on PR #6 and still needs follow-up before merge. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
