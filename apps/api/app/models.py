@@ -16,6 +16,7 @@ class AuditAction(StrEnum):
     feedback = "feedback"
     admin_action = "admin_action"
     authorization_denied = "authorization_denied"
+    verifier_failed = "verifier_failed"
 
 
 class AuditLogEntry(BaseModel):

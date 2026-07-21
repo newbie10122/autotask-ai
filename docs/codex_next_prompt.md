@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `aabecda3217471128e4cc02818cafc01f2a5be17`
-- Latest merged PR: `newbie10122/autotask-ai#12`, `Add route authority matrix and UI RBAC contracts`
-- Latest PR #12 CI: GitHub Actions run `29860275023`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed validation: `./scripts/validate-ci.sh` passed with full pytest `81 passed` on branch `agent/m1-success-audit-scope-linkage`
+- Canonical `main`: `cb14284fa02c98666358d7015e2664116aca05c8`
+- Latest merged PR: `newbie10122/autotask-ai#13`, `Link success audit records to actor scope`
+- Latest PR #13 CI: GitHub Actions run `29860736212`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local governed validation: `./scripts/validate-ci.sh` passed with full pytest `82 passed` on branch `agent/m1-verifier-failure-audit`
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -27,9 +27,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge branch `agent/m1-success-audit-scope-linkage` after GitHub CI passes.
-2. Update the existing Second Brain projection PR with the success-audit actor/scope evidence.
-3. Continue Milestone 1 closeout with verifier-failure audit records, company-isolation negatives, cache/export contracts, verifier breadth, and real-browser UI RBAC/accessibility evidence.
+1. Merge branch `agent/m1-verifier-failure-audit` after GitHub CI passes.
+2. Update the existing Second Brain projection PR with the verifier-failure audit evidence.
+3. Continue Milestone 1 closeout with company-isolation negatives, cache/export contracts, unsupported-claim verifier breadth, and real-browser UI RBAC/accessibility evidence.
 
 ## Milestone status
 
@@ -49,6 +49,6 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Existing projection branch: `agent/autotask-ai-governed-roadmap-projection`.
 Existing PR: `newbie10122/helix-second-brain#6`.
-Latest pushed projection head `4709074` records PR #12, canonical commit, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
+Latest pushed projection head `66441c6` records PR #13, canonical commit, success audit actor/scope linkage, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
 
 Update the existing projection after the next material Autotask AI slice. Do not create duplicate projection PRs, and do not mark Second Brain state `merged` until PR #6 is actually merged.

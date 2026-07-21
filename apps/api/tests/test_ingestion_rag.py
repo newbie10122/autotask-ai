@@ -1,6 +1,7 @@
 import inspect
 
 from app.answer_guardrails import has_required_answer_sections
+from app.audit import audit_sink
 import app.assistant as assistant_module
 from app.assistant import ask_assistant, store_feedback
 from app.autotask import AutotaskHeaders, AutotaskReadOnlyClient
@@ -9,6 +10,7 @@ from app.documents import create_documents_from_tickets, noise_report, reclassif
 import app.embeddings as embeddings_module
 from app.embeddings import run_embedding_batch
 from app.main import app
+from app.models import AuditAction
 import app.operations as operations_module
 from app.ollama import OllamaUnavailable
 from app.quality import classify_chunk, is_recurring_issues_question
@@ -256,7 +258,7 @@ def test_timeout_fallback_uses_structured_warning():
         0.7,
         "Local LLM timed out; showing retrieval summary only.",
     )
-    assert "Local CPU LLM timed out; showing a cleaned retrieval summary instead." in answer
+    assert "Local LLM timed out; showing retrieval summary only." in answer
     assert "Resolved VPN failures" in answer
 
 
@@ -570,6 +572,92 @@ def test_ask_endpoint_refuses_when_no_matching_chunks(monkeypatch):
     assert result["confidence"] == "Low"
     assert "I do not have enough matching CompuOne ticket history" in result["answer"]
     assert has_required_answer_sections(result["answer"])
+
+
+def test_verifier_failure_preserves_warning_and_records_audit(monkeypatch):
+    events = []
+    monkeypatch.setattr("app.assistant.init_schema", lambda: None)
+    monkeypatch.setattr("app.assistant.embed_text", lambda _text: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(
+        "app.assistant.chat",
+        lambda _prompt: (
+            "Confidence: High\n\n"
+            "From CompuOne Ticket History\n"
+            "T999 fixed this by replacing the firewall.\n\n"
+            "General IT Guidance\n"
+            "Check the basics.\n\n"
+            "Suggested Next Steps\n"
+            "- Open the ticket.\n\n"
+            "Based on Tickets\n"
+            "- T999\n\n"
+            "Warnings\n"
+            "- None"
+        ),
+    )
+    monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
+
+    source = {
+        "chunk_id": 10,
+        "content": "Ticket Number: T1\nTitle: Printer issue\nDescription: Restarted print spooler.",
+        "source_metadata": {"company_id": 123},
+        "knowledge_class": "resolution",
+        "quality_score": 0.9,
+        "is_noise": False,
+        "noise_reason": None,
+        "ticket_pk": 20,
+        "autotask_id": 1,
+        "ticket_number": "T1",
+        "score": 0.8,
+    }
+
+    class FakeConn:
+        def execute(self, sql, params=None):
+            self.sql = sql
+            return self
+
+        def fetchone(self):
+            if "assistant_queries" in self.sql:
+                return {"id": 1}
+            if "assistant_answers" in self.sql:
+                return {"id": 2}
+            return {}
+
+        def fetchall(self):
+            if "FROM document_embeddings" in self.sql:
+                return [source]
+            return []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.assistant.db_connection", lambda: FakeConn())
+
+    result = ask_assistant("how do I fix the printer", authorized_company_ids=[123], actor_username="tech")
+
+    assert result["confidence"] == "High"
+    assert "Answer verifier failed closed: unretrieved ticket citation." in result["answer"]
+    assert "Answer verifier failed closed: unretrieved ticket citation." in result["warnings"]
+    audit_event = next(event for event in events if event.action == AuditAction.verifier_failed)
+    assert audit_event.actor == "tech"
+    assert audit_event.outcome == "blocked"
+    assert audit_event.scope == {"company_ids": [123], "global": False}
+    assert audit_event.metadata == {
+        "reason": "unretrieved ticket citation",
+        "source_count": 1,
+        "source_ticket_count": 1,
+    }
 
 
 def test_feedback_and_known_fix_functions_are_available():

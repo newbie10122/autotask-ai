@@ -9,8 +9,10 @@ from psycopg.types.json import Jsonb
 
 from .answer_guardrails import WEAK_EVIDENCE_MESSAGE, build_guarded_answer
 from .answer_safety import filter_safe_sources, verify_answer
+from .audit import audit_sink
 from .config import settings
 from .db import db_connection, init_schema
+from .models import AuditAction, AuditLogEntry
 from .ollama import OllamaUnavailable, chat, embed_text
 from .quality import is_recurring_issues_question
 from .security import redact_private_entities
@@ -83,11 +85,34 @@ def _fallback_answer(
         confidence=confidence,
     )
     if warning:
+        safe_warning = redact_private_entities(warning)
         answer = answer.replace(
             "Warnings\n- None",
-            "Warnings\n- Local CPU LLM timed out; showing a cleaned retrieval summary instead.",
+            f"Warnings\n- {safe_warning}",
         )
     return answer
+
+
+def _audit_verifier_failure(
+    actor_username: str | None,
+    authorized_company_ids: list[int] | None,
+    reason: str,
+    sources: list[dict[str, Any]],
+) -> None:
+    audit_sink.record(
+        AuditLogEntry(
+            actor=actor_username or "system",
+            action=AuditAction.verifier_failed,
+            target="assistant.ask",
+            outcome="blocked",
+            scope={"company_ids": authorized_company_ids, "global": authorized_company_ids is None},
+            metadata={
+                "reason": reason,
+                "source_count": len(sources),
+                "source_ticket_count": len(_unique_tickets(sources)),
+            },
+        )
+    )
 
 
 def _line_value(content: str, label: str) -> str:
@@ -416,6 +441,7 @@ def ask_assistant(
         verification = verify_answer(answer, sources, authorized_company_ids=authorized_company_ids)
         if not verification.ok:
             warning = f"Answer verifier failed closed: {verification.fail_closed_reason}."
+            _audit_verifier_failure(actor_username, authorized_company_ids, verification.fail_closed_reason, sources)
             answer = _fallback_answer(sources, confidence, warning)
 
     duration_ms = int((time.monotonic() - started) * 1000)
