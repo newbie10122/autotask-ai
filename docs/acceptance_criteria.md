@@ -49,6 +49,8 @@ A milestone may be marked `verified_complete` only when:
 - Three consecutive clean identity/isolation/verifier certification runs exist.
 - Current branch evidence on `agent/m1-auth-rbac-foundation`: password hashing, signed expiring tokens, `/auth/me`, optional bearer-token middleware, disabled-user rejection, invalid-login rejection, route-auth fail-closed behavior, admin-operation role denial, prompt-injection source filtering, secret-source filtering, and unretrieved-ticket citation rejection have tests.
 - Current branch validation: focused Docker test command passed with `54 passed`; full `./scripts/validate-ci.sh` passed with 7 ordered migrations and `65 passed`. This is foundation evidence only; durable audit, full UI/API RBAC, company-scope propagation, verifier breadth, and three-run streak evidence remain required.
+- Current branch evidence on `agent/m1-durable-audit-scope-foundation`: durable `audit_log` schema, audit outcome/scope fields, database audit insert/list behavior with memory fallback, missing-token denial events, insufficient-role denial events, and no-Postgres API tests exist.
+- Current branch validation: focused no-Postgres API test command passed with `14 passed`; full `./scripts/validate-ci.sh` passed with 8 ordered migrations and `67 passed`. This is foundation evidence only; audit coverage across all workflows and identity/company-scope linkage remain required.
 
 ## Milestone 2
 

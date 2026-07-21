@@ -4,12 +4,12 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 ## Immediate run objective
 
-Continue Milestone 1 from branch `agent/m1-auth-rbac-foundation`:
+Continue Milestone 1 from branch `agent/m1-durable-audit-scope-foundation`:
 
-1. Push/open a draft PR for the current auth/RBAC and answer-safety foundation if it is not already open.
+1. Push/open a draft PR for the durable-audit foundation if it is not already open.
 2. Confirm the latest GitHub Actions result for that PR head.
 3. Update the existing governed Autotask AI Second Brain projection PR after the Autotask AI PR exists or materially changes.
-4. Continue immediately to durable identity-linked audit and full company-scope propagation.
+4. Continue immediately to full company-scope propagation.
 5. Do not mark Milestone 1 `verified_complete` until full API/UI RBAC, persistent audit, fail-closed client isolation, independent verifier breadth, and three-run Quality Streak evidence all pass.
 
 Current foundation evidence:
@@ -19,10 +19,11 @@ Current foundation evidence:
 - `_retrieve_sources` has an `authorized_company_ids` filter contract, but authenticated actor-to-company scope is not wired end to end.
 - `./scripts/validate-ci.sh` passed on the M1 branch with 7 ordered migrations and full pytest `65 passed`.
 - Initial PR #4 run `29854738844` failed from a non-hermetic admin-route test that expected a live `postgres` hostname, and the amended branch fixes that test.
+- Durable audit branch adds DB-backed `audit_log` persistence, outcome/scope fields, missing-token denial events, insufficient-role denial events, and no-Postgres API tests.
+- `./scripts/validate-ci.sh` passed on the durable-audit branch with 8 ordered migrations and full pytest `67 passed`.
 
 Next eligible safe work:
 
-- Durable identity-linked audit tables and denial events.
 - User-company scope tables, helpers, and fail-closed dependencies.
 - Assistant, recurring analytics, query source, feedback, memory, future cache/export scope propagation.
 - UI auth/RBAC states and API denial coverage for all roles.
