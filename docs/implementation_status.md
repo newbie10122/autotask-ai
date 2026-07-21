@@ -49,12 +49,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 answer-safety Quality Streak branch `agent/m1-answer-safety-quality-streak` adds a repeatable three-run conversational answer-safety streak harness.
 - Milestone 1 summary-cache scope branch `agent/m1-summary-cache-scope-contracts` moves ticket-health and customer-success summary cache keys onto the scoped cache contract.
 - Milestone 1 ticket-health/customer-success/routing scope branch `agent/m1-scope-certification-ticket-health-routing` adds optional company-scope filters and fail-closed detail/feedback behavior for local capability functions.
+- Milestone 1 realtime scope branch `agent/m1-realtime-scope-certification` adds authorized-company filtering for ticket-history realtime events and hides global job events from scoped callers.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix. A production-auth preflight now requires app-route auth or an explicit external-auth boundary, but live production enforcement remains approval-gated.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, ticket-health/customer-success summary cache keys, ticket-health/customer-success/routing local capability functions, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with production-auth deployment evidence.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, ticket-health/customer-success summary cache keys, ticket-health/customer-success/routing local capability functions, realtime ticket-history events, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with production-auth deployment evidence.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
 - Answer-safety has a candidate three-run conversational Quality Streak harness and local 3/3 evidence, but broader capability-specific Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -96,7 +97,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 ticket-health/customer-success/routing scope certification
+## Latest receipt — Milestone 1 realtime scope certification
+
+- **Slice:** Add authorized-company filtering for realtime ticket-history events on branch `agent/m1-realtime-scope-certification` from canonical `main` `18fe54ff1b3d686c7fa573548c7a558d8e39a7aa`.
+- **State:** `partial`; realtime event helpers now carry scope for local ticket-history events, but production-auth deployment evidence, first-class route exposure decisions, and broader capability Quality Streak records remain open.
+- **Files changed:** `apps/api/app/realtime.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `recent_realtime_events()` and `realtime_event_stream()` accept optional authorized company scope. Company-scoped calls filter ticket-history events by ticket company and hide global scheduler job events unless explicitly allowed.
+- **Validation:** Focused API/RAG test command passed with `48 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `108 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; changes only filter local realtime read evidence.
+- **Rollback:** Revert this branch commit; realtime helpers return to prior global event behavior.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 ticket-health/customer-success/routing scope certification
 
 - **Slice:** Add company-scope filters and fail-closed detail/feedback behavior for ticket-health, customer-success, and routing local capability functions on branch `agent/m1-scope-certification-ticket-health-routing` from canonical `main` `14a545e356fff7dca6ba1a946f0cc5837e025f1d`.
 - **State:** `partial`; local capability functions now accept and apply company scope, but production-auth deployment evidence, first-class route exposure decisions, and broader capability Quality Streak records remain open.

@@ -16,6 +16,7 @@ from app.models import AuditAction
 import app.operations as operations_module
 from app.ollama import OllamaUnavailable
 from app.quality import classify_chunk, is_recurring_issues_question
+import app.realtime as realtime_module
 import app.routing as routing_module
 import app.sync as sync_module
 from app.sync import sync_companies, sync_ticket_notes, sync_tickets
@@ -1027,3 +1028,35 @@ def test_routing_data_paths_apply_company_scope_to_evidence_and_feedback():
     assert "company_id = ANY(%s)" in profile_source
     assert "company_id = ANY(%s)" in recommendation_source
     assert "company_id = ANY(%s)" in feedback_source
+
+
+def test_realtime_events_filter_ticket_history_scope_and_hide_global_jobs(monkeypatch):
+    calls = []
+
+    class FakeResult:
+        def fetchall(self):
+            return []
+
+    class FakeConn:
+        def execute(self, sql, params=None):
+            calls.append((sql, params))
+            return FakeResult()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr("app.realtime.db_connection", lambda: FakeConn())
+
+    result = realtime_module.recent_realtime_events(limit=5, authorized_company_ids=[123])
+
+    assert result["ok"] is True
+    assert result["scope"] == {"global": False, "company_ids": [123]}
+    assert not any("FROM job_runs" in sql for sql, _params in calls)
+    assert len(calls) == 1
+    sql, params = calls[0]
+    assert "FROM autotask_ticket_history" in sql
+    assert "t.company_id = ANY(%s)" in sql
+    assert params == ([123], [123], 10)
