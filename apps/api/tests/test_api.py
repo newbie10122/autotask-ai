@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from app.audit import audit_sink
 from app.config import settings
 from app.main import app
-from app.models import Role
+from app.models import AuditAction, AuditLogEntry, Role
 from app.security import create_session_token, hash_password, verify_password
 
 
@@ -97,6 +97,19 @@ def test_route_auth_rejects_missing_token_when_enabled(monkeypatch):
     assert protected.status_code == 401
 
 
+def test_route_auth_denial_records_audit_event(monkeypatch):
+    events = []
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
+
+    response = client.get("/settings")
+
+    assert response.status_code == 401
+    assert events[-1].action == "authorization_denied"
+    assert events[-1].outcome == "denied"
+    assert events[-1].target == "/settings"
+
+
 def test_route_auth_accepts_bearer_token_when_enabled(monkeypatch):
     monkeypatch.setattr(settings, "app_route_auth_required", True)
     token = create_session_token("tech", [Role.technician.value])["token"]
@@ -117,3 +130,48 @@ def test_admin_route_requires_admin_role_when_route_auth_enabled(monkeypatch):
 
     assert denied.status_code == 403
     assert allowed.status_code == 200
+
+
+def test_audit_sink_persists_when_database_available(monkeypatch):
+    calls = []
+
+    class FakeConn:
+        def execute(self, sql, params=None):
+            calls.append((sql, params))
+            return self
+
+        def fetchall(self):
+            return []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.db.psycopg.connect", lambda *args, **kwargs: FakeConn())
+
+    audit_sink.record(
+        AuditLogEntry(
+            actor="tech",
+            action=AuditAction.admin_action,
+            target="/settings",
+            outcome="success",
+            scope={"company_ids": [1]},
+            metadata={"safe": True},
+        )
+    )
+
+    sql, params = calls[-1]
+    assert "INSERT INTO audit_log" in sql
+    assert params[0] == "tech"
+    assert params[3] == "success"

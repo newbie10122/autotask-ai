@@ -82,6 +82,18 @@ def _token_user(request: Request) -> dict | None:
     return {"username": payload["sub"], "roles": payload["roles"]}
 
 
+def _record_auth_denial(request: Request, actor: str = "anonymous", reason: str = "missing_or_invalid_token") -> None:
+    audit_sink.record(
+        AuditLogEntry(
+            actor=actor,
+            action=AuditAction.authorization_denied,
+            target=request.url.path,
+            outcome="denied",
+            metadata={"reason": reason, "method": request.method},
+        )
+    )
+
+
 @app.middleware("http")
 async def enforce_route_auth(request: Request, call_next: Callable) -> JSONResponse:
     if not settings.app_route_auth_required or request.url.path in PUBLIC_AUTH_PATHS:
@@ -89,6 +101,7 @@ async def enforce_route_auth(request: Request, call_next: Callable) -> JSONRespo
 
     user = _token_user(request)
     if not user:
+        _record_auth_denial(request)
         return JSONResponse(status_code=401, content={"detail": "Missing or invalid bearer token."})
     request.state.user = user
     return await call_next(request)
@@ -109,6 +122,15 @@ def require_roles(*allowed_roles: Role):
             return None
         user = current_user(request)
         if not allowed.intersection(set(user.get("roles") or [])):
+            audit_sink.record(
+                AuditLogEntry(
+                    actor=user.get("username") or "unknown",
+                    action=AuditAction.authorization_denied,
+                    target=request.url.path,
+                    outcome="denied",
+                    metadata={"required_roles": sorted(allowed), "actual_roles": user.get("roles") or []},
+                )
+            )
             raise HTTPException(status_code=403, detail="Insufficient role for this action.")
         return user
 

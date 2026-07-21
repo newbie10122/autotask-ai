@@ -15,12 +15,15 @@ class AuditAction(StrEnum):
     assistant_answer = "assistant_answer"
     feedback = "feedback"
     admin_action = "admin_action"
+    authorization_denied = "authorization_denied"
 
 
 class AuditLogEntry(BaseModel):
     actor: str
     action: AuditAction
     target: str | None = None
+    outcome: str = "success"
+    scope: dict = Field(default_factory=dict)
     metadata: dict = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
