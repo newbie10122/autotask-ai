@@ -55,3 +55,15 @@ This section records validation-harness evidence only. It does not certify produ
 | 3 | `agent/m0-quality-streak-matrix` | `./scripts/validate-ci.sh && git diff --check` | pass: Python `88 passed`; Playwright `3 passed`; diff clean | Third browser-enabled validation-harness evidence point |
 
 The validation harness has three clean browser-enabled evidence points. Capability-specific Quality Streaks remain governed by `AGENTS.md` and require the relevant negative, recovery, isolation, and rollback evidence.
+
+## Answer-Safety Quality Streak
+
+Use this command for repeatable conversational answer-safety certification evidence:
+
+```bash
+./scripts/answer-safety-quality-streak.sh
+```
+
+The script runs the guardrail and RAG conversational test subset three consecutive times inside the API container. It covers prompt-injection detection, secret filtering, ticket citation checks, source sufficiency, generated-answer verifier fallback, verifier-failure audit, metadata ticket IDs, cross-ticket evidence mismatch, weak no-evidence fallback language, required answer sections, and redaction preserving answer headers.
+
+This is a candidate answer-safety Quality Streak harness. It does not certify production authentication enforcement, production deployment, live model quality, live customer-data expansion, or any Autotask write capability.

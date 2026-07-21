@@ -46,6 +46,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 bootstrap/admin-user branch `agent/m1-bootstrap-admin-user` adds a local operator command for creating or updating hashed app users without storing plaintext passwords.
 - Milestone 1 adversarial verifier branch `agent/m1-adversarial-verifier-breadth` broadens conversational answer-safety checks for ticket-source metadata, cross-ticket evidence mismatch, and weak/no-evidence fallback language.
 - Milestone 1 generated-answer verifier branch `agent/m1-generated-answer-verifier-evidence` exercises generated assistant answers through redaction, source metadata, verifier fallback, and audit behavior.
+- Milestone 1 answer-safety Quality Streak branch `agent/m1-answer-safety-quality-streak` adds a repeatable three-run conversational answer-safety streak harness.
 
 ## Verified gaps blocking production readiness
 
@@ -53,7 +54,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
 - Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with all cache consumers or production-auth deployment evidence.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
-- Capability-specific three-run Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
+- Answer-safety has a candidate three-run conversational Quality Streak harness and local 3/3 evidence, but broader capability-specific Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
 - Ticket-health related-data synchronization is automated but not fully caught up across the historical estate; TimeEntries and TicketHistory coverage still require continued bounded scheduled sweeps and certification.
 
@@ -75,7 +76,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Add adversarial answer-safety Quality Streak evidence and remaining production-auth deployment evidence.
+1. Add remaining production-auth deployment evidence and broader capability Quality Streak evidence.
 2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
 3. Build capability-specific Quality Streak receipts without marking milestones complete prematurely.
 
@@ -93,7 +94,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 generated-answer conversational verifier evidence
+## Latest receipt — Milestone 1 answer-safety Quality Streak harness
+
+- **Slice:** Add repeatable conversational answer-safety Quality Streak harness on branch `agent/m1-answer-safety-quality-streak` from canonical `main` `5f308551234d37b2622eb5d31ecb6e2e6680a6c4`.
+- **State:** `partial`; answer-safety now has a repeatable 3/3 local streak harness, but production capability certification still requires broader live/deployment context and remaining Milestone 1 evidence.
+- **Files changed:** `scripts/answer-safety-quality-streak.sh`, `docs/CI_VALIDATION.md`, `apps/api/tests/test_repo_hygiene.py`, and project status docs.
+- **Implemented:** `scripts/answer-safety-quality-streak.sh` runs the guardrail and RAG conversational subset three consecutive times inside the API container. Repository-hygiene coverage verifies the script exists, is executable, uses no-deps container tests, covers guardrail/RAG tests, and avoids sync behavior.
+- **Validation:** `./scripts/answer-safety-quality-streak.sh` passed 3/3 runs, each with `20 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `102 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; tests use synthetic local evidence only.
+- **Rollback:** Revert this branch commit; no schema/runtime configuration change is included.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 generated-answer conversational verifier evidence
 
 - **Slice:** Add generated-answer verifier evidence on branch `agent/m1-generated-answer-verifier-evidence` from canonical `main` `01a3ec7610bda4c8b07059798f63da7adbdf303d`.
 - **State:** `partial`; generated conversational answer paths are better verified, but live production-auth deployment evidence, remaining scope/cache certification, and Quality Streak records remain open.
@@ -102,7 +114,7 @@ None currently identified for documentation and non-production implementation wo
 - **Validation:** Focused generated-answer/redaction tests passed with `4 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `102 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
 - **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; tests use synthetic local evidence only.
 - **Rollback:** Revert this branch commit; no schema/runtime configuration change is included.
-- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+- **Second Brain state:** `updated`; existing projection PR #6 records PR #26 at commit `6ba46c3`.
 
 ## Previous receipt — Milestone 1 adversarial conversational verifier breadth
 
