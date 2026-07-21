@@ -45,11 +45,14 @@
       <section id="ask">
         <div class="section-row">
           <h2>Ask Assistant</h2>
-          <select id="askMode">
-            <option value="ticket_history_only">Ticket History Only</option>
-            <option value="general_plus_ticket_history">General + Ticket History</option>
-            <option value="deep_dive">Deep Dive</option>
-          </select>
+          <label class="inline-control" for="askMode">
+            <span>Mode</span>
+            <select id="askMode">
+              <option value="ticket_history_only">Ticket History Only</option>
+              <option value="general_plus_ticket_history">General + Ticket History</option>
+              <option value="deep_dive">Deep Dive</option>
+            </select>
+          </label>
         </div>
         <textarea id="question" placeholder="Describe the support issue..."></textarea>
         <div class="ask-actions">
