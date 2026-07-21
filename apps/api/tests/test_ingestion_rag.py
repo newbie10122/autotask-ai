@@ -661,6 +661,178 @@ def test_verifier_failure_preserves_warning_and_records_audit(monkeypatch):
     }
 
 
+def test_generated_answer_accepts_ticket_ids_from_source_metadata(monkeypatch):
+    monkeypatch.setattr("app.assistant.init_schema", lambda: None)
+    monkeypatch.setattr("app.assistant.embed_text", lambda _text: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(
+        "app.assistant.chat",
+        lambda _prompt: (
+            "Confidence: High\n\n"
+            "From CompuOne Ticket History\n"
+            "T42 reports printer unable to print labels.\n\n"
+            "General IT Guidance\n"
+            "Check print queue and device status.\n\n"
+            "Suggested Next Steps\n"
+            "- Open the ticket and compare symptoms.\n\n"
+            "Based on Tickets\n"
+            "- T42\n\n"
+            "Warnings\n"
+            "- None"
+        ),
+    )
+
+    source = {
+        "chunk_id": 10,
+        "content": "Ticket Number: T42\nDescription: Printer unable to print labels.",
+        "source_metadata": {"company_id": 123, "ticket_number": "T42", "autotask_id": 42},
+        "knowledge_class": "human_troubleshooting",
+        "quality_score": 0.9,
+        "is_noise": False,
+        "noise_reason": None,
+        "ticket_pk": 20,
+        "autotask_id": None,
+        "ticket_number": None,
+        "score": 0.8,
+    }
+
+    class FakeConn:
+        def execute(self, sql, params=None):
+            self.sql = sql
+            return self
+
+        def fetchone(self):
+            if "assistant_queries" in self.sql:
+                return {"id": 1}
+            if "assistant_answers" in self.sql:
+                return {"id": 2}
+            return {}
+
+        def fetchall(self):
+            if "FROM document_embeddings" in self.sql:
+                return [source]
+            return []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.assistant.db_connection", lambda: FakeConn())
+
+    result = ask_assistant("how do I fix the printer", authorized_company_ids=[123], actor_username="tech")
+
+    assert result["confidence"] == "High"
+    assert result["based_on_tickets"] == ["T42"]
+    assert result["sources"][0]["ticket_id"] == 42
+    assert result["sources"][0]["ticket_number"] == "T42"
+    assert "Answer verifier failed closed" not in result["answer"]
+    assert result["warnings"] == []
+
+
+def test_generated_answer_rejects_cross_ticket_evidence_substitution(monkeypatch):
+    events = []
+    monkeypatch.setattr("app.assistant.init_schema", lambda: None)
+    monkeypatch.setattr("app.assistant.embed_text", lambda _text: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(
+        "app.assistant.chat",
+        lambda _prompt: (
+            "Confidence: High\n\n"
+            "From CompuOne Ticket History\n"
+            "T2 reports payroll scanner outage affecting check-in.\n\n"
+            "General IT Guidance\n"
+            "Check impacted device class.\n\n"
+            "Suggested Next Steps\n"
+            "- Open the cited ticket and compare symptoms.\n\n"
+            "Based on Tickets\n"
+            "- T2\n\n"
+            "Warnings\n"
+            "- None"
+        ),
+    )
+    monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
+
+    sources = [
+        {
+            "chunk_id": 10,
+            "content": "Ticket Number: T1\nDescription: Payroll scanner outage affecting check-in.",
+            "source_metadata": {"company_id": 123},
+            "knowledge_class": "human_troubleshooting",
+            "quality_score": 0.9,
+            "is_noise": False,
+            "noise_reason": None,
+            "ticket_pk": 20,
+            "autotask_id": 1,
+            "ticket_number": "T1",
+            "score": 0.8,
+        },
+        {
+            "chunk_id": 11,
+            "content": "Ticket Number: T2\nDescription: Printer unable to print labels.",
+            "source_metadata": {"company_id": 123},
+            "knowledge_class": "human_troubleshooting",
+            "quality_score": 0.9,
+            "is_noise": False,
+            "noise_reason": None,
+            "ticket_pk": 21,
+            "autotask_id": 2,
+            "ticket_number": "T2",
+            "score": 0.7,
+        },
+    ]
+
+    class FakeConn:
+        def execute(self, sql, params=None):
+            self.sql = sql
+            return self
+
+        def fetchone(self):
+            if "assistant_queries" in self.sql:
+                return {"id": 1}
+            if "assistant_answers" in self.sql:
+                return {"id": 2}
+            return {}
+
+        def fetchall(self):
+            if "FROM document_embeddings" in self.sql:
+                return sources
+            return []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.assistant.db_connection", lambda: FakeConn())
+
+    result = ask_assistant("how do I fix the scanner", authorized_company_ids=[123], actor_username="tech")
+
+    assert "Answer verifier failed closed: insufficient ticket-history source evidence." in result["answer"]
+    assert "Answer verifier failed closed: insufficient ticket-history source evidence." in result["warnings"]
+    audit_event = next(event for event in events if event.action == AuditAction.verifier_failed)
+    assert audit_event.metadata["reason"] == "insufficient ticket-history source evidence"
+    assert audit_event.metadata["source_ticket_count"] == 2
+
+
 def test_feedback_and_known_fix_functions_are_available():
     assert callable(store_feedback)
 
