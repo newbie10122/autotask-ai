@@ -19,7 +19,7 @@ async function stopStaticServer(server) {
   await new Promise((resolve) => server.close(resolve));
 }
 
-async function stubApi(page, { routeAuthRequired = true, user = null } = {}) {
+async function stubApi(page, { routeAuthRequired = true, user = null, askHandler = null } = {}) {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     const pathname = url.pathname;
@@ -89,6 +89,9 @@ async function stubApi(page, { routeAuthRequired = true, user = null } = {}) {
     }
     if (pathname === "/audit-log") {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ entries: [] }) });
+    }
+    if (pathname === "/api/assistant/ask" && askHandler) {
+      return askHandler(route);
     }
     return route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
   });

@@ -189,6 +189,22 @@ button:disabled {
   color: var(--muted);
   font-size: 13px;
 }
+.ask-status {
+  min-height: 20px;
+}
+.ask-status[data-state="running"] {
+  color: #92400e;
+  font-weight: 700;
+}
+.ask-status[data-state="done"] {
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+.ask-status[data-state="timeout"],
+.ask-status[data-state="error"] {
+  color: #991b1b;
+  font-weight: 700;
+}
 .result, pre, #auditLog {
   margin-top: 16px;
   white-space: pre-wrap;
