@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `01a3ec7610bda4c8b07059798f63da7adbdf303d`, which merged PR `newbie10122/autotask-ai#25`.
+- Canonical `main` is `2b5485c00dcb940650b3076d44ccbfb8a7d9381d`, which merged PR `newbie10122/autotask-ai#27`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -47,12 +47,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 adversarial verifier branch `agent/m1-adversarial-verifier-breadth` broadens conversational answer-safety checks for ticket-source metadata, cross-ticket evidence mismatch, and weak/no-evidence fallback language.
 - Milestone 1 generated-answer verifier branch `agent/m1-generated-answer-verifier-evidence` exercises generated assistant answers through redaction, source metadata, verifier fallback, and audit behavior.
 - Milestone 1 answer-safety Quality Streak branch `agent/m1-answer-safety-quality-streak` adds a repeatable three-run conversational answer-safety streak harness.
+- Milestone 1 summary-cache scope branch `agent/m1-summary-cache-scope-contracts` moves ticket-health and customer-success summary cache keys onto the scoped cache contract.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix. A production-auth preflight now requires app-route auth or an explicit external-auth boundary, but live production enforcement remains approval-gated.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with all cache consumers or production-auth deployment evidence.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, ticket-health/customer-success summary cache keys, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with production-auth deployment evidence.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
 - Answer-safety has a candidate three-run conversational Quality Streak harness and local 3/3 evidence, but broader capability-specific Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -94,7 +95,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 answer-safety Quality Streak harness
+## Latest receipt — Milestone 1 summary cache scope contracts
+
+- **Slice:** Move ticket-health and customer-success summary cache consumers onto scoped cache contracts on branch `agent/m1-summary-cache-scope-contracts` from canonical `main` `2b5485c00dcb940650b3076d44ccbfb8a7d9381d`.
+- **State:** `partial`; active summary cache consumers now have scope/role-aware key contracts, but production-auth deployment evidence and broader capability Quality Streak records remain open.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/app/customer_success.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `ticket_health_summary_cache_key()` and `customer_success_summary_cache_key()` now delegate to `scoped_cache_key()` with authority class, roles, explicit scope, version, and TTL config. Summary functions accept optional cache context and mark cache metadata as scoped.
+- **Validation:** Focused cache contract tests passed with `5 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `104 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; tests are synthetic cache-key checks only.
+- **Rollback:** Revert this branch commit; summary caches fall back to prior unscoped key behavior.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 answer-safety Quality Streak harness
 
 - **Slice:** Add repeatable conversational answer-safety Quality Streak harness on branch `agent/m1-answer-safety-quality-streak` from canonical `main` `5f308551234d37b2622eb5d31ecb6e2e6680a6c4`.
 - **State:** `partial`; answer-safety now has a repeatable 3/3 local streak harness, but production capability certification still requires broader live/deployment context and remaining Milestone 1 evidence.
@@ -103,7 +115,7 @@ None currently identified for documentation and non-production implementation wo
 - **Validation:** `./scripts/answer-safety-quality-streak.sh` passed 3/3 runs, each with `20 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `102 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
 - **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; tests use synthetic local evidence only.
 - **Rollback:** Revert this branch commit; no schema/runtime configuration change is included.
-- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+- **Second Brain state:** `updated`; existing projection PR #6 records PR #27 at commit `72eea2c`.
 
 ## Previous receipt — Milestone 1 generated-answer conversational verifier evidence
 

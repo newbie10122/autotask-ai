@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi.encoders import jsonable_encoder
 
-from .cache import cache_delete_namespace, cache_get_json, cache_key, cache_set_json
+from .cache import cache_delete_namespace, cache_get_json, cache_set_json, scoped_cache_key
 from .config import settings
 from .db import db_connection, init_schema
 
@@ -139,6 +139,24 @@ CALIBRATION_MIN_REVIEWED_ENTITIES = 5
 
 def invalidate_ticket_health_summary_cache() -> int:
     return cache_delete_namespace("ticket-health-summary")
+
+
+def ticket_health_summary_cache_key(
+    payload: dict[str, Any],
+    *,
+    authority_class: str = "outer-auth",
+    roles: list[str] | None = None,
+    scope: dict[str, Any] | None = None,
+) -> str:
+    return scoped_cache_key(
+        "ticket-health-summary",
+        payload,
+        authority_class=authority_class,
+        roles=roles or ["OuterAuth"],
+        scope=scope or {"global": True},
+        version=1,
+        config={"ttl_seconds": settings.ticket_health_summary_cache_ttl_seconds},
+    )
 
 
 def _status(available: int, total: int, *, partial: bool = False, forced_missing: bool = False) -> str:
@@ -1379,21 +1397,26 @@ def ticket_status_source_diagnostics() -> dict[str, Any]:
     }
 
 
-def ticket_health_summary(limit: int = 50, queue: str | None = None, assigned_resource_id: int | None = None) -> dict[str, Any]:
+def ticket_health_summary(
+    limit: int = 50,
+    queue: str | None = None,
+    assigned_resource_id: int | None = None,
+    cache_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     started = time.monotonic()
     row_limit = min(max(limit, 1), 200)
-    summary_cache_key = cache_key(
-        "ticket-health-summary",
+    summary_cache_key = ticket_health_summary_cache_key(
         {
             "limit": row_limit,
             "queue": queue,
             "assigned_resource_id": assigned_resource_id,
             "closed_status_ids": sorted(CLOSED_STATUS_IDS),
         },
+        **(cache_context or {}),
     )
     cached = cache_get_json(summary_cache_key)
     if cached is not None:
-        cached["cache"] = {"hit": True, "ttl_seconds": settings.ticket_health_summary_cache_ttl_seconds}
+        cached["cache"] = {"hit": True, "ttl_seconds": settings.ticket_health_summary_cache_ttl_seconds, "scoped": True}
         return cached
 
     now = datetime.now(UTC)
@@ -1509,7 +1532,7 @@ def ticket_health_summary(limit: int = 50, queue: str | None = None, assigned_re
     result = {
         "ok": True,
         "generated_at_ms": int((time.monotonic() - started) * 1000),
-        "cache": {"hit": False, "ttl_seconds": settings.ticket_health_summary_cache_ttl_seconds},
+        "cache": {"hit": False, "ttl_seconds": settings.ticket_health_summary_cache_ttl_seconds, "scoped": True},
         "limit": row_limit,
         "filters": {"queue": queue, "assigned_resource_id": assigned_resource_id},
         "filter_options": {
