@@ -179,6 +179,40 @@ def require_company_scope(request: Request) -> list[int] | None:
     return company_ids
 
 
+def audit_scope(authorized_company_ids: list[int] | None = None) -> dict:
+    if authorized_company_ids is None:
+        return {"global": True}
+    return {"global": False, "company_ids": authorized_company_ids}
+
+
+def audit_actor(user: dict | None = None) -> str:
+    if not user:
+        return "system"
+    return str(user.get("username") or "unknown")
+
+
+def record_success_audit(
+    action: AuditAction,
+    target: str,
+    user: dict | None = None,
+    scope: dict | None = None,
+    metadata: dict | None = None,
+) -> None:
+    safe_metadata = dict(metadata or {})
+    if user:
+        safe_metadata["roles"] = user.get("roles") or []
+    audit_sink.record(
+        AuditLogEntry(
+            actor=audit_actor(user),
+            action=action,
+            target=target,
+            outcome="success",
+            scope=scope or {},
+            metadata=safe_metadata,
+        )
+    )
+
+
 def request_actor(request: Request) -> str:
     if not settings.app_route_auth_required:
         return "system"
@@ -261,8 +295,8 @@ def audit_log(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
 
 @app.get("/api/autotask/threshold")
 def autotask_threshold(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.admin_action, target="autotask.threshold"))
     payload = AutotaskReadOnlyClient().threshold_information()
+    record_success_audit(AuditAction.admin_action, "autotask.threshold", _user, audit_scope())
     return {"ok": True, "base_url": settings.autotask_base_url, "username": settings.autotask_username, "threshold": payload}
 
 
@@ -270,6 +304,7 @@ def autotask_threshold(_user: dict | None = Depends(require_roles(Role.admin))) 
 def autotask_test_companies(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     payload = AutotaskReadOnlyClient().query_entity("Companies", filters=[{"op": "gte", "field": "id", "value": 0}])
     items = payload.get("items") or payload.get("records") or []
+    record_success_audit(AuditAction.admin_action, "autotask.test.companies", _user, audit_scope())
     return {"ok": True, "entity": "Companies", "count": len(items[: settings.autotask_page_size])}
 
 
@@ -277,6 +312,7 @@ def autotask_test_companies(_user: dict | None = Depends(require_roles(Role.admi
 def autotask_test_tickets(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     payload = AutotaskReadOnlyClient().query_entity("Tickets", filters=[{"op": "gte", "field": "id", "value": 0}])
     items = payload.get("items") or payload.get("records") or []
+    record_success_audit(AuditAction.admin_action, "autotask.test.tickets", _user, audit_scope())
     return {"ok": True, "entity": "Tickets", "count": len(items[: settings.autotask_page_size])}
 
 
@@ -284,13 +320,15 @@ def autotask_test_tickets(_user: dict | None = Depends(require_roles(Role.admin)
 def autotask_test_ticket_notes(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     payload = AutotaskReadOnlyClient().query_entity("TicketNotes", filters=[{"op": "gte", "field": "id", "value": 0}])
     items = payload.get("items") or payload.get("records") or []
+    record_success_audit(AuditAction.admin_action, "autotask.test.ticket_notes", _user, audit_scope())
     return {"ok": True, "entity": "TicketNotes", "count": len(items[: settings.autotask_page_size])}
 
 
 @app.post("/autotask/test-connection")
 def autotask_test_connection(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.admin_action, target="autotask.test_connection"))
-    return AutotaskReadOnlyClient().test_connection()
+    payload = AutotaskReadOnlyClient().test_connection()
+    record_success_audit(AuditAction.admin_action, "autotask.test_connection", _user, audit_scope())
+    return payload
 
 
 @app.get("/sync/status")
@@ -308,7 +346,15 @@ def start_companies_sync(
     payload: SyncRequest | None = None,
     _user: dict | None = Depends(require_roles(Role.admin)),
 ) -> dict:
-    return sync_companies(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
+    result = sync_companies(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
+    record_success_audit(
+        AuditAction.admin_action,
+        "sync.companies.start",
+        _user,
+        audit_scope(),
+        {"limit": payload.limit if payload else None, "full_sync": bool(payload and payload.full_sync)},
+    )
+    return result
 
 
 @app.post("/api/sync/tickets/start")
@@ -316,7 +362,15 @@ def start_tickets_sync(
     payload: SyncRequest | None = None,
     _user: dict | None = Depends(require_roles(Role.admin)),
 ) -> dict:
-    return sync_tickets(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
+    result = sync_tickets(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
+    record_success_audit(
+        AuditAction.admin_action,
+        "sync.tickets.start",
+        _user,
+        audit_scope(),
+        {"limit": payload.limit if payload else None, "full_sync": bool(payload and payload.full_sync)},
+    )
+    return result
 
 
 @app.post("/api/sync/ticket-notes/start")
@@ -324,7 +378,15 @@ def start_ticket_notes_sync(
     payload: SyncRequest | None = None,
     _user: dict | None = Depends(require_roles(Role.admin)),
 ) -> dict:
-    return sync_ticket_notes(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
+    result = sync_ticket_notes(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
+    record_success_audit(
+        AuditAction.admin_action,
+        "sync.ticket_notes.start",
+        _user,
+        audit_scope(),
+        {"limit": payload.limit if payload else None, "full_sync": bool(payload and payload.full_sync)},
+    )
+    return result
 
 
 @app.post("/api/sync/recent/start")
@@ -332,7 +394,9 @@ def start_recent_sync(
     payload: SyncRequest | None = None,
     _user: dict | None = Depends(require_roles(Role.admin)),
 ) -> dict:
-    return sync_recent(limit=(payload.limit if payload else None))
+    result = sync_recent(limit=(payload.limit if payload else None))
+    record_success_audit(AuditAction.admin_action, "sync.recent.start", _user, audit_scope(), {"limit": payload.limit if payload else None})
+    return result
 
 
 @app.get("/api/sync/status")
@@ -350,7 +414,9 @@ def build_documents(
     payload: SyncRequest | None = None,
     _user: dict | None = Depends(require_roles(Role.admin)),
 ) -> dict:
-    return create_documents_from_tickets(limit=(payload.limit if payload else None))
+    result = create_documents_from_tickets(limit=(payload.limit if payload else None))
+    record_success_audit(AuditAction.admin_action, "documents.build", _user, audit_scope(), {"limit": payload.limit if payload else None})
+    return result
 
 
 @app.post("/api/embeddings/run")
@@ -358,7 +424,9 @@ def run_embeddings(
     payload: SyncRequest | None = None,
     _user: dict | None = Depends(require_roles(Role.admin)),
 ) -> dict:
-    return run_embedding_batch(limit=(payload.limit if payload else None))
+    result = run_embedding_batch(limit=(payload.limit if payload else None))
+    record_success_audit(AuditAction.admin_action, "embeddings.run", _user, audit_scope(), {"limit": payload.limit if payload else None})
+    return result
 
 
 @app.get("/api/knowledge/noise-report")
@@ -368,7 +436,9 @@ def knowledge_noise_report() -> dict:
 
 @app.post("/api/sync/reference-data/start")
 def start_reference_data_sync(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return sync_reference_data()
+    result = sync_reference_data()
+    record_success_audit(AuditAction.admin_action, "sync.reference_data.start", _user, audit_scope())
+    return result
 
 
 @app.get("/api/reference-data/status")
@@ -381,7 +451,9 @@ def api_classify_tickets(
     payload: SyncRequest | None = None,
     _user: dict | None = Depends(require_roles(Role.admin)),
 ) -> dict:
-    return classify_tickets(limit=(payload.limit if payload else None))
+    result = classify_tickets(limit=(payload.limit if payload else None))
+    record_success_audit(AuditAction.admin_action, "analytics.classify_tickets", _user, audit_scope(), {"limit": payload.limit if payload else None})
+    return result
 
 
 @app.get("/api/analytics/ticket-class-report")
@@ -391,11 +463,20 @@ def api_ticket_class_report() -> dict:
 
 @app.get("/api/analytics/recurring-issues")
 def api_recurring_issues(
+    request: Request,
     limit: int = 8,
     include_excluded: bool = False,
     authorized_company_ids: list[int] | None = Depends(require_company_scope),
 ) -> dict:
-    return recurring_issues_report(limit=limit, include_excluded=include_excluded, authorized_company_ids=authorized_company_ids)
+    result = recurring_issues_report(limit=limit, include_excluded=include_excluded, authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "analytics.recurring_issues",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"limit": limit, "include_excluded": include_excluded},
+    )
+    return result
 
 
 @app.get("/api/operations/status")
@@ -410,7 +491,9 @@ def api_operations_settings() -> dict:
 
 @app.post("/api/operations/settings")
 def api_update_operations_settings(payload: OperationsSettingsRequest, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return {"ok": True, "settings": update_operations_settings(payload.settings)}
+    result = {"ok": True, "settings": update_operations_settings(payload.settings)}
+    record_success_audit(AuditAction.admin_action, "operations.settings.update", _user, audit_scope(), {"keys": sorted(payload.settings.keys())})
+    return result
 
 
 @app.get("/api/operations/jobs")
@@ -425,32 +508,44 @@ def api_operations_job_runs() -> dict:
 
 @app.post("/api/operations/jobs/{job_name}/run")
 def api_run_operation_job(job_name: str, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return run_job(job_name, triggered_by="manual", force=True)
+    result = run_job(job_name, triggered_by="manual", force=True)
+    record_success_audit(AuditAction.admin_action, "operations.job.run", _user, audit_scope(), {"job_name": job_name})
+    return result
 
 
 @app.post("/api/operations/jobs/{job_name}/enable")
 def api_enable_operation_job(job_name: str, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return set_job_enabled(job_name, True)
+    result = set_job_enabled(job_name, True)
+    record_success_audit(AuditAction.admin_action, "operations.job.enable", _user, audit_scope(), {"job_name": job_name})
+    return result
 
 
 @app.post("/api/operations/jobs/{job_name}/disable")
 def api_disable_operation_job(job_name: str, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return set_job_enabled(job_name, False)
+    result = set_job_enabled(job_name, False)
+    record_success_audit(AuditAction.admin_action, "operations.job.disable", _user, audit_scope(), {"job_name": job_name})
+    return result
 
 
 @app.post("/api/operations/pause")
 def api_pause_operations(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return {"ok": True, "settings": update_operations_settings({"global_pause": True})}
+    result = {"ok": True, "settings": update_operations_settings({"global_pause": True})}
+    record_success_audit(AuditAction.admin_action, "operations.pause", _user, audit_scope())
+    return result
 
 
 @app.post("/api/operations/resume")
 def api_resume_operations(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return {"ok": True, "settings": update_operations_settings({"global_pause": False})}
+    result = {"ok": True, "settings": update_operations_settings({"global_pause": False})}
+    record_success_audit(AuditAction.admin_action, "operations.resume", _user, audit_scope())
+    return result
 
 
 @app.post("/api/operations/jobs/{run_id}/request-stop")
 def api_request_stop(run_id: int, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return request_stop(run_id)
+    result = request_stop(run_id)
+    record_success_audit(AuditAction.admin_action, "operations.job.request_stop", _user, audit_scope(), {"run_id": run_id})
+    return result
 
 
 @app.post("/api/assistant/ask")
@@ -459,15 +554,22 @@ def assistant_ask(
     request: Request,
     authorized_company_ids: list[int] | None = Depends(require_company_scope),
 ) -> dict:
-    audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.assistant_answer, target="assistant.ask"))
-    return ask_assistant(
+    actor = request_actor(request)
+    result = ask_assistant(
         payload.question,
         mode=payload.mode,
         limit=payload.limit,
         include_noise=payload.include_noise,
         authorized_company_ids=authorized_company_ids,
-        actor_username=request_actor(request),
+        actor_username=actor,
     )
+    record_success_audit(
+        AuditAction.assistant_answer,
+        "assistant.ask",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+    )
+    return result
 
 
 @app.post("/api/assistant/feedback")
@@ -476,14 +578,22 @@ def assistant_feedback(
     request: Request,
     authorized_company_ids: list[int] | None = Depends(require_company_scope),
 ) -> dict:
-    audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.feedback, target=str(payload.answer_id)))
-    return store_feedback(
+    actor = request_actor(request)
+    result = store_feedback(
         payload.answer_id,
         payload.rating,
         payload.notes,
-        actor_username=request_actor(request),
+        actor_username=actor,
         authorized_company_ids=authorized_company_ids,
     )
+    record_success_audit(
+        AuditAction.feedback,
+        str(payload.answer_id),
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"rating": payload.rating},
+    )
+    return result
 
 
 @app.get("/api/admin/curated-memory")
