@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `aabecda3217471128e4cc02818cafc01f2a5be17`, which merged PR `newbie10122/autotask-ai#12`.
+- Canonical `main` is `cb14284fa02c98666358d7015e2664116aca05c8`, which merged PR `newbie10122/autotask-ai#13`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, and static web JavaScript syntax checks.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -33,13 +33,14 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 UI-auth branch `agent/m1-ui-auth-rbac-foundation` adds static-web token login/logout support, Bearer request headers, app-auth status, role-aware disabled controls, and clearer 401/403 messages.
 - Milestone 1 route-authority branch `agent/m1-route-authority-audit-matrix` adds admin gates to manual sync/build/classify/Autotask probe/audit/memory routes, route inventory tests, ReadOnly denial audit coverage, direct database company-scope coverage, and static UI RBAC/accessibility contracts.
 - Milestone 1 success-audit branch `agent/m1-success-audit-scope-linkage` adds centralized success-audit recording for material admin, analytics, assistant, and feedback actions with actor, role metadata, outcome, and effective scope.
+- Milestone 1 verifier-failure branch `agent/m1-verifier-failure-audit` preserves fail-closed verifier reasons in fallback answers and records verifier-failure audit events with actor/scope metadata.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix, but production defaults still keep app-route auth off.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
 - Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, and static web controls have first scope/RBAC plumbing, but scope is not yet wired through cache/export contracts or fully certified with real-browser accessibility checks.
-- Prompt-injection scanning and deterministic answer verification have initial tests, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
+- Prompt-injection scanning and deterministic answer verification have initial tests and verifier-failure audit evidence, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
 - Ticket-health related-data synchronization is automated but not fully caught up across the historical estate; TimeEntries and TicketHistory coverage still require continued bounded scheduled sweeps and certification.
@@ -63,9 +64,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 ## Active execution queue
 
 1. Wire authenticated actor/company scope through future cache/export contracts and broaden verifier unsupported-claim checks.
-2. Add verifier-failure durable audit records and preserve fail-closed warning reasons in assistant fallbacks.
-3. Add real-browser UI auth/RBAC and accessibility evidence beyond the static HTML contract.
-4. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
+2. Add real-browser UI auth/RBAC and accessibility evidence beyond the static HTML contract.
+3. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
 
 Parallel-safe work after roadmap merge:
 
@@ -81,7 +81,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 success audit actor/scope linkage
+## Latest receipt — Milestone 1 verifier-failure audit and fallback reason
+
+- **Slice:** Preserve verifier fail-closed reasons and audit verifier failures on branch `agent/m1-verifier-failure-audit` from canonical `main` `cb14284fa02c98666358d7015e2664116aca05c8`.
+- **State:** `partial`; verifier failures are now more transparent and auditable, but Milestone 1 still requires unsupported-claim verifier breadth, cache/export contracts, real-browser UI evidence, production auth enablement, and Quality Streak records.
+- **Files changed:** `apps/api/app/assistant.py`, `apps/api/app/models.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `_fallback_answer()` now preserves the safe warning passed by the failed path instead of rewriting every fallback to a timeout. Assistant verifier failures record `verifier_failed` audit events with actor, outcome `blocked`, effective scope, reason, source count, and source-ticket count. Regression coverage drives the real assistant path with an unretrieved ticket citation and verifies the warning plus sanitized audit record.
+- **Validation:** Focused guardrail/RAG tests passed with `46 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `82 passed`, and static web JavaScript syntax validation. `git diff --check` passed.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added; tests used fake local DB/chat paths.
+- **Rollback:** Revert this branch commit; the audit table schema remains unchanged and new enum use only affects local audit records.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 success audit actor/scope linkage
 
 - **Slice:** Add success-path audit actor/scope linkage for material actions on branch `agent/m1-success-audit-scope-linkage` from canonical `main` `aabecda3217471128e4cc02818cafc01f2a5be17`.
 - **State:** `partial`; material admin actions, recurring analytics reads, assistant answers, and feedback now record centralized success audit entries with actor/scope metadata, but Milestone 1 still requires verifier-failure audit records, broader workflow coverage, cache/export contracts, real-browser UI evidence, production auth enablement, and Quality Streak records.
@@ -214,8 +225,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `4709074` records PR #12, canonical commit `aabecda3217471128e4cc02818cafc01f2a5be17`, route authority/static UI contracts, scheduler heartbeat repair, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `66441c6` records PR #13, canonical commit `cb14284fa02c98666358d7015e2664116aca05c8`, success audit actor/scope linkage, route authority/static UI contracts, scheduler heartbeat repair, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
-Merge the current Milestone 1 success-audit branch after CI passes, update the existing Second Brain projection, then continue Milestone 1 closeout with verifier-failure audit records, cache/export contracts, verifier breadth, and real-browser UI evidence.
+Merge the current Milestone 1 verifier-failure audit branch after CI passes, update the existing Second Brain projection, then continue Milestone 1 closeout with cache/export contracts, unsupported-claim verifier breadth, and real-browser UI evidence.

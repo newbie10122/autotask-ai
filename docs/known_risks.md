@@ -26,7 +26,7 @@
 **State:** Partially mitigated
 **Impact:** Retrieved untrusted content could influence answers or unsupported claims could appear with insufficient evidence.
 **Existing controls:** Branch `agent/m1-auth-rbac-foundation` adds deterministic prompt-injection detection, unsafe source filtering before model prompt assembly, and citation-subset verification for generated answers.
-**Next mitigation:** Add scope-aware verifier inputs, unsupported-claim checks, denial audit records, independent verifier receipts, and three-run adversarial evidence.
+**Next mitigation:** Add unsupported-claim checks, source-sufficiency checks for deterministic paths, independent verifier receipts, and three-run adversarial evidence.
 
 ### R4 — Audit evidence is not fully durable and identity-linked
 
@@ -34,7 +34,7 @@
 **State:** Partially mitigated
 **Impact:** Security and operational actions may not be reconstructable after restart unless every material path writes identity-linked audit records.
 **Existing controls:** Branch `agent/m1-durable-audit-scope-foundation` adds durable `audit_log` persistence, outcome/scope fields, and authorization-denial audit events with no-DB fallback. Branch `agent/m1-success-audit-scope-linkage` adds centralized success records for material admin actions, recurring analytics, assistant ask, and feedback.
-**Next mitigation:** Link audit records across remaining workflows and add verifier-failure audit records before treating audit coverage as complete.
+**Next mitigation:** Link audit records across remaining workflows and include verifier-failure receipts in the certification matrix before treating audit coverage as complete.
 
 ### R5 — Quality Streak evidence not yet established
 
