@@ -1,8 +1,40 @@
 from pathlib import Path
+from html.parser import HTMLParser
 import re
 
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+class WebContractParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.buttons: list[dict[str, str]] = []
+        self.inputs: dict[str, dict[str, str]] = {}
+        self.labels_for: set[str] = set()
+        self.landmarks: set[str] = set()
+        self.section_ids: set[str] = set()
+        self._in_nav = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        data = {key: value or "" for key, value in attrs}
+        if tag == "button":
+            self.buttons.append(data)
+        if tag == "input" and data.get("id"):
+            self.inputs[data["id"]] = data
+        if tag == "label" and data.get("for"):
+            self.labels_for.add(data["for"])
+        if tag in {"main", "aside"}:
+            self.landmarks.add(tag)
+        if tag == "nav":
+            self.landmarks.add("nav")
+            self._in_nav = True
+        if tag == "section" and data.get("id"):
+            self.section_ids.add(data["id"])
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "nav":
+            self._in_nav = False
 
 
 def test_env_is_ignored_and_example_is_present():
@@ -118,6 +150,28 @@ def test_web_dashboard_does_not_show_autotask_account_identity():
     assert "autotaskUser" not in web
     assert "Base URL" not in web
     assert "<span>Username</span>" not in web
+
+
+def test_web_role_controls_and_login_fields_have_static_contracts():
+    web = (ROOT / "apps" / "web" / "index.html").read_text()
+    parser = WebContractParser()
+    parser.feed(web)
+
+    mutating_buttons = [
+        button
+        for button in parser.buttons
+        if button.get("data-action") or button.get("data-job") or button.get("id") in {"pauseOperations", "resumeOperations"}
+    ]
+    assert mutating_buttons
+    assert all(button.get("data-requires-role") == "Admin" for button in mutating_buttons)
+    assert any(button.get("data-requires-role") == "Technician" for button in parser.buttons)
+
+    assert {"loginUsername", "loginPassword"}.issubset(parser.inputs)
+    assert {"loginUsername", "loginPassword"}.issubset(parser.labels_for)
+    assert {"main", "aside", "nav"}.issubset(parser.landmarks)
+    assert {"dashboard", "ask", "analytics", "operations", "sync", "knowledge", "audit"}.issubset(parser.section_ids)
+    assert "appRouteAuthRequired = Boolean(ready.app_route_auth_required)" in web
+    assert "if (!authUser) return !appRouteAuthRequired;" in web
 
 
 def test_operations_scheduler_schema_and_worker_are_present():

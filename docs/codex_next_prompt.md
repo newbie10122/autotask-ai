@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `7ca491b82d1ac1085efbbede3d3ccc1a9fe35057`
-- Latest merged PR: `newbie10122/autotask-ai#10`, `Restore related-data scheduler automation`
-- Latest PR #10 CI: GitHub Actions run `29857699615`, workflow `CI`, job `Validate Autotask AI`, passed for head `07fe5c98361e933254a537e8bc24b0b0f49bab1a`
-- Latest local governed validation: `./scripts/validate-ci.sh` passed with full pytest `74 passed`
+- Canonical `main`: `b65683bea439b025f85c0b0708611e44e1a78110`
+- Latest merged PR: `newbie10122/autotask-ai#11`, `Reconcile control docs and repair scheduler heartbeat`
+- Latest PR #11 CI: GitHub Actions run `29859750663`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local governed validation: `./scripts/validate-ci.sh` passed with full pytest `79 passed` on branch `agent/m1-route-authority-audit-matrix`
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -21,16 +21,15 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Current observed counts: `time_entries=46899`, `ticket_history=28207`.
 - Open-ticket labor coverage: `90/146` with TimeEntries, `56` checked-empty, `0` unchecked.
 - Open-ticket TicketHistory coverage: `146/146`.
-- Scheduler jobs continued to complete after pause was cleared, but `scheduler_heartbeats` stopped updating after rebuild and operations status reported heartbeat `state=stale`; repair heartbeat/restart provenance before using it as readiness evidence.
+- Scheduler heartbeat/restart provenance is repaired on canonical `main`: runtime evidence after PR #11 showed `scheduler.state=healthy` with fresh heartbeat and completed gap-job evidence.
 
 ## Immediate run objective
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Finish reconciling stale control documents against PR #10 and current runtime evidence.
-2. Repair scheduler heartbeat/restart provenance so heartbeat freshness agrees with completed scheduled ticks.
-3. Validate scheduler heartbeat, pause/resume state, bounded job cadence, and clear skipped/blocked/failed/idle distinctions.
-4. Continue Milestone 1 closeout with route authority matrix, comprehensive API denial tests, durable audit actor/scope coverage, company-isolation negatives, verifier breadth, and UI browser/RBAC evidence.
+1. Merge branch `agent/m1-route-authority-audit-matrix` after GitHub CI passes.
+2. Update the existing Second Brain projection PR with the route-authority/static-UI-contract evidence.
+3. Continue Milestone 1 closeout with durable success-path audit actor/scope coverage, company-isolation negatives, cache/export contracts, verifier breadth, and real-browser UI RBAC/accessibility evidence.
 
 ## Milestone status
 
@@ -41,8 +40,6 @@ Continue from a clean branch based on canonical `origin/main`.
 
 ## Next eligible safe slices
 
-- Scheduler heartbeat/restart provenance and pause audit clarity.
-- Route authority matrix plus API auth/RBAC denial coverage for every route.
 - Durable audit identity/scope linkage across assistant, feedback, analytics, operations, sync, memory, denied requests, and verifier failures.
 - Company-scope contracts for ticket health, customer success, routing, realtime, cache keys, and future exports.
 - Deterministic answer verifier expansion for unsupported claims, source sufficiency, guidance labeling, weak evidence, secrets, injection, malformed output, timeout/failure, and fallback behavior.
@@ -52,6 +49,6 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Existing projection branch: `agent/autotask-ai-governed-roadmap-projection`.
 Existing PR: `newbie10122/helix-second-brain#6`.
-Latest pushed projection head `a8a9981` records PR #10, canonical commit, restored scheduler automation, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
+Latest pushed projection head `9e0f0a4` records PR #11, canonical commit, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
 
 Update the existing projection after the next material Autotask AI slice. Do not create duplicate projection PRs, and do not mark Second Brain state `merged` until PR #6 is actually merged.
