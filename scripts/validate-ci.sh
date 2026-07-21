@@ -4,6 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+echo "== production auth preflight =="
+./scripts/production-auth-preflight.sh .env.example
+
 echo "== redacted compose validation =="
 ./scripts/compose-config-redacted.sh >/tmp/autotask-ai-compose-redacted.yml
 

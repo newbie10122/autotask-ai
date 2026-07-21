@@ -11,6 +11,7 @@ The same command runs in GitHub Actions at `.github/workflows/ci.yml`.
 ## What It Checks
 
 - Redacted Docker Compose validation through `scripts/compose-config-redacted.sh`.
+- Production-auth preflight validation against `.env.example`.
 - Migration filename ordering using the `NNN_description.sql` sequence.
 - API Docker image build.
 - Python syntax compilation for `apps/api/app` and `workers`.

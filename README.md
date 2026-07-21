@@ -53,6 +53,7 @@ cd /opt/apps/autotask-ai
 cp .env.example .env
 $EDITOR .env
 chmod +x scripts/*.sh
+scripts/production-auth-preflight.sh .env
 scripts/deploy.sh
 ```
 
@@ -67,6 +68,8 @@ sudo systemctl reload nginx
 ```
 
 Update `server_name` and TLS certificate paths in `nginx/autotask-ai.conf` before enabling it.
+
+For production, app-route auth must be enabled with `APP_ROUTE_AUTH_REQUIRED=true` unless an approved external authentication boundary is explicitly recorded in `.env` with `EXTERNAL_AUTH_CONFIRMED=true` and `EXTERNAL_AUTH_DESCRIPTION`.
 
 ## API
 

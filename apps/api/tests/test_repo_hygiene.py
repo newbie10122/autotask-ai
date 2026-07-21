@@ -1,6 +1,7 @@
 from pathlib import Path
 from html.parser import HTMLParser
 import re
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -76,6 +77,7 @@ def test_ci_workflow_runs_safe_repository_validation():
     assert "npm ci" in validator_text
     assert "npx playwright install --with-deps chromium" in validator_text
     assert "npm run test:web" in validator_text
+    assert "./scripts/production-auth-preflight.sh .env.example" in validator_text
     assert "migration does not use NNN_name.sql format" in validator_text
     assert "cat .env" not in validator_text
     assert "set -x" not in validator_text
@@ -89,6 +91,23 @@ def test_ci_workflow_runs_safe_repository_validation():
     assert "Capability Certification Matrix" in matrix_text
     assert "No milestone is `verified_complete`" in matrix_text
     assert "No Autotask write capability is implemented or approved" in matrix_text
+
+
+def test_production_auth_preflight_requires_app_or_documented_external_auth(tmp_path):
+    script = ROOT / "scripts" / "production-auth-preflight.sh"
+    example = ROOT / ".env.example"
+    assert script.exists()
+    assert script.stat().st_mode & 0o111
+
+    passing = subprocess.run([str(script), str(example)], check=False, capture_output=True, text=True)
+    assert passing.returncode == 0
+    assert "Production auth preflight passed" in passing.stdout
+
+    failing_env = tmp_path / ".env"
+    failing_env.write_text("APP_ENV=production\nAPP_ROUTE_AUTH_REQUIRED=false\n")
+    failing = subprocess.run([str(script), str(failing_env)], check=False, capture_output=True, text=True)
+    assert failing.returncode == 1
+    assert "Production auth preflight failed" in failing.stderr
 
 
 def test_no_obvious_secret_values_committed():
