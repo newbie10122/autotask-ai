@@ -16,6 +16,7 @@ from app.models import AuditAction
 import app.operations as operations_module
 from app.ollama import OllamaUnavailable
 from app.quality import classify_chunk, is_recurring_issues_question
+import app.routing as routing_module
 import app.sync as sync_module
 from app.sync import sync_companies, sync_ticket_notes, sync_tickets
 from app.ticket_analytics import format_recurring_issues_answer, issue_group_label
@@ -980,3 +981,49 @@ def test_customer_success_summary_cache_key_uses_scope_role_and_window_contract(
     assert outer != readonly
     assert readonly != admin
     assert readonly != other_scope
+
+
+def test_ticket_health_data_paths_accept_and_apply_company_scope():
+    scope_source = inspect.getsource(ticket_health_module._company_scope_clause)
+    summary_source = inspect.getsource(ticket_health_module.ticket_health_summary)
+    review_source = inspect.getsource(ticket_health_module.ticket_health_review_queue)
+    detail_source = inspect.getsource(ticket_health_module.ticket_health_detail_scoped)
+    number_source = inspect.getsource(ticket_health_module.ticket_health_detail_by_number_scoped)
+
+    assert "authorized_company_ids" in summary_source
+    assert "authorized_company_ids" in review_source
+    assert "authorized_company_ids" in detail_source
+    assert "authorized_company_ids" in number_source
+    assert "company_id = ANY(%s)" in scope_source
+    assert "_company_scope_clause(authorized_company_ids)" in summary_source
+    assert "_company_scope_clause(authorized_company_ids)" in detail_source
+    assert "company_scope_sql" in number_source
+
+
+def test_customer_success_data_paths_fail_closed_and_filter_company_scope():
+    summary_source = inspect.getsource(customer_success_module.customer_success_summary)
+    detail_source = inspect.getsource(customer_success_module.customer_success_detail)
+    review_source = inspect.getsource(customer_success_module.customer_success_review_queue)
+    feedback_source = inspect.getsource(customer_success_module.store_customer_risk_feedback)
+    query_source = inspect.getsource(customer_success_module._customer_row_query)
+
+    assert "authorized_company_ids" in summary_source
+    assert "authorized_company_ids" in detail_source
+    assert "authorized_company_ids" in review_source
+    assert "authorized_company_ids" in feedback_source
+    assert "metrics.company_id = ANY(%s)" in query_source
+    assert "company_not_found" in detail_source
+    assert "company_not_found" in feedback_source
+
+
+def test_routing_data_paths_apply_company_scope_to_evidence_and_feedback():
+    profile_source = inspect.getsource(routing_module.technician_skill_profiles)
+    recommendation_source = inspect.getsource(routing_module.ticket_routing_recommendation)
+    feedback_source = inspect.getsource(routing_module.store_routing_feedback)
+
+    assert "authorized_company_ids" in profile_source
+    assert "authorized_company_ids" in recommendation_source
+    assert "authorized_company_ids" in feedback_source
+    assert "company_id = ANY(%s)" in profile_source
+    assert "company_id = ANY(%s)" in recommendation_source
+    assert "company_id = ANY(%s)" in feedback_source

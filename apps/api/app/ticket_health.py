@@ -943,6 +943,18 @@ def _summary_where(queue: str | None, assigned_resource_id: int | None) -> tuple
     return " AND ".join(clauses), params
 
 
+def _company_scope_clause(
+    authorized_company_ids: list[int] | None,
+    *,
+    alias: str = "t",
+) -> tuple[str, list[Any]]:
+    if authorized_company_ids is None:
+        return "", []
+    if not authorized_company_ids:
+        return f" AND {alias}.company_id = ANY(%s)", [[]]
+    return f" AND {alias}.company_id = ANY(%s)", [authorized_company_ids]
+
+
 def _score_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
     tickets: list[dict[str, Any]] = []
     buckets = {"critical": 0, "high": 0, "watch": 0, "normal": 0, "partial_history_tickets": 0}
@@ -1402,6 +1414,7 @@ def ticket_health_summary(
     queue: str | None = None,
     assigned_resource_id: int | None = None,
     cache_context: dict[str, Any] | None = None,
+    authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     row_limit = min(max(limit, 1), 200)
@@ -1410,6 +1423,7 @@ def ticket_health_summary(
             "limit": row_limit,
             "queue": queue,
             "assigned_resource_id": assigned_resource_id,
+            "authorized_company_ids": sorted(authorized_company_ids) if authorized_company_ids is not None else None,
             "closed_status_ids": sorted(CLOSED_STATUS_IDS),
         },
         **(cache_context or {}),
@@ -1421,6 +1435,9 @@ def ticket_health_summary(
 
     now = datetime.now(UTC)
     where_sql, filter_params = _summary_where(queue, assigned_resource_id)
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    where_sql += company_scope_sql
+    filter_params.extend(company_scope_params)
     with db_connection() as conn:
         rows = list(
             conn.execute(
@@ -1490,7 +1507,7 @@ def ticket_health_summary(
         )
         queue_options = list(
             conn.execute(
-                """
+                f"""
                 SELECT t.queue AS value, COALESCE(queue_ref.label, t.queue) AS label, count(*) AS count
                 FROM autotask_tickets t
                 LEFT JOIN autotask_reference_values queue_ref
@@ -1498,17 +1515,18 @@ def ticket_health_summary(
                 WHERE t.completed_at_autotask IS NULL
                   AND NOT t.analytics_exclude
                   AND COALESCE(t.status, '') <> ALL(%s)
+                  {company_scope_sql}
                   AND NULLIF(t.queue, '') IS NOT NULL
                 GROUP BY t.queue, COALESCE(queue_ref.label, t.queue)
                 ORDER BY count(*) DESC, label
                 LIMIT 50
                 """,
-                (list(CLOSED_STATUS_IDS),),
+                (list(CLOSED_STATUS_IDS), *company_scope_params),
             ).fetchall()
         )
         technician_options = list(
             conn.execute(
-                """
+                f"""
                 SELECT t.assigned_resource_id AS value,
                        COALESCE(NULLIF(t.assigned_resource_name, ''), resource_ref.label, t.assigned_resource_id::text) AS label,
                        count(*) AS count
@@ -1518,12 +1536,13 @@ def ticket_health_summary(
                 WHERE t.completed_at_autotask IS NULL
                   AND NOT t.analytics_exclude
                   AND COALESCE(t.status, '') <> ALL(%s)
+                  {company_scope_sql}
                   AND t.assigned_resource_id IS NOT NULL
                 GROUP BY t.assigned_resource_id, COALESCE(NULLIF(t.assigned_resource_name, ''), resource_ref.label, t.assigned_resource_id::text)
                 ORDER BY count(*) DESC, label
                 LIMIT 50
                 """,
-                (list(CLOSED_STATUS_IDS),),
+                (list(CLOSED_STATUS_IDS), *company_scope_params),
             ).fetchall()
         )
 
@@ -1707,11 +1726,17 @@ def ticket_health_review_queue(
     risk_bucket: str | None = None,
     min_priority: int = 0,
     needs_review_only: bool = False,
+    authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     row_limit = min(max(limit, 1), 100)
     priority_floor = min(max(int(min_priority or 0), 0), 100)
     allowed_bucket = risk_bucket if risk_bucket in {"critical", "high", "watch", "normal"} else None
-    summary = ticket_health_summary(limit=100, queue=queue, assigned_resource_id=assigned_resource_id)
+    summary = ticket_health_summary(
+        limit=100,
+        queue=queue,
+        assigned_resource_id=assigned_resource_id,
+        authorized_company_ids=authorized_company_ids,
+    )
     tickets = list(summary.get("tickets", []))
     feedback_by_ticket = _ticket_health_feedback_counts([int(ticket["id"]) for ticket in tickets])
     items: list[dict[str, Any]] = []
@@ -1784,11 +1809,16 @@ def ticket_health_review_queue(
 
 
 def ticket_health_detail(ticket_id: int) -> dict[str, Any]:
+    return ticket_health_detail_scoped(ticket_id)
+
+
+def ticket_health_detail_scoped(ticket_id: int, authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
     now = datetime.now(UTC)
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
     with db_connection() as conn:
         rows = list(
             conn.execute(
-                """
+                f"""
                 WITH labor AS (
                     SELECT ticket_id, sum(COALESCE(hours, 0)) AS labor_hours
                     FROM autotask_time_entries
@@ -1842,8 +1872,9 @@ def ticket_health_detail(ticket_id: int) -> dict[str, Any]:
                 LEFT JOIN autotask_reference_values resource_ref
                     ON resource_ref.field_name='resource' AND resource_ref.value=t.assigned_resource_id::text
                 WHERE t.id = %s
+                {company_scope_sql}
                 """,
-                (now, now, now, now, now, ticket_id),
+                (now, now, now, now, now, ticket_id, *company_scope_params),
             ).fetchall()
         )
         if not rows:
@@ -1920,20 +1951,29 @@ def ticket_health_detail(ticket_id: int) -> dict[str, Any]:
 
 
 def ticket_health_detail_by_number(ticket_number: str) -> dict[str, Any]:
+    return ticket_health_detail_by_number_scoped(ticket_number)
+
+
+def ticket_health_detail_by_number_scoped(
+    ticket_number: str,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
     ticket_lookup = (ticket_number or "").strip()
     if not ticket_lookup:
         return {"ok": False, "error": "ticket_number_required", "ticket_number": ticket_lookup}
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
     with db_connection() as conn:
         row = conn.execute(
             """
             SELECT id
             FROM autotask_tickets
-            WHERE ticket_number = %s OR autotask_id::text = %s
+            WHERE (ticket_number = %s OR autotask_id::text = %s)
+            {company_scope_sql}
             ORDER BY id DESC
             LIMIT 1
-            """,
-            (ticket_lookup, ticket_lookup),
+            """.format(company_scope_sql=company_scope_sql),
+            (ticket_lookup, ticket_lookup, *company_scope_params),
         ).fetchone()
     if not row:
         return {"ok": False, "error": "ticket_not_found", "ticket_number": ticket_lookup}
-    return ticket_health_detail(int(row["id"]))
+    return ticket_health_detail_scoped(int(row["id"]), authorized_company_ids=authorized_company_ids)
