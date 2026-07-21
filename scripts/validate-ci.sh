@@ -56,4 +56,9 @@ trap 'rm -f "$tmp_js"' EXIT
 awk '/<script>/{flag=1; next} /<\/script>/{flag=0} flag {print}' apps/web/index.html >"$tmp_js"
 node --check "$tmp_js"
 
+echo "== browser UI RBAC smoke =="
+npm ci
+npx playwright install --with-deps chromium
+npm run test:web
+
 echo "== CI validation complete =="

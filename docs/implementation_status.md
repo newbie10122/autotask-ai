@@ -11,9 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `98820196bb55049dc134183a8bf96ffff63ee32f`, which merged PR `newbie10122/autotask-ai#15`.
+- Canonical `main` is `a4f02bc0987dfe0ba9cb0fd6164d67310acb2cc6`, which merged PR `newbie10122/autotask-ai#16`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
-- `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, and static web JavaScript syntax checks.
+- `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
 - FastAPI API and technician/admin web interface.
 - Dockerized web, API, PostgreSQL/pgvector, synchronization, document, embedding, scheduler, nightly, and optional Ollama services.
@@ -36,12 +36,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 verifier-failure branch `agent/m1-verifier-failure-audit` preserves fail-closed verifier reasons in fallback answers and records verifier-failure audit events with actor/scope metadata.
 - Milestone 1 cache/export contract branch `agent/m1-cache-export-scope-contracts` adds a scoped-cache-key contract requiring authority class, roles, explicit scope, version, optional model/config inputs, and a route guard proving export/download endpoints are absent until classified.
 - Milestone 1 unsupported-claim verifier branch `agent/m1-unsupported-claim-verifier` rejects unsupported ticket-history resolution claims when retrieved source evidence lacks meaningful overlap.
+- Milestone 1 browser RBAC branch `agent/m1-browser-rbac-smoke` adds Playwright browser smoke coverage for anonymous, Admin, and ReadOnly UI authorization states.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix, but production defaults still keep app-route auth off.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, and future scoped cache contracts have first scope/RBAC plumbing, but scope is not yet fully certified with real-browser accessibility checks or active scoped cache consumers.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, future scoped cache contracts, and first browser RBAC smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with accessibility checks or active scoped cache consumers.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, and first unsupported ticket-history resolution claims; broader source sufficiency remains open.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -65,7 +66,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Add real-browser UI auth/RBAC and accessibility evidence beyond the static HTML contract.
+1. Add broader accessibility evidence and source-sufficiency certification.
 2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
 3. Build Quality Streak/certification receipts without marking milestones complete prematurely.
 
@@ -83,7 +84,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 unsupported-claim verifier breadth
+## Latest receipt — Milestone 1 browser UI RBAC smoke
+
+- **Slice:** Add repeatable Playwright browser evidence for static-web RBAC states on branch `agent/m1-browser-rbac-smoke` from canonical `main` `a4f02bc0987dfe0ba9cb0fd6164d67310acb2cc6`.
+- **State:** `partial`; real browser RBAC behavior is now smoke-tested, but Milestone 1 still requires broader accessibility evidence, source-sufficiency certification, production auth enablement, active scoped cache consumer validation, and Quality Streak records.
+- **Files changed:** `.gitignore`, `package.json`, `package-lock.json`, `playwright.config.js`, `apps/web/tests/rbac.spec.js`, `scripts/validate-ci.sh`, `apps/api/tests/test_repo_hygiene.py`, and project status docs.
+- **Implemented:** Playwright Chromium smoke tests serve the static web UI over localhost, stub API responses, and verify anonymous fail-closed app-auth behavior plus Admin and ReadOnly role-control states. CI validation now installs npm dependencies, installs Chromium dependencies, and runs `npm run test:web`.
+- **Validation:** Focused repository-hygiene tests passed with `13 passed`; `npm run test:web` passed with `3 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `88 passed`, static web JavaScript syntax validation, and Playwright browser UI RBAC smoke `3 passed`. `git diff --check` passed.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added; browser tests stub API calls.
+- **Rollback:** Revert this branch commit; application behavior is unchanged except validation now requires the browser smoke.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 unsupported-claim verifier breadth
 
 - **Slice:** Add conservative unsupported ticket-history resolution-claim verifier checks on branch `agent/m1-unsupported-claim-verifier` from canonical `main` `98820196bb55049dc134183a8bf96ffff63ee32f`.
 - **State:** `partial`; verifier breadth is improved for obvious unsupported resolution claims, but Milestone 1 still requires real-browser UI evidence, broader source-sufficiency certification, production auth enablement, active scoped cache consumer validation, and Quality Streak records.
@@ -249,8 +261,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `3ebecd3` records PR #15, canonical commit `98820196bb55049dc134183a8bf96ffff63ee32f`, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, scheduler heartbeat repair, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `07423b9` records PR #16, canonical commit `a4f02bc0987dfe0ba9cb0fd6164d67310acb2cc6`, unsupported-claim verifier breadth, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, scheduler heartbeat repair, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
-Merge the current Milestone 1 unsupported-claim verifier branch after CI passes, update the existing Second Brain projection, then continue Milestone 1 closeout with real-browser UI evidence, broader source-sufficiency certification, and Quality Streak receipts.
+Merge the current Milestone 1 browser UI RBAC smoke branch after CI passes, update the existing Second Brain projection, then continue Milestone 1 closeout with broader accessibility evidence, source-sufficiency certification, and Quality Streak receipts.
