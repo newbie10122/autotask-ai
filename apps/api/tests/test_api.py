@@ -242,6 +242,48 @@ def test_api_route_authority_matrix_classifies_every_route():
     assert company_scoped <= route_keys
 
 
+def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch):
+    events = []
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
+    monkeypatch.setattr("app.main.update_operations_settings", lambda payload: payload)
+    monkeypatch.setattr("app.main.run_job", lambda job_name, triggered_by, force: {"ok": True, "job_name": job_name})
+    monkeypatch.setattr("app.main.classify_tickets", lambda limit=None: {"ok": True, "limit": limit})
+    monkeypatch.setattr("app.main.sync_reference_data", lambda: {"ok": True})
+    monkeypatch.setattr("app.main.create_documents_from_tickets", lambda limit=None: {"ok": True, "limit": limit})
+    monkeypatch.setattr("app.main.run_embedding_batch", lambda limit=None: {"ok": True, "limit": limit})
+
+    class FakeAutotaskClient:
+        def threshold_information(self):
+            return {"remaining": 100}
+
+    monkeypatch.setattr("app.main.AutotaskReadOnlyClient", lambda: FakeAutotaskClient())
+    token = create_session_token("admin", [Role.admin.value])["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    routes = [
+        ("GET", "/api/autotask/threshold", None, "autotask.threshold"),
+        ("POST", "/api/sync/reference-data/start", None, "sync.reference_data.start"),
+        ("POST", "/api/documents/build", {"limit": 5}, "documents.build"),
+        ("POST", "/api/embeddings/run", {"limit": 5}, "embeddings.run"),
+        ("POST", "/api/analytics/classify-tickets", {"limit": 5}, "analytics.classify_tickets"),
+        ("POST", "/api/operations/settings", {"settings": {"global_pause": True}}, "operations.settings.update"),
+        ("POST", "/api/operations/jobs/recent_sync/run", None, "operations.job.run"),
+        ("POST", "/api/operations/pause", None, "operations.pause"),
+    ]
+
+    for method, path, payload, _target in routes:
+        response = client.request(method, path, headers=headers, json=payload)
+        assert response.status_code == 200, path
+
+    success_events = [event for event in events if event.action == AuditAction.admin_action]
+    assert {event.target for event in success_events} >= {target for *_prefix, target in routes}
+    for event in success_events:
+        assert event.actor == "admin"
+        assert event.outcome == "success"
+        assert event.scope == {"global": True}
+        assert event.metadata["roles"] == [Role.admin.value]
+
+
 def test_assistant_ask_denies_authenticated_user_without_company_scope(monkeypatch):
     monkeypatch.setattr(settings, "app_route_auth_required", True)
     monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [])
@@ -342,6 +384,39 @@ def test_feedback_passes_actor_and_scope_snapshot(monkeypatch):
         "actor_username": "tech",
         "authorized_company_ids": [123],
     }
+
+
+def test_assistant_and_feedback_success_audit_use_actor_and_effective_scope(monkeypatch):
+    events = []
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [123])
+    monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
+    monkeypatch.setattr("app.main.ask_assistant", lambda *_args, **_kwargs: {"answer_id": 42, "answer": "ok"})
+    monkeypatch.setattr("app.main.store_feedback", lambda *_args, **_kwargs: {"feedback_id": 7})
+    token = create_session_token("tech", [Role.technician.value])["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    ask_response = client.post(
+        "/api/assistant/ask",
+        json={"question": "printer not printing"},
+        headers=headers,
+    )
+    feedback_response = client.post(
+        "/api/assistant/feedback",
+        json={"answer_id": 42, "rating": "Good"},
+        headers=headers,
+    )
+
+    assert ask_response.status_code == 200
+    assert feedback_response.status_code == 200
+    assistant_event = next(event for event in events if event.action == AuditAction.assistant_answer)
+    feedback_event = next(event for event in events if event.action == AuditAction.feedback)
+    for event in (assistant_event, feedback_event):
+        assert event.actor == "tech"
+        assert event.outcome == "success"
+        assert event.scope == {"global": False, "company_ids": [123]}
+        assert event.metadata["roles"] == [Role.technician.value]
+    assert feedback_event.metadata["rating"] == "Good"
 
 
 def test_authorized_company_ids_for_user_reads_database_scope(monkeypatch):

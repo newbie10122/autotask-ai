@@ -33,8 +33,8 @@
 **Severity:** High
 **State:** Partially mitigated
 **Impact:** Security and operational actions may not be reconstructable after restart unless every material path writes identity-linked audit records.
-**Existing controls:** Branch `agent/m1-durable-audit-scope-foundation` adds durable `audit_log` persistence, outcome/scope fields, and authorization-denial audit events with no-DB fallback.
-**Next mitigation:** Link success-path audit records to authenticated users and effective company scope across assistant, sync, analytics, memory, settings, jobs, and verifier failures.
+**Existing controls:** Branch `agent/m1-durable-audit-scope-foundation` adds durable `audit_log` persistence, outcome/scope fields, and authorization-denial audit events with no-DB fallback. Branch `agent/m1-success-audit-scope-linkage` adds centralized success records for material admin actions, recurring analytics, assistant ask, and feedback.
+**Next mitigation:** Link audit records across remaining workflows and add verifier-failure audit records before treating audit coverage as complete.
 
 ### R5 — Quality Streak evidence not yet established
 
