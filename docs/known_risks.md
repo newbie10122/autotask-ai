@@ -15,9 +15,10 @@
 ### R2 — Client/company isolation is not yet proven fail-closed
 
 **Severity:** Critical
-**State:** Open
+**State:** Partially mitigated
 **Impact:** Retrieval, analytics, citations, or future caches could expose one client’s information to an unauthorized user.
-**Mitigation:** Explicit authorization scope on every data path, negative tests, independent verification, and Quality Streak evidence.
+**Existing controls:** Branch `agent/m1-company-scope-foundation` adds user-company scope storage, fail-closed assistant/analytics route scope checks, and scoped retrieval/recurring-analytics filters when app route auth is enabled.
+**Next mitigation:** Carry effective scope through query sources, feedback, memory, UI, future cache/export paths, verifier checks, and broader cross-client negative tests.
 
 ### R3 — Independent answer verification and prompt-injection defense are incomplete
 

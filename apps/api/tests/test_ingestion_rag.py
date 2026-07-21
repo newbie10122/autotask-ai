@@ -197,6 +197,9 @@ def test_search_and_embedding_only_use_active_chunks():
     assert "OR NOT dc.is_noise" in embedding_source
     assert "authorized_company_ids" in retrieve_source
     assert "source_metadata->>'company_id'" in retrieve_source
+    analytics_source = inspect.getsource(format_recurring_issues_answer.__globals__["recurring_issues_report"])
+    assert "authorized_company_ids" in analytics_source
+    assert "t.company_id = ANY" in analytics_source
 
 
 def test_noise_classifier_marks_survey_completion_and_autoresponder_noise():

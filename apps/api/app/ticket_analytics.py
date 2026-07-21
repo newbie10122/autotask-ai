@@ -292,10 +292,28 @@ def issue_group_label(row: dict[str, Any], labels: dict[tuple[str, str], str] | 
     return f"{class_label} / {cluster}"
 
 
-def recurring_issues_report(limit: int = 8, include_excluded: bool = False) -> dict[str, Any]:
+def recurring_issues_report(
+    limit: int = 8,
+    include_excluded: bool = False,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
     init_schema()
     limit = min(max(limit, 1), 20)
     labels = _reference_labels()
+    company_filter_sql = ""
+    company_filter_params: tuple[Any, ...] = ()
+    if authorized_company_ids is not None:
+        if not authorized_company_ids:
+            return {
+                "ok": True,
+                "groups": [],
+                "excluded_count": 0,
+                "top_skip_reasons": [],
+                "warnings": ["No authorized company scope is assigned."],
+                "mapping_stats": reference_data_status(),
+            }
+        company_filter_sql = "AND t.company_id = ANY(%s)"
+        company_filter_params = (authorized_company_ids,)
     with db_connection() as conn:
         rows = list(
             conn.execute(
@@ -310,28 +328,38 @@ def recurring_issues_report(limit: int = 8, include_excluded: bool = False) -> d
                 WHERE (%s OR NOT t.analytics_exclude)
                   AND COALESCE(t.is_support_issue, TRUE)
                   AND t.classified_at IS NOT NULL
+                  """ + company_filter_sql + """
                 ORDER BY t.completed_at_autotask DESC NULLS LAST,
                          t.updated_at_autotask DESC NULLS LAST,
                          t.id DESC
                 LIMIT 50000
                 """,
-                (include_excluded,),
+                (include_excluded, *company_filter_params),
             ).fetchall()
         )
-        excluded_count = conn.execute("SELECT count(*) AS count FROM autotask_tickets WHERE analytics_exclude").fetchone()["count"]
-        unclassified_count = conn.execute("SELECT count(*) AS count FROM autotask_tickets WHERE classified_at IS NULL").fetchone()[
+        excluded_count = conn.execute(
+            "SELECT count(*) AS count FROM autotask_tickets t WHERE analytics_exclude " + company_filter_sql,
+            company_filter_params,
+        ).fetchone()["count"]
+        unclassified_count = conn.execute(
+            "SELECT count(*) AS count FROM autotask_tickets t WHERE classified_at IS NULL " + company_filter_sql,
+            company_filter_params,
+        ).fetchone()[
             "count"
         ]
         top_skip_reasons = list(
             conn.execute(
                 """
                 SELECT analytics_exclude_reason AS reason, count(*) AS count
-                FROM autotask_tickets
+                FROM autotask_tickets t
                 WHERE analytics_exclude
+                """ + company_filter_sql + """
                 GROUP BY 1
                 ORDER BY count DESC
                 LIMIT 10
                 """
+                ,
+                company_filter_params,
             ).fetchall()
         )
 

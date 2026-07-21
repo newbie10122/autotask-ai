@@ -328,7 +328,13 @@ def _store_answer(
     return answer_row
 
 
-def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int = 5, include_noise: bool = False) -> dict[str, Any]:
+def ask_assistant(
+    question: str,
+    mode: str = "ticket_history_only",
+    limit: int = 5,
+    include_noise: bool = False,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
     init_schema()
     started = time.monotonic()
     limit = min(max(limit, 1), 12)
@@ -340,7 +346,7 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
     query_id = query_row["id"]
 
     if is_recurring_issues_question(question):
-        report = recurring_issues_report(limit=limit)
+        report = recurring_issues_report(limit=limit, authorized_company_ids=authorized_company_ids)
         answer, tickets = format_recurring_issues_answer(report)
         duration_ms = int((time.monotonic() - started) * 1000)
         confidence_score = 0.7 if report.get("groups") else 0.0
@@ -358,7 +364,7 @@ def ask_assistant(question: str, mode: str = "ticket_history_only", limit: int =
             "route": "recurring_issue_analytics",
         }
 
-    sources = _retrieve_sources(question, limit, include_noise=include_noise)
+    sources = _retrieve_sources(question, limit, include_noise=include_noise, authorized_company_ids=authorized_company_ids)
     sources, safety_warnings = filter_safe_sources(sources)
     best_score = float(sources[0]["score"] or 0) if sources else 0.0
     tickets = _unique_tickets(sources)
