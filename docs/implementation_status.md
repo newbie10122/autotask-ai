@@ -7,7 +7,7 @@
 
 ## Status confidence
 
-The repository has a substantial implemented MVP foundation, but no roadmap milestone is yet marked `verified_complete` under `AGENTS.md`. Current verified completion cannot be represented honestly as a percentage until CI, acceptance evidence, and the capability certification matrix are established.
+The repository has a substantial implemented MVP foundation, but no roadmap milestone is yet marked `verified_complete` under `AGENTS.md`. Current verified completion cannot be represented honestly as a percentage until acceptance evidence, the capability certification matrix, and Quality Streak records are established.
 
 ## Implemented foundation
 
@@ -31,7 +31,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Audit logging is not fully persistent and identity-linked.
 - Retrieval does not yet prove fail-closed company/client authorization scope.
 - Prompt-injection scanning and independent answer verification are not complete.
-- GitHub CI state is pending until the PR run executes on the reconciled branch; three-run Quality Streak evidence is not established.
+- Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
 - Ticket-health data synchronization and analytics are incomplete.
 
@@ -39,7 +39,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 | Milestone | State | Next evidence required |
 |---|---|---|
-| 0. Governance and continuous validation | active | Open governed CI PR, inspect GitHub Actions result, and start certification matrix/Quality Streak records |
+| 0. Governance and continuous validation | active | Merge governed CI PR and start certification matrix/Quality Streak records |
 | 1. Security, identity, isolation, answer trust | not_started | Auth/RBAC/audit/scope/verifier design and tests |
 | 2. Complete operational Autotask data | not_started | Field inventory and resumable scoped sync |
 | 3. Ticket Health Analytics | not_started | Deterministic APIs/UI with evidence |
@@ -53,10 +53,10 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Open the governed CI validation PR from branch `agent/m0-ci-validation` and inspect the GitHub Actions run.
-2. Record the reconciled CI PR commit, local validation result, GitHub CI state, and rollback path.
-3. Create fuller capability certification/Quality Streak records without marking capabilities certified prematurely.
-4. Begin Milestone 1 with authentication/RBAC test-first design.
+1. Merge the governed CI validation PR after review.
+2. Create fuller capability certification/Quality Streak records without marking capabilities certified prematurely.
+3. Begin Milestone 1 with authentication/RBAC test-first design.
+4. Prepare the existing governed Second Brain projection update after the Autotask AI CI PR state materially changes.
 
 Parallel-safe work after roadmap merge:
 
@@ -75,10 +75,11 @@ None currently identified for documentation and non-production implementation wo
 ## Latest receipt — Milestone 0 CI reconciliation
 
 - **Slice:** Preserve local CI commit `dc18106` on governed branch `agent/m0-ci-validation` based on canonical `origin/main` `792eca2c943e4276cc3b8e93093d5dc193c6174f`.
-- **State:** `partial` until the draft PR is pushed and GitHub Actions runs on the PR head.
+- **State:** `partial`; CI is implemented and remotely proven on the implementation commit, but Milestone 0 still needs merge plus fuller certification matrix/Quality Streak records before `verified_complete`.
 - **Backup:** Local branch `backup/dc18106-ci-harness` points to source commit `dc18106`.
 - **Files preserved/reconciled:** `.github/workflows/ci.yml`, `scripts/validate-ci.sh`, `docs/CI_VALIDATION.md`, `apps/api/tests/test_repo_hygiene.py`, `README.md`, `docs/implementation_status.md`, `docs/acceptance_criteria.md`, `docs/known_risks.md`, and `docs/codex_next_prompt.md`.
 - **Local validation:** `./scripts/validate-ci.sh` passed on the reconciled branch with redacted Compose validation, 6 ordered migrations, API image build, API/worker Python compile, full canonical pytest result `53 passed`, and static web JavaScript syntax validation.
+- **GitHub CI evidence:** Draft PR `newbie10122/autotask-ai#3` opened from `agent/m0-ci-validation` to `main`. GitHub Actions run `29849731532` passed workflow `CI`, job `Validate Autotask AI`, for implementation head `c092bfa6f1f958f46f0512fa3817d5911d8f3b3f`.
 - **Additional validation:** `git diff --check` passed; `python3 -m compileall apps/api/app apps/api/tests` passed; `./scripts/compose-config-redacted.sh >/tmp/autotask-ai-compose-redacted.txt` passed; standalone static web JavaScript syntax check passed.
 - **Host limitation:** `cd apps/api && pytest` could not run on the host because `pytest` is not installed there; pytest passed inside the API container through the CI validator.
 - **Runtime sanity:** Local non-production rebuild of `api` and `web` passed; `/health` returned `{"status":"ok"}`, `/ready` returned `{"status":"ready","database":"available","autotask":"configured"}`, and the local Nginx UI returned `HTTP 200`.
@@ -88,8 +89,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, exact branch head `acf1863ae5623cf3004fba107deab19c3f627659`. The repository `Validate knowledge` workflow is required before merge. Do not mark `merged` until PR #6 is merged. The local CI reconciliation has not yet produced a new Second Brain PR; update the existing governed projection after the Autotask AI CI PR is open or materially changes.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, exact branch head `acf1863ae5623cf3004fba107deab19c3f627659`. The repository `Validate knowledge` workflow is required before merge. Do not mark `merged` until PR #6 is merged. The Autotask AI CI PR is now open as `newbie10122/autotask-ai#3`; update the existing governed Second Brain projection after this PR is merged or otherwise materially changes.
 
 ## Exact next action
 
-Push branch `agent/m0-ci-validation`, open a draft PR to `main`, inspect the actual GitHub Actions run, and record the result. If CI passes, continue Milestone 0 certification evidence; if blocked by runner/billing, preserve the exact blocker and continue parallel-safe Milestone 1 test/design work.
+Review and merge draft PR `newbie10122/autotask-ai#3` when ready. After merge or material PR-state change, update the existing governed Second Brain projection, then continue Milestone 0 certification matrix/Quality Streak evidence and parallel-safe Milestone 1 test/design work.

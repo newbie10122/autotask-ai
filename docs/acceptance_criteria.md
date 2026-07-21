@@ -31,7 +31,8 @@ A milestone may be marked `verified_complete` only when:
 - A capability certification and Quality Streak record format exists in `docs/CI_VALIDATION.md`.
 - Repository hygiene tests pin the CI workflow, validation script, redacted Compose usage, migration ordering check, JavaScript syntax check, and receipt format.
 - Repository receipts include exact commands, results, commits, risks, rollback, and Second Brain state.
-- Local reconciled evidence on branch `agent/m0-ci-validation`: `./scripts/validate-ci.sh` passed with redacted Compose validation, 6 ordered migrations, API image build, Python compile, `53 passed`, and static web JavaScript syntax. GitHub Actions PR evidence remains pending and must be recorded before Milestone 0 can be marked `verified_complete`.
+- Local reconciled evidence on branch `agent/m0-ci-validation`: `./scripts/validate-ci.sh` passed with redacted Compose validation, 6 ordered migrations, API image build, Python compile, `53 passed`, and static web JavaScript syntax.
+- GitHub Actions evidence: PR `newbie10122/autotask-ai#3` run `29849731532` passed workflow `CI`, job `Validate Autotask AI`, for implementation commit `c092bfa6f1f958f46f0512fa3817d5911d8f3b3f`. Milestone 0 still requires merge plus fuller certification matrix/Quality Streak records before it can be marked `verified_complete`.
 
 ## Milestone 1
 

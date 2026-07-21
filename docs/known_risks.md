@@ -33,12 +33,12 @@
 **Impact:** Security and operational actions may not be reconstructable after restart.  
 **Mitigation:** Database-backed immutable audit records with actor, scope, target, outcome, source references, and denied actions.
 
-### R5 — Automated CI pending remote verification
+### R5 — Quality Streak evidence not yet established
 
 **Severity:** High  
 **State:** Partially mitigated  
-**Impact:** Local CI validation exists, but GitHub Actions has not yet proven the reconciled branch and no three-run Quality Streak evidence exists.  
-**Mitigation:** Open the governed CI PR, inspect the actual GitHub Actions run, repair failures if needed, and then build certification matrix plus three-consecutive-clean-run receipts.
+**Impact:** Local and GitHub CI validation now exist for the governed CI branch, but three-run Quality Streak evidence and a fuller certification matrix are not yet established.
+**Mitigation:** Merge the governed CI PR after review, then build certification matrix plus three-consecutive-clean-run receipts without overstating existing capability certification.
 
 ## Medium risks
 
@@ -96,9 +96,9 @@
 ### R16 — CI runner environment differences
 
 **Severity:** Medium  
-**State:** Open until first PR run passes  
-**Impact:** The local validator passed, but GitHub-hosted runners may differ in Docker Compose, Node, network, cache, or resource limits.  
-**Mitigation:** Keep CI credentials-free, bounded, and deterministic; inspect the first actual Actions run before marking Milestone 0 verified complete.
+**State:** Partially mitigated
+**Impact:** The first GitHub-hosted CI run passed, but future runners may still differ in Docker Compose, Node, network, cache, or resource limits.
+**Mitigation:** Keep CI credentials-free, bounded, and deterministic; treat future GitHub CI failures as blockers to completion claims until repaired.
 
 ### R17 — Host test tooling is incomplete
 
