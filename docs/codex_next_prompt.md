@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `ea86e1b50873c9337811fcfae94305d2c64f8c04`
-- Latest merged PR: `newbie10122/autotask-ai#14`, `Audit verifier fail-closed assistant answers`
-- Latest PR #14 CI: GitHub Actions run `29861080609`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed validation: `./scripts/validate-ci.sh` passed with full pytest `85 passed` on branch `agent/m1-cache-export-scope-contracts`
+- Canonical `main`: `98820196bb55049dc134183a8bf96ffff63ee32f`
+- Latest merged PR: `newbie10122/autotask-ai#15`, `Add scoped cache and export route contracts`
+- Latest PR #15 CI: GitHub Actions run `29861367671`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local governed validation: `./scripts/validate-ci.sh` passed with full pytest `88 passed` on branch `agent/m1-unsupported-claim-verifier`
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -27,9 +27,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge branch `agent/m1-cache-export-scope-contracts` after GitHub CI passes.
-2. Update the existing Second Brain projection PR with the cache/export contract evidence.
-3. Continue Milestone 1 closeout with company-isolation negatives, unsupported-claim verifier breadth, and real-browser UI RBAC/accessibility evidence.
+1. Merge branch `agent/m1-unsupported-claim-verifier` after GitHub CI passes.
+2. Update the existing Second Brain projection PR with the unsupported-claim verifier evidence.
+3. Continue Milestone 1 closeout with real-browser UI RBAC/accessibility evidence, broader source-sufficiency certification, and Quality Streak receipts.
 
 ## Milestone status
 
@@ -49,6 +49,6 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Existing projection branch: `agent/autotask-ai-governed-roadmap-projection`.
 Existing PR: `newbie10122/helix-second-brain#6`.
-Latest pushed projection head `4bf6be5` records PR #14, canonical commit, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
+Latest pushed projection head `3ebecd3` records PR #15, canonical commit, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
 
 Update the existing projection after the next material Autotask AI slice. Do not create duplicate projection PRs, and do not mark Second Brain state `merged` until PR #6 is actually merged.

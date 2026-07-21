@@ -9,6 +9,35 @@ from .security import detect_prompt_injection, find_sensitive_content, redact_pr
 
 
 TICKET_TOKEN_PATTERN = re.compile(r"\bT\d+(?:\.\d+)?\b")
+FIX_CLAIM_PATTERN = re.compile(
+    r"\b("
+    r"fix(?:ed|es)?|resolv(?:ed|es|ing)|repair(?:ed|s)?|"
+    r"replac(?:ed|e|ing)|restart(?:ed|ing)?|reinstall(?:ed|ing)?|"
+    r"updat(?:ed|e|ing)|reset(?:ting)?|reboot(?:ed|ing)?"
+    r")\b",
+    re.IGNORECASE,
+)
+TOKEN_PATTERN = re.compile(r"[a-z0-9]{3,}")
+STOPWORDS = {
+    "and",
+    "are",
+    "but",
+    "can",
+    "for",
+    "from",
+    "have",
+    "into",
+    "not",
+    "the",
+    "this",
+    "that",
+    "then",
+    "they",
+    "was",
+    "were",
+    "with",
+    "your",
+}
 
 
 @dataclass
@@ -32,6 +61,43 @@ def source_ticket_ids(sources: list[dict[str, Any]]) -> set[str]:
             if value:
                 ids.add(str(value))
     return ids
+
+
+def _tokens(value: str) -> set[str]:
+    return {token for token in TOKEN_PATTERN.findall(value.lower()) if token not in STOPWORDS}
+
+
+def _ticket_history_lines(answer: str) -> list[str]:
+    lines: list[str] = []
+    in_ticket_history = False
+    for raw_line in answer.splitlines():
+        line = raw_line.strip()
+        if line == "From CompuOne Ticket History":
+            in_ticket_history = True
+            continue
+        if in_ticket_history and line in {
+            "General IT Guidance",
+            "Suggested Next Steps",
+            "Based on Tickets",
+            "Warnings",
+        }:
+            break
+        if in_ticket_history and line and not line.startswith("Confidence:"):
+            lines.append(line.removeprefix("- ").strip())
+    return lines
+
+
+def _unsupported_ticket_history_claims(answer: str, sources: list[dict[str, Any]]) -> list[str]:
+    source_tokens = _tokens("\n".join(str(source.get("content") or "") for source in sources))
+    unsupported: list[str] = []
+    for line in _ticket_history_lines(answer):
+        if not FIX_CLAIM_PATTERN.search(line):
+            continue
+        claim_tokens = _tokens(line)
+        overlap = claim_tokens & source_tokens
+        if not sources or len(overlap) < 2:
+            unsupported.append(redact_private_entities(line))
+    return unsupported
 
 
 def filter_safe_sources(sources: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
@@ -64,6 +130,7 @@ def verify_answer(
     cited_tickets = sorted(set(TICKET_TOKEN_PATTERN.findall(answer)))
     allowed_tickets = source_ticket_ids(sources)
     unknown_tickets = [ticket for ticket in cited_tickets if ticket not in allowed_tickets]
+    unsupported_claims = _unsupported_ticket_history_claims(answer, sources)
     scope_violations: list[str] = []
     if authorized_company_ids is not None:
         allowed_companies = {int(company_id) for company_id in authorized_company_ids}
@@ -83,6 +150,8 @@ def verify_answer(
         warnings.append(f"Answer cited unretrieved ticket(s): {', '.join(unknown_tickets)}.")
     if scope_violations:
         warnings.append(f"Answer used out-of-scope source(s): {', '.join(scope_violations)}.")
+    if unsupported_claims:
+        warnings.append("Answer included unsupported ticket-history resolution claim(s).")
     if not has_required_answer_sections(answer):
         warnings.append("Answer is missing required sections.")
     if not general_guidance_labeled:
@@ -97,6 +166,8 @@ def verify_answer(
         fail_closed_reason = "sensitive content in answer"
     elif injection_findings:
         fail_closed_reason = "prompt injection text in answer"
+    elif unsupported_claims:
+        fail_closed_reason = "unsupported ticket-history claim"
     elif not has_required_answer_sections(answer):
         fail_closed_reason = "missing required answer sections"
     elif not general_guidance_labeled:
@@ -107,6 +178,7 @@ def verify_answer(
         fail_closed_reason=fail_closed_reason,
         warnings=warnings,
         citation_ticket_ids=cited_tickets,
+        unsupported_claims=unsupported_claims,
         secret_findings=secret_findings,
         prompt_injection_findings=injection_findings,
         scope_violations=scope_violations,

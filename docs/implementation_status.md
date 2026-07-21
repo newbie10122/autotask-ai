@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `ea86e1b50873c9337811fcfae94305d2c64f8c04`, which merged PR `newbie10122/autotask-ai#14`.
+- Canonical `main` is `98820196bb55049dc134183a8bf96ffff63ee32f`, which merged PR `newbie10122/autotask-ai#15`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, and static web JavaScript syntax checks.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -35,13 +35,14 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 success-audit branch `agent/m1-success-audit-scope-linkage` adds centralized success-audit recording for material admin, analytics, assistant, and feedback actions with actor, role metadata, outcome, and effective scope.
 - Milestone 1 verifier-failure branch `agent/m1-verifier-failure-audit` preserves fail-closed verifier reasons in fallback answers and records verifier-failure audit events with actor/scope metadata.
 - Milestone 1 cache/export contract branch `agent/m1-cache-export-scope-contracts` adds a scoped-cache-key contract requiring authority class, roles, explicit scope, version, optional model/config inputs, and a route guard proving export/download endpoints are absent until classified.
+- Milestone 1 unsupported-claim verifier branch `agent/m1-unsupported-claim-verifier` rejects unsupported ticket-history resolution claims when retrieved source evidence lacks meaningful overlap.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix, but production defaults still keep app-route auth off.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
 - Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, and future scoped cache contracts have first scope/RBAC plumbing, but scope is not yet fully certified with real-browser accessibility checks or active scoped cache consumers.
-- Prompt-injection scanning and deterministic answer verification have initial tests and verifier-failure audit evidence, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
+- Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, and first unsupported ticket-history resolution claims; broader source sufficiency remains open.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
 - Ticket-health related-data synchronization is automated but not fully caught up across the historical estate; TimeEntries and TicketHistory coverage still require continued bounded scheduled sweeps and certification.
@@ -64,9 +65,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Broaden verifier unsupported-claim and source-sufficiency checks.
-2. Add real-browser UI auth/RBAC and accessibility evidence beyond the static HTML contract.
-3. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
+1. Add real-browser UI auth/RBAC and accessibility evidence beyond the static HTML contract.
+2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
+3. Build Quality Streak/certification receipts without marking milestones complete prematurely.
 
 Parallel-safe work after roadmap merge:
 
@@ -82,7 +83,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 cache/export scope contracts
+## Latest receipt — Milestone 1 unsupported-claim verifier breadth
+
+- **Slice:** Add conservative unsupported ticket-history resolution-claim verifier checks on branch `agent/m1-unsupported-claim-verifier` from canonical `main` `98820196bb55049dc134183a8bf96ffff63ee32f`.
+- **State:** `partial`; verifier breadth is improved for obvious unsupported resolution claims, but Milestone 1 still requires real-browser UI evidence, broader source-sufficiency certification, production auth enablement, active scoped cache consumer validation, and Quality Streak records.
+- **Files changed:** `apps/api/app/answer_safety.py`, `apps/api/tests/test_guardrails.py`, and project status docs.
+- **Implemented:** `verify_answer()` now inspects the `From CompuOne Ticket History` section for resolution/fix claims and fails closed when retrieved source evidence is empty or lacks meaningful token overlap. Tests cover unsupported firewall replacement claims, empty-source specific-fix claims, and supported print-spooler resolution claims.
+- **Validation:** Focused guardrail/RAG tests passed with `51 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `88 passed`, and static web JavaScript syntax validation. `git diff --check` passed.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; no schema or runtime configuration change is included.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 cache/export scope contracts
 
 - **Slice:** Add future scoped-cache and export-route authority contracts on branch `agent/m1-cache-export-scope-contracts` from canonical `main` `ea86e1b50873c9337811fcfae94305d2c64f8c04`.
 - **State:** `partial`; future scoped cache/export safety contracts are stronger, but Milestone 1 still requires unsupported-claim verifier breadth, real-browser UI evidence, production auth enablement, active scoped cache consumer validation, and Quality Streak records.
@@ -237,8 +249,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `4bf6be5` records PR #14, canonical commit `ea86e1b50873c9337811fcfae94305d2c64f8c04`, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, scheduler heartbeat repair, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `3ebecd3` records PR #15, canonical commit `98820196bb55049dc134183a8bf96ffff63ee32f`, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, scheduler heartbeat repair, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
-Merge the current Milestone 1 cache/export scope-contract branch after CI passes, update the existing Second Brain projection, then continue Milestone 1 closeout with unsupported-claim verifier breadth and real-browser UI evidence.
+Merge the current Milestone 1 unsupported-claim verifier branch after CI passes, update the existing Second Brain projection, then continue Milestone 1 closeout with real-browser UI evidence, broader source-sufficiency certification, and Quality Streak receipts.

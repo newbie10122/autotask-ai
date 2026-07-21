@@ -96,6 +96,65 @@ def test_answer_verifier_rejects_out_of_scope_sources():
     assert result.scope_violations == ["T20260721.001"]
 
 
+def test_answer_verifier_flags_unsupported_resolution_claim_without_source_overlap():
+    answer = build_guarded_answer(
+        ticket_history="T1 was fixed by replacing the firewall.",
+        general_guidance="Check the basics.",
+        next_steps=["Open the ticket."],
+        tickets=["T1"],
+        confidence=0.8,
+    )
+
+    result = verify_answer(
+        answer,
+        [{"ticket_number": "T1", "content": "Ticket Number: T1\nDescription: Printer would not print."}],
+    )
+
+    assert not result.ok
+    assert result.fail_closed_reason == "unsupported ticket-history claim"
+    assert result.unsupported_claims == ["T1 was fixed by replacing the firewall."]
+
+
+def test_answer_verifier_fails_closed_when_source_evidence_is_empty_but_answer_claims_specific_fix():
+    answer = (
+        "Confidence: 0.60\n\n"
+        "From CompuOne Ticket History\n"
+        "Resolved by restarting the print spooler.\n\n"
+        "General IT Guidance\n"
+        "Check printer services.\n\n"
+        "Suggested Next Steps\n"
+        "- Verify printing.\n\n"
+        "Based on Tickets\n"
+        "- None\n\n"
+        "Warnings\n"
+        "- None"
+    )
+
+    result = verify_answer(answer, [])
+
+    assert not result.ok
+    assert result.fail_closed_reason == "unsupported ticket-history claim"
+    assert result.unsupported_claims == ["Resolved by restarting the print spooler."]
+
+
+def test_answer_verifier_allows_resolution_claim_with_source_overlap():
+    answer = build_guarded_answer(
+        ticket_history="T1 resolved by restarting the print spooler.",
+        general_guidance="Check printer services.",
+        next_steps=["Verify printing."],
+        tickets=["T1"],
+        confidence=0.8,
+    )
+
+    result = verify_answer(
+        answer,
+        [{"ticket_number": "T1", "content": "Ticket Number: T1\nDescription: Resolved by restarting print spooler."}],
+    )
+
+    assert result.ok
+    assert result.unsupported_claims == []
+
+
 def test_autotask_write_calls_are_not_enabled():
     client = AutotaskReadOnlyClient()
     for method_name in ("create_ticket", "update_ticket", "delete_ticket"):
