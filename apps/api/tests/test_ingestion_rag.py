@@ -5,6 +5,7 @@ from app.audit import audit_sink
 import app.assistant as assistant_module
 from app.assistant import ask_assistant, store_feedback
 from app.autotask import AutotaskHeaders, AutotaskReadOnlyClient
+from app.cache import scoped_cache_key
 import app.documents as documents_module
 from app.documents import create_documents_from_tickets, noise_report, reclassify_chunks
 import app.embeddings as embeddings_module
@@ -662,3 +663,60 @@ def test_verifier_failure_preserves_warning_and_records_audit(monkeypatch):
 
 def test_feedback_and_known_fix_functions_are_available():
     assert callable(store_feedback)
+
+
+def test_scoped_cache_key_requires_authority_scope_roles_and_version():
+    key = scoped_cache_key(
+        "assistant-preview",
+        {"question_hash": "abc"},
+        authority_class="company-scoped",
+        roles=["Technician", "ReadOnly"],
+        scope={"company_ids": [123], "global": False},
+        version=1,
+        model_name="local-model",
+        config={"prompt_version": 2},
+    )
+    assert key.startswith("autotask-ai:assistant-preview:")
+    assert key == scoped_cache_key(
+        "assistant-preview",
+        {"question_hash": "abc"},
+        authority_class="company-scoped",
+        roles=["ReadOnly", "Technician"],
+        scope={"company_ids": [123], "global": False},
+        version=1,
+        model_name="local-model",
+        config={"prompt_version": 2},
+    )
+    assert key != scoped_cache_key(
+        "assistant-preview",
+        {"question_hash": "abc"},
+        authority_class="company-scoped",
+        roles=["Technician", "ReadOnly"],
+        scope={"company_ids": [456], "global": False},
+        version=1,
+        model_name="local-model",
+        config={"prompt_version": 2},
+    )
+
+
+def test_scoped_cache_key_rejects_missing_contract_inputs():
+    required = {
+        "authority_class": "company-scoped",
+        "roles": ["Technician"],
+        "scope": {"company_ids": [123], "global": False},
+        "version": 1,
+    }
+    for key, value in {
+        "authority_class": "",
+        "roles": [],
+        "scope": {},
+        "version": 0,
+    }.items():
+        kwargs = dict(required)
+        kwargs[key] = value
+        try:
+            scoped_cache_key("assistant-preview", {"question_hash": "abc"}, **kwargs)
+        except ValueError as exc:
+            assert "Scoped cache keys require" in str(exc)
+        else:
+            raise AssertionError(f"missing {key} should fail")

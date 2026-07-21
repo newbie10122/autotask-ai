@@ -32,6 +32,39 @@ def cache_key(namespace: str, payload: dict[str, Any]) -> str:
     return f"autotask-ai:{namespace}:{digest}"
 
 
+def scoped_cache_key(
+    namespace: str,
+    payload: dict[str, Any],
+    *,
+    authority_class: str,
+    roles: list[str],
+    scope: dict[str, Any],
+    version: int,
+    model_name: str | None = None,
+    config: dict[str, Any] | None = None,
+) -> str:
+    if not authority_class:
+        raise ValueError("Scoped cache keys require an authority class.")
+    if not roles:
+        raise ValueError("Scoped cache keys require at least one role.")
+    if not scope:
+        raise ValueError("Scoped cache keys require an explicit scope.")
+    if version < 1:
+        raise ValueError("Scoped cache keys require a positive version.")
+    scoped_payload = {
+        "payload": payload,
+        "scope_contract": {
+            "authority_class": authority_class,
+            "roles": sorted(roles),
+            "scope": scope,
+            "version": version,
+            "model_name": model_name,
+            "config": config or {},
+        },
+    }
+    return cache_key(namespace, scoped_payload)
+
+
 def cache_get_json(key: str) -> dict[str, Any] | None:
     client = _redis_client()
     if client is None:

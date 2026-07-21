@@ -18,7 +18,7 @@
 **State:** Partially mitigated
 **Impact:** Retrieval, analytics, citations, or future caches could expose one client’s information to an unauthorized user.
 **Existing controls:** Branch `agent/m1-company-scope-foundation` adds user-company scope storage, fail-closed assistant/analytics route scope checks, and scoped retrieval/recurring-analytics filters when app route auth is enabled.
-**Next mitigation:** Carry effective scope through future cache/export paths, verifier checks, ticket-health/customer-success/routing APIs, and broader cross-client negative tests.
+**Next mitigation:** Carry effective scope through active scoped cache consumers, verifier checks, ticket-health/customer-success/routing APIs, and broader cross-client negative tests.
 
 ### R3 — Independent answer verification and prompt-injection defense are incomplete
 

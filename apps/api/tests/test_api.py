@@ -242,6 +242,16 @@ def test_api_route_authority_matrix_classifies_every_route():
     assert company_scoped <= route_keys
 
 
+def test_no_export_or_download_routes_exist_without_authority_contract():
+    export_like_routes = [
+        route.path
+        for route in app.routes
+        if any(token in route.path.lower() for token in ("export", "download"))
+    ]
+
+    assert export_like_routes == []
+
+
 def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch):
     events = []
     monkeypatch.setattr(settings, "app_route_auth_required", True)
