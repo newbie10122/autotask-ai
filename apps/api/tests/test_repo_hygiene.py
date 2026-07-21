@@ -137,6 +137,14 @@ def test_operations_scheduler_schema_and_worker_are_present():
     assert "worker-scheduler:" in compose
 
 
+def test_scheduler_worker_records_heartbeat_each_tick():
+    scheduler = (ROOT / "workers" / "scheduler" / "main.py").read_text()
+    assert "record_scheduler_heartbeat" in scheduler
+    assert "tick_started_at" in scheduler
+    assert "tick_finished_at" in scheduler
+    assert "status=\"failed\"" in scheduler
+
+
 def test_nginx_http_preview_helper_and_docs_are_present():
     script = ROOT / "scripts" / "install-nginx-http-preview.sh"
     assert script.exists()
