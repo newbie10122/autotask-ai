@@ -5,11 +5,11 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `064f82debc47cd16a6c9ba8fefd535719d3d173c`
-- Latest merged PR: `newbie10122/autotask-ai#22`, `Scope active operations status cache`
-- Latest PR #22 CI: GitHub Actions run `29864557201`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed validation: `./scripts/validate-ci.sh && git diff --check` passed with production-auth preflight, full pytest `93 passed`, and Playwright browser smoke `6 passed` on branch `agent/m1-production-auth-preflight`.
-- Current working branch objective: `agent/m1-production-auth-preflight` adds CI-validated deploy-time auth-boundary preflight without changing live production services.
+- Canonical `main`: `44c080169baa31ece7cc15f4684130149cf69b53`
+- Latest merged PR: `newbie10122/autotask-ai#23`, `Add production auth preflight`
+- Latest PR #23 CI: GitHub Actions run `29865038374`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local governed validation: `./scripts/validate-ci.sh && git diff --check` passed with production-auth preflight, full pytest `96 passed`, and Playwright browser smoke `6 passed` on branch `agent/m1-bootstrap-admin-user`.
+- Current working branch objective: `agent/m1-bootstrap-admin-user` adds local hashed app-user bootstrap operations without changing live production credentials.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -28,9 +28,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge branch `agent/m1-production-auth-preflight` after GitHub CI passes.
-2. Update the existing Second Brain projection PR with the production-auth preflight evidence.
-3. Continue Milestone 1 closeout with bootstrap/admin-user operations, live production-auth deployment evidence, broader adversarial verifier evidence, remaining scope/cache certification, and capability Quality Streak receipts.
+1. Merge branch `agent/m1-bootstrap-admin-user` after GitHub CI passes.
+2. Update the existing Second Brain projection PR with the bootstrap/admin-user evidence.
+3. Continue Milestone 1 closeout with live production-auth deployment evidence, broader adversarial verifier evidence, remaining scope/cache certification, and capability Quality Streak receipts.
 
 ## Milestone status
 
@@ -45,7 +45,6 @@ Continue from a clean branch based on canonical `origin/main`.
 - Company-scope contracts for ticket health, customer success, routing, realtime, cache keys, and future exports.
 - Deterministic answer verifier expansion for unsupported claims, source sufficiency, guidance labeling, weak evidence, secrets, injection, malformed output, timeout/failure, and fallback behavior.
 - Source-sufficiency certification for deterministic and generated answer paths.
-- Bootstrap/admin-user operations.
 - Live production-auth deployment evidence.
 - Remaining cache-consumer certification.
 
@@ -53,6 +52,6 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Existing projection branch: `agent/autotask-ai-governed-roadmap-projection`.
 Existing PR: `newbie10122/helix-second-brain#6`.
-Latest pushed projection head `ff37f14` records PR #22, canonical commit, active scoped-cache consumer validation, source-sufficiency verifier checks, keyboard/focus browser smoke, browser accessibility smoke, capability certification matrix, validation-harness streak tracking, browser UI RBAC, unsupported-claim verifier breadth, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
+Latest pushed projection head `a4f4789` records PR #23, canonical commit, production-auth preflight validation, active scoped-cache consumer validation, source-sufficiency verifier checks, keyboard/focus browser smoke, browser accessibility smoke, capability certification matrix, validation-harness streak tracking, browser UI RBAC, unsupported-claim verifier breadth, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
 
 Update the existing projection after the next material Autotask AI slice. Do not create duplicate projection PRs, and do not mark Second Brain state `merged` until PR #6 is actually merged.

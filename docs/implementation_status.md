@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `064f82debc47cd16a6c9ba8fefd535719d3d173c`, which merged PR `newbie10122/autotask-ai#22`.
+- Canonical `main` is `44c080169baa31ece7cc15f4684130149cf69b53`, which merged PR `newbie10122/autotask-ai#23`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -43,6 +43,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 source-sufficiency branch `agent/m1-source-sufficiency-verifier` adds ticket-history source-overlap checks for non-resolution factual claims.
 - Milestone 1 active scoped-cache branch `agent/m1-active-scoped-cache-consumer` moves the operations-status cache consumer onto the scoped cache-key contract.
 - Milestone 1 production-auth preflight branch `agent/m1-production-auth-preflight` adds CI-validated production auth boundary checks.
+- Milestone 1 bootstrap/admin-user branch `agent/m1-bootstrap-admin-user` adds a local operator command for creating or updating hashed app users without storing plaintext passwords.
 
 ## Verified gaps blocking production readiness
 
@@ -90,7 +91,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 production-auth preflight
+## Latest receipt — Milestone 1 bootstrap/admin-user operations
+
+- **Slice:** Add local bootstrap/admin-user operations on branch `agent/m1-bootstrap-admin-user` from canonical `main` `44c080169baa31ece7cc15f4684130149cf69b53`.
+- **State:** `partial`; local app-user bootstrap is safer and repeatable, but live production auth enforcement, deployment receipt, broader adversarial verifier evidence, and Quality Streak records remain open.
+- **Files changed:** `apps/api/app/user_admin.py`, `scripts/bootstrap-app-user.sh`, `apps/api/tests/test_api.py`, `README.md`, and project status docs.
+- **Implemented:** Operators can set `BOOTSTRAP_APP_PASSWORD` and run `scripts/bootstrap-app-user.sh --username admin --role Admin` to create or update a local app user. The command validates supported roles, enforces a minimum bootstrap password length, stores only the PBKDF2 password hash, supports disabling a user, and returns safe metadata only.
+- **Validation:** Focused API tests passed with `28 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `96 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; tests are hermetic and mock the database upsert.
+- **Rollback:** Revert this branch commit; the deployment README loses the bootstrap command and no schema/runtime state changes are included.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 production-auth preflight
 
 - **Slice:** Add CI-validated production-auth preflight on branch `agent/m1-production-auth-preflight` from canonical `main` `064f82debc47cd16a6c9ba8fefd535719d3d173c`.
 - **State:** `partial`; deploy-time auth evidence is stronger, but live production auth enforcement remains approval-gated and Milestone 1 still requires bootstrap/admin-user operations, broader adversarial verifier evidence, and Quality Streak records.
@@ -99,7 +111,7 @@ None currently identified for documentation and non-production implementation wo
 - **Validation:** `scripts/production-auth-preflight.sh .env.example` passed; focused repository-hygiene tests passed with `14 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `93 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
 - **Rollback:** Revert this branch commit; deploy instructions and CI return to the prior auth-boundary checks.
-- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+- **Second Brain state:** `updated`; existing projection PR #6 records PR #23 at commit `a4f4789`.
 
 ## Previous receipt — Milestone 1 active scoped-cache consumer
 
