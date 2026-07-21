@@ -55,6 +55,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused no-Postgres API/RAG test command passed with `51 passed`; full `./scripts/validate-ci.sh` passed with 9 ordered migrations and `70 passed`. This is foundation evidence only; scope coverage across feedback, memory, UI, future cache/export, citations, and verifier checks remains required.
 - Current branch evidence on `agent/m1-scope-snapshots-foundation`: assistant query, source, feedback, and pending memory scope snapshot columns exist; assistant ask and feedback routes pass actor/scope metadata; focused tests cover route propagation.
 - Current branch validation: focused no-Postgres API/RAG test command passed with `52 passed`; full `./scripts/validate-ci.sh` passed with 10 ordered migrations and `71 passed`. This is foundation evidence only; UI enforcement, verifier scope checks, future cache/export contracts, and Quality Streak evidence remain required.
+- Current branch evidence on `agent/m1-verifier-scope-foundation`: answer verifier rejects sources outside the effective authorized company scope and assistant calls the verifier with effective scope.
+- Current branch validation: focused no-Postgres guardrail/RAG test command passed with `43 passed`; full `./scripts/validate-ci.sh` passed with 10 ordered migrations and `72 passed`. This is foundation evidence only; unsupported-claim verifier breadth, UI enforcement, future cache/export contracts, and Quality Streak evidence remain required.
 
 ## Milestone 2
 

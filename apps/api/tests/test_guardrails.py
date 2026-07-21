@@ -76,6 +76,26 @@ def test_answer_verifier_rejects_unretrieved_ticket_citation():
     assert "unretrieved ticket" in result.fail_closed_reason
 
 
+def test_answer_verifier_rejects_out_of_scope_sources():
+    answer = build_guarded_answer(
+        ticket_history="T20260721.001 fixed by restarting the print spooler.",
+        general_guidance="Check printer services.",
+        next_steps=["Open the ticket."],
+        tickets=["T20260721.001"],
+        confidence=0.8,
+    )
+
+    result = verify_answer(
+        answer,
+        [{"ticket_number": "T20260721.001", "source_metadata": {"company_id": 999}}],
+        authorized_company_ids=[123],
+    )
+
+    assert not result.ok
+    assert result.fail_closed_reason == "out-of-scope source"
+    assert result.scope_violations == ["T20260721.001"]
+
+
 def test_autotask_write_calls_are_not_enabled():
     client = AutotaskReadOnlyClient()
     for method_name in ("create_ticket", "update_ticket", "delete_ticket"):
