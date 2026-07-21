@@ -125,6 +125,10 @@ def test_operations_scheduler_schema_and_worker_are_present():
     assert "CREATE TABLE IF NOT EXISTS scheduled_jobs" in migration
     assert "CREATE TABLE IF NOT EXISTS job_runs" in migration
     assert "CREATE TABLE IF NOT EXISTS job_locks" in migration
+    db_schema = (ROOT / "apps" / "api" / "app" / "db.py").read_text()
+    assert "CREATE TABLE IF NOT EXISTS autotask_time_entries" in db_schema
+    assert "CREATE TABLE IF NOT EXISTS autotask_ticket_history" in db_schema
+    assert "CREATE TABLE IF NOT EXISTS ticket_gap_sync_checks" in db_schema
     assert (ROOT / "workers" / "scheduler" / "main.py").exists()
     assert (ROOT / "workers" / "scheduler" / "Dockerfile").exists()
     nightly = (ROOT / "workers" / "nightly-knowledge-worker" / "Dockerfile").read_text()

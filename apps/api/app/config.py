@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     auth_login_failure_limit: int = 5
     auth_login_failure_window_seconds: int = 300
     database_url: str = "postgresql://autotask_ai:change-me@postgres:5432/autotask_ai"
+    redis_url: str = "redis://redis:6379/0"
     autotask_base_url: str = "https://webservices.autotask.net/atservicesrest"
     autotask_username: str = ""
     autotask_secret: str = ""
@@ -27,6 +28,9 @@ class Settings(BaseSettings):
     assistant_max_chunks_per_ticket: int = 2
     assistant_exclude_noise_by_default: bool = True
     deep_dive_timeout_seconds: int = 120
+    operations_status_cache_ttl_seconds: int = 30
+    ticket_health_summary_cache_ttl_seconds: int = 60
+    customer_success_summary_cache_ttl_seconds: int = 60
 
 
 settings = Settings()

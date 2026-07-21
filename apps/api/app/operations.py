@@ -8,14 +8,31 @@ from datetime import UTC, datetime, time as clock_time
 from typing import Any, Callable
 
 import httpx
+from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 
 from .autotask import AutotaskReadOnlyClient
+from .cache import cache_delete, cache_get_json, cache_key, cache_set_json, invalidate_dashboard_caches
 from .config import settings as app_settings
+from .customer_success import capture_customer_success_score_snapshot, cleanup_customer_success_score_snapshots
 from .db import db_connection, init_schema
 from .documents import create_documents_from_tickets, noise_report, reclassify_chunks
 from .embeddings import run_embedding_batch
-from .sync import sync_companies, sync_recent, sync_ticket_notes, sync_tickets
+from .sync import (
+    sync_companies,
+    sync_open_ticket_history_gaps,
+    sync_open_ticket_time_entry_gaps,
+    sync_recent,
+    sync_status_sample_ticket_history,
+    sync_ticket_history,
+    sync_ticket_history_gaps,
+    sync_ticket_time_entry_gaps,
+    sync_ticket_note_gaps,
+    sync_ticket_notes,
+    sync_tickets,
+    sync_time_entries,
+    sync_waiting_ticket_history,
+)
 from .ticket_analytics import classify_tickets, sync_reference_data
 
 
@@ -26,6 +43,20 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "raw_backfill_enabled": False,
     "raw_backfill_batch_tickets": 5000,
     "raw_backfill_batch_notes": 5000,
+    "ticket_note_gap_batch_size": 25,
+    "raw_backfill_batch_time_entries": 5000,
+    "ticket_time_entry_gap_batch_size": 25,
+    "open_ticket_time_entry_gap_batch_size": 25,
+    "open_ticket_time_entry_gaps_enabled": True,
+    "raw_backfill_batch_ticket_history": 250,
+    "targeted_waiting_ticket_history_batch_size": 25,
+    "status_sample_ticket_history_batch_size": 25,
+    "ticket_history_gap_batch_size": 25,
+    "open_ticket_history_gap_batch_size": 25,
+    "open_ticket_history_gaps_enabled": True,
+    "ticket_time_entry_gaps_enabled": True,
+    "ticket_history_gaps_enabled": True,
+    "related_data_work_plan_enabled": False,
     "raw_backfill_max_cycles_per_run": 4,
     "document_build_enabled": False,
     "document_build_batch_size": 5000,
@@ -41,15 +72,84 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "embedding_max_cpu_note": "CPU-only Ollama; keep batches small",
     "nightly_pipeline_enabled": True,
     "nightly_pipeline_time": "02:00",
+    "customer_success_snapshot_enabled": True,
+    "customer_success_snapshot_batch_size": 100,
+    "customer_success_snapshot_retention_days": 180,
     "autotask_threshold_min_remaining": 500,
     "min_free_disk_gb": 50,
     "global_pause": False,
+}
+
+SETTING_LIMITS: dict[str, tuple[int, int]] = {
+    "recent_sync_interval_minutes": (1, 1440),
+    "raw_backfill_batch_tickets": (1, 5000),
+    "raw_backfill_batch_notes": (1, 5000),
+    "ticket_note_gap_batch_size": (1, 100),
+    "raw_backfill_batch_time_entries": (1, 5000),
+    "ticket_time_entry_gap_batch_size": (1, 100),
+    "open_ticket_time_entry_gap_batch_size": (1, 100),
+    "raw_backfill_batch_ticket_history": (1, 500),
+    "targeted_waiting_ticket_history_batch_size": (1, 100),
+    "status_sample_ticket_history_batch_size": (1, 100),
+    "ticket_history_gap_batch_size": (1, 100),
+    "open_ticket_history_gap_batch_size": (1, 100),
+    "raw_backfill_max_cycles_per_run": (1, 10),
+    "document_build_batch_size": (1, 5000),
+    "ticket_classification_batch_size": (1, 10000),
+    "chunk_reclassification_batch_size": (1, 10000),
+    "embedding_batch_size": (1, 500),
+    "customer_success_snapshot_batch_size": (1, 500),
+    "customer_success_snapshot_retention_days": (1, 730),
+    "autotask_threshold_min_remaining": (0, 100000),
+    "min_free_disk_gb": (0, 100000),
 }
 
 DEFAULT_JOBS: dict[str, dict[str, Any]] = {
     "recent_sync": {"enabled": True, "cadence_seconds": 15 * 60, "schedule": "every 15 minutes"},
     "raw_backfill_tickets": {"enabled": False, "cadence_seconds": 60 * 60, "schedule": "hourly when enabled"},
     "raw_backfill_ticket_notes": {"enabled": False, "cadence_seconds": 60 * 60, "schedule": "hourly when enabled"},
+    "ticket_note_gaps": {
+        "enabled": False,
+        "cadence_seconds": 60 * 60,
+        "schedule": "manual bounded ticket-note gap pull",
+    },
+    "raw_backfill_time_entries": {"enabled": False, "cadence_seconds": 60 * 60, "schedule": "hourly when enabled"},
+    "ticket_time_entry_gaps": {
+        "enabled": True,
+        "cadence_seconds": 60 * 60,
+        "schedule": "hourly bounded estate TimeEntries gap pull",
+    },
+    "open_ticket_time_entry_gaps": {
+        "enabled": True,
+        "cadence_seconds": 15 * 60,
+        "schedule": "every 15 minutes bounded open-ticket TimeEntries gap pull",
+    },
+    "raw_backfill_ticket_history": {"enabled": False, "cadence_seconds": 60 * 60, "schedule": "hourly when enabled"},
+    "targeted_waiting_ticket_history": {
+        "enabled": False,
+        "cadence_seconds": 60 * 60,
+        "schedule": "manual bounded waiting-status TicketHistory pull",
+    },
+    "status_sample_ticket_history": {
+        "enabled": False,
+        "cadence_seconds": 60 * 60,
+        "schedule": "manual bounded per-status TicketHistory sample pull",
+    },
+    "ticket_history_gaps": {
+        "enabled": True,
+        "cadence_seconds": 60 * 60,
+        "schedule": "hourly bounded estate TicketHistory gap pull",
+    },
+    "open_ticket_history_gaps": {
+        "enabled": True,
+        "cadence_seconds": 15 * 60,
+        "schedule": "every 15 minutes bounded open-ticket TicketHistory gap pull",
+    },
+    "related_data_work_plan": {
+        "enabled": False,
+        "cadence_seconds": 60 * 60,
+        "schedule": "manual bounded related-data work-plan wrapper",
+    },
     "raw_backfill_companies": {"enabled": False, "cadence_seconds": 60 * 60, "schedule": "hourly when enabled"},
     "sync_reference_data": {"enabled": True, "cadence_seconds": 6 * 60 * 60, "schedule": "every 6 hours"},
     "classify_tickets": {"enabled": True, "cadence_seconds": 30 * 60, "schedule": "every 30 minutes"},
@@ -57,11 +157,223 @@ DEFAULT_JOBS: dict[str, dict[str, Any]] = {
     "reclassify_chunks": {"enabled": True, "cadence_seconds": 60 * 60, "schedule": "hourly"},
     "run_embeddings": {"enabled": False, "cadence_seconds": 30 * 60, "schedule": "quiet-hours batches when enabled"},
     "nightly_pipeline": {"enabled": True, "cadence_seconds": 24 * 60 * 60, "schedule": "daily 02:00"},
+    "customer_success_score_snapshot": {"enabled": True, "cadence_seconds": 24 * 60 * 60, "schedule": "daily local score snapshot"},
 }
 
-AUTOTASK_JOBS = {"recent_sync", "raw_backfill_tickets", "raw_backfill_ticket_notes", "raw_backfill_companies"}
-RAW_BACKFILL_JOBS = {"raw_backfill_tickets", "raw_backfill_ticket_notes", "raw_backfill_companies"}
+AUTOTASK_JOBS = {
+    "recent_sync",
+    "raw_backfill_tickets",
+    "raw_backfill_ticket_notes",
+    "ticket_note_gaps",
+    "raw_backfill_time_entries",
+    "ticket_time_entry_gaps",
+    "open_ticket_time_entry_gaps",
+    "raw_backfill_ticket_history",
+    "targeted_waiting_ticket_history",
+    "status_sample_ticket_history",
+    "ticket_history_gaps",
+    "open_ticket_history_gaps",
+    "related_data_work_plan",
+    "raw_backfill_companies",
+}
+RAW_BACKFILL_JOBS = {
+    "raw_backfill_tickets",
+    "raw_backfill_ticket_notes",
+    "raw_backfill_time_entries",
+    "raw_backfill_ticket_history",
+    "raw_backfill_companies",
+}
 MUTATES_CHUNKS = {"build_documents", "reclassify_chunks"}
+OPERATIONS_STATUS_CACHE_KEY = cache_key("operations-status", {"version": 2})
+
+
+def invalidate_operations_status_cache() -> None:
+    cache_delete(OPERATIONS_STATUS_CACHE_KEY)
+
+
+def _coverage_percent(covered: int, total: int) -> float:
+    return round((covered / total) * 100, 2) if total else 100.0
+
+
+def _operations_coverage(row: dict[str, Any]) -> dict[str, Any]:
+    open_tickets = int(row.get("open_tickets") or 0)
+    with_time = int(row.get("open_tickets_with_time_entries") or 0)
+    with_history = int(row.get("open_tickets_with_history") or 0)
+    return {
+        "open_tickets": open_tickets,
+        "labor": {
+            "with_time_entries": with_time,
+            "without_time_entries": int(row.get("open_tickets_without_time_entries") or 0),
+            "checked": int(row.get("open_tickets_checked_for_time_entries") or 0),
+            "checked_empty": int(row.get("open_tickets_checked_empty_time_entries") or 0),
+            "unchecked": int(row.get("open_tickets_unchecked_time_entries") or 0),
+            "time_entry_rows": int(row.get("open_ticket_time_entry_rows") or 0),
+            "labor_hours": round(float(row.get("open_ticket_labor_hours") or 0), 2),
+            "coverage_percent": _coverage_percent(with_time, open_tickets),
+        },
+        "ticket_history": {
+            "with_history": with_history,
+            "without_history": int(row.get("open_tickets_without_history") or 0),
+            "checked": int(row.get("open_tickets_checked_for_history") or 0),
+            "checked_empty": int(row.get("open_tickets_checked_empty_history") or 0),
+            "unchecked": int(row.get("open_tickets_unchecked_history") or 0),
+            "history_rows": int(row.get("open_ticket_history_rows") or 0),
+            "coverage_percent": _coverage_percent(with_history, open_tickets),
+        },
+    }
+
+
+def _operations_estate_coverage(
+    row: dict[str, Any],
+    *,
+    estate_labor_targets: list[dict[str, Any]] | None = None,
+    estate_history_targets: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    total_tickets = int(row.get("total_tickets") or 0)
+    with_notes = int(row.get("tickets_with_notes") or 0)
+    with_time = int(row.get("tickets_with_time_entries") or 0)
+    with_history = int(row.get("tickets_with_history") or 0)
+    notes_without = max(total_tickets - with_notes, 0)
+    time_without = max(total_tickets - with_time, 0)
+    history_without = max(total_tickets - with_history, 0)
+    assigned_resources = int(row.get("assigned_resource_ids") or 0)
+    assigned_resources_with_reference = int(row.get("assigned_resource_ids_with_reference") or 0)
+    return {
+        "tickets": {
+            "total": total_tickets,
+            "with_autotask_updated_at": int(row.get("tickets_with_autotask_updated_at") or 0),
+            "oldest_autotask_update": row.get("oldest_autotask_update"),
+            "newest_autotask_update": row.get("newest_autotask_update"),
+        },
+        "related_data": {
+            "notes": {
+                "tickets_with_data": with_notes,
+                "tickets_without_data": notes_without,
+                "backlog_tickets": notes_without,
+                "checked": int(row.get("tickets_checked_for_notes") or 0),
+                "checked_empty": int(row.get("tickets_checked_empty_notes") or 0),
+                "unchecked": int(row.get("tickets_unchecked_notes") or 0),
+                "rows": int(row.get("ticket_note_rows") or 0),
+                "coverage_percent": _coverage_percent(with_notes, total_tickets),
+            },
+            "time_entries": {
+                "tickets_with_data": with_time,
+                "tickets_without_data": time_without,
+                "backlog_tickets": time_without,
+                "checked": int(row.get("tickets_checked_for_time_entries") or 0),
+                "checked_empty": int(row.get("tickets_checked_empty_time_entries") or 0),
+                "unchecked": int(row.get("tickets_unchecked_time_entries") or 0),
+                "next_targets": estate_labor_targets or [],
+                "rows": int(row.get("time_entry_rows") or 0),
+                "coverage_percent": _coverage_percent(with_time, total_tickets),
+            },
+            "ticket_history": {
+                "tickets_with_data": with_history,
+                "tickets_without_data": history_without,
+                "backlog_tickets": history_without,
+                "checked": int(row.get("tickets_checked_for_history") or 0),
+                "checked_empty": int(row.get("tickets_checked_empty_history") or 0),
+                "unchecked": int(row.get("tickets_unchecked_history") or 0),
+                "check_sources": ["ticket_history_gaps", "open_ticket_history_gaps", "status_sample_ticket_history"],
+                "next_targets": estate_history_targets or [],
+                "rows": int(row.get("ticket_history_rows") or 0),
+                "coverage_percent": _coverage_percent(with_history, total_tickets),
+            },
+        },
+        "related_data_backlog": {
+            "notes": notes_without,
+            "time_entries": time_without,
+            "ticket_history": history_without,
+            "interpretation": "All local tickets can be refreshed independently from related notes, TimeEntries, and TicketHistory; these backlog counts show tickets still missing each related-data type.",
+        },
+        "resource_labels": {
+            "assigned_resource_ids": assigned_resources,
+            "with_reference_labels": assigned_resources_with_reference,
+            "without_reference_labels": max(assigned_resources - assigned_resources_with_reference, 0),
+            "reference_label_rows": int(row.get("resource_reference_rows") or 0),
+            "coverage_percent": _coverage_percent(assigned_resources_with_reference, assigned_resources),
+        },
+    }
+
+
+def _related_data_work_plan(
+    estate: dict[str, Any],
+    settings: dict[str, Any],
+    *,
+    threshold_remaining: int | None,
+    global_pause: bool,
+) -> dict[str, Any]:
+    related = estate.get("related_data", {})
+    minimum_remaining = int(settings.get("autotask_threshold_min_remaining") or 0)
+    blocked_reasons: list[str] = []
+    if global_pause:
+        blocked_reasons.append("global_pause")
+    if threshold_remaining is not None and threshold_remaining < minimum_remaining:
+        blocked_reasons.append(f"autotask_threshold_low:{threshold_remaining}")
+
+    job_specs = [
+        (
+            "ticket_time_entry_gaps",
+            "Estate labor gaps",
+            "/api/sync/time-entries/ticket-gaps/start",
+            "ticket_time_entry_gap_batch_size",
+            related.get("time_entries", {}),
+            "Expands labor coverage with bounded per-ticket TimeEntries reads.",
+        ),
+        (
+            "ticket_history_gaps",
+            "Estate history gaps",
+            "/api/sync/ticket-history/ticket-gaps/start",
+            "ticket_history_gap_batch_size",
+            related.get("ticket_history", {}),
+            "Expands TicketHistory coverage with bounded per-ticket reads; status-duration remains source-limited until status-change events appear.",
+        ),
+        (
+            "ticket_note_gaps",
+            "Ticket note gaps",
+            "/api/sync/ticket-notes/gaps/start",
+            "ticket_note_gap_batch_size",
+            related.get("notes", {}),
+            "Fills the small remaining note backlog with bounded per-ticket note reads.",
+        ),
+    ]
+    items: list[dict[str, Any]] = []
+    for job_name, label, endpoint, setting_key, coverage, reason in job_specs:
+        backlog = int(coverage.get("backlog_tickets") or coverage.get("tickets_without_data") or 0)
+        unchecked = int(coverage.get("unchecked") or 0)
+        checked_empty = int(coverage.get("checked_empty") or 0)
+        batch_limit = int(settings.get(setting_key) or DEFAULT_SETTINGS[setting_key])
+        items.append(
+            {
+                "job_name": job_name,
+                "label": label,
+                "endpoint": endpoint,
+                "recommended_limit": batch_limit,
+                "backlog_tickets": backlog,
+                "unchecked": unchecked,
+                "checked_empty": checked_empty,
+                "coverage_percent": coverage.get("coverage_percent", 0),
+                "next_targets": list(coverage.get("next_targets") or [])[:3],
+                "ready": not blocked_reasons and unchecked > 0,
+                "reason": reason if unchecked > 0 else "No unchecked local targets currently need this bounded job.",
+            }
+        )
+    recommended = next((item for item in items if item["ready"]), None)
+    if blocked_reasons:
+        recommendation = "hold"
+        summary = "Bounded related-data jobs are paused by local Operations safeguards."
+    elif recommended:
+        recommendation = recommended["job_name"]
+        summary = f"Run {recommended['label']} next with limit {recommended['recommended_limit']}."
+    else:
+        recommendation = "none"
+        summary = "No unchecked related-data targets are currently available."
+    return {
+        "recommendation": recommendation,
+        "summary": summary,
+        "blocked_reasons": blocked_reasons,
+        "items": items,
+    }
 
 
 def default_operations_settings() -> dict[str, Any]:
@@ -89,6 +401,28 @@ def ensure_operations_defaults() -> None:
                 """,
                 (job_name, job["enabled"], job["cadence_seconds"], job["schedule"]),
             )
+            conn.execute(
+                """
+                UPDATE scheduled_jobs
+                SET cadence_seconds=%s,
+                    schedule=%s,
+                    enabled=CASE
+                        WHEN job_name IN (
+                            'ticket_time_entry_gaps',
+                            'open_ticket_time_entry_gaps',
+                            'ticket_history_gaps',
+                            'open_ticket_history_gaps'
+                        )
+                          AND schedule LIKE 'manual bounded %%'
+                        THEN %s
+                        ELSE enabled
+                    END,
+                    updated_at=now()
+                WHERE job_name=%s
+                  AND (cadence_seconds IS DISTINCT FROM %s OR schedule IS DISTINCT FROM %s OR schedule LIKE 'manual bounded %%')
+                """,
+                (job["cadence_seconds"], job["schedule"], job["enabled"], job_name, job["cadence_seconds"], job["schedule"]),
+            )
 
 
 def operations_settings() -> dict[str, Any]:
@@ -97,8 +431,30 @@ def operations_settings() -> dict[str, Any]:
         rows = conn.execute("SELECT key, value FROM system_settings ORDER BY key").fetchall()
     merged = default_operations_settings()
     for row in rows:
-        merged[row["key"]] = row["value"]
+        key = row["key"]
+        if key in DEFAULT_SETTINGS:
+            merged[key] = normalize_operations_setting(key, row["value"])
     return merged
+
+
+def normalize_operations_setting(key: str, value: Any) -> Any:
+    default = DEFAULT_SETTINGS[key]
+    if key in SETTING_LIMITS:
+        minimum, maximum = SETTING_LIMITS[key]
+        try:
+            numeric = int(value)
+        except (TypeError, ValueError):
+            numeric = int(default)
+        return min(max(numeric, minimum), maximum)
+    if isinstance(default, bool):
+        if isinstance(value, str):
+            lowered = value.strip().lower()
+            if lowered in {"true", "1", "yes", "on"}:
+                return True
+            if lowered in {"false", "0", "no", "off"}:
+                return False
+        return bool(value)
+    return value if value is not None else default
 
 
 def update_operations_settings(changes: dict[str, Any]) -> dict[str, Any]:
@@ -108,6 +464,7 @@ def update_operations_settings(changes: dict[str, Any]) -> dict[str, Any]:
         for key, value in changes.items():
             if key not in allowed:
                 continue
+            normalized_value = normalize_operations_setting(key, value)
             conn.execute(
                 """
                 INSERT INTO system_settings(key, value, updated_at)
@@ -115,9 +472,10 @@ def update_operations_settings(changes: dict[str, Any]) -> dict[str, Any]:
                 ON CONFLICT (key) DO UPDATE
                 SET value=EXCLUDED.value, updated_at=now()
                 """,
-                (key, Jsonb(value)),
+                (key, Jsonb(normalized_value)),
             )
     _sync_job_enabled_from_settings()
+    invalidate_operations_status_cache()
     return operations_settings()
 
 
@@ -127,12 +485,20 @@ def _sync_job_enabled_from_settings() -> None:
         "recent_sync": bool(settings["sync_enabled"] and settings["recent_sync_enabled"]),
         "raw_backfill_tickets": bool(settings["raw_backfill_enabled"]),
         "raw_backfill_ticket_notes": bool(settings["raw_backfill_enabled"]),
+        "raw_backfill_time_entries": bool(settings["raw_backfill_enabled"]),
+        "raw_backfill_ticket_history": bool(settings["raw_backfill_enabled"]),
         "raw_backfill_companies": bool(settings["raw_backfill_enabled"]),
         "build_documents": bool(settings["document_build_enabled"]),
         "classify_tickets": bool(settings["ticket_classification_enabled"]),
         "reclassify_chunks": bool(settings["chunk_reclassification_enabled"]),
         "run_embeddings": bool(settings["embedding_enabled"]),
         "nightly_pipeline": bool(settings["nightly_pipeline_enabled"]),
+        "customer_success_score_snapshot": bool(settings["customer_success_snapshot_enabled"]),
+        "related_data_work_plan": bool(settings["related_data_work_plan_enabled"]),
+        "ticket_time_entry_gaps": bool(settings["sync_enabled"] and settings["ticket_time_entry_gaps_enabled"]),
+        "open_ticket_time_entry_gaps": bool(settings["sync_enabled"] and settings["open_ticket_time_entry_gaps_enabled"]),
+        "ticket_history_gaps": bool(settings["sync_enabled"] and settings["ticket_history_gaps_enabled"]),
+        "open_ticket_history_gaps": bool(settings["sync_enabled"] and settings["open_ticket_history_gaps_enabled"]),
     }
     with db_connection() as conn:
         for job_name, enabled in mapping.items():
@@ -204,6 +570,8 @@ def _running_job_names(conn: Any) -> set[str]:
 
 
 def conflicting_jobs(job_name: str, running: set[str]) -> set[str]:
+    if job_name in AUTOTASK_JOBS:
+        return running & AUTOTASK_JOBS
     if job_name == "recent_sync":
         return running & RAW_BACKFILL_JOBS
     if job_name in RAW_BACKFILL_JOBS:
@@ -215,6 +583,97 @@ def conflicting_jobs(job_name: str, running: set[str]) -> set[str]:
     if job_name == "run_embeddings":
         return running & {"build_documents"}
     return set()
+
+
+def record_scheduler_heartbeat(
+    worker_name: str,
+    *,
+    interval_seconds: int,
+    status: str = "running",
+    last_error: str | None = None,
+    tick_started_at: datetime | None = None,
+    tick_finished_at: datetime | None = None,
+) -> None:
+    init_schema()
+    with db_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO scheduler_heartbeats(
+                worker_name, heartbeat_at, interval_seconds, status, last_error,
+                last_tick_started_at, last_tick_finished_at, updated_at
+            )
+            VALUES (%s, now(), %s, %s, %s, %s, %s, now())
+            ON CONFLICT (worker_name) DO UPDATE SET
+                heartbeat_at=EXCLUDED.heartbeat_at,
+                interval_seconds=EXCLUDED.interval_seconds,
+                status=EXCLUDED.status,
+                last_error=EXCLUDED.last_error,
+                last_tick_started_at=COALESCE(EXCLUDED.last_tick_started_at, scheduler_heartbeats.last_tick_started_at),
+                last_tick_finished_at=COALESCE(EXCLUDED.last_tick_finished_at, scheduler_heartbeats.last_tick_finished_at),
+                updated_at=now()
+            """,
+            (
+                worker_name,
+                interval_seconds,
+                status,
+                (last_error or "")[:1000] if last_error else None,
+                tick_started_at,
+                tick_finished_at,
+            ),
+        )
+    invalidate_operations_status_cache()
+
+
+def _scheduler_status(conn: Any, now: datetime) -> dict[str, Any]:
+    heartbeat = conn.execute(
+        "SELECT * FROM scheduler_heartbeats WHERE worker_name='worker-scheduler'"
+    ).fetchone()
+    next_due = conn.execute(
+        """
+        SELECT job_name, enabled, cadence_seconds, last_finished_at,
+               CASE
+                 WHEN NOT enabled THEN NULL
+                 WHEN last_finished_at IS NULL THEN now()
+                 ELSE last_finished_at + make_interval(secs => cadence_seconds)
+               END AS due_at
+        FROM scheduled_jobs
+        WHERE enabled
+        ORDER BY due_at NULLS LAST, job_name
+        LIMIT 1
+        """
+    ).fetchone()
+    last_completed = conn.execute(
+        """
+        SELECT id, job_name, status, started_at, finished_at, last_error
+        FROM job_runs
+        WHERE status IN ('completed', 'failed', 'skipped')
+        ORDER BY finished_at DESC NULLS LAST, id DESC
+        LIMIT 1
+        """
+    ).fetchone()
+    if heartbeat and heartbeat.get("heartbeat_at"):
+        interval = int(heartbeat.get("interval_seconds") or 60)
+        heartbeat_age = max((now - heartbeat["heartbeat_at"]).total_seconds(), 0)
+        stale_after = max(interval * 3, 180)
+        state = "healthy" if heartbeat_age <= stale_after and heartbeat.get("status") != "failed" else "stale"
+        if heartbeat.get("status") == "failed":
+            state = "blocked"
+        heartbeat_data = dict(heartbeat)
+    else:
+        interval = 60
+        heartbeat_age = None
+        stale_after = 180
+        state = "stopped"
+        heartbeat_data = None
+    return {
+        "worker_name": "worker-scheduler",
+        "state": state,
+        "heartbeat": heartbeat_data,
+        "heartbeat_age_seconds": round(heartbeat_age, 1) if heartbeat_age is not None else None,
+        "stale_after_seconds": stale_after,
+        "last_completed_run": dict(last_completed) if last_completed else None,
+        "next_due_job": dict(next_due) if next_due else None,
+    }
 
 
 def _create_job_run(conn: Any, job_name: str, triggered_by: str, snapshot: dict[str, Any]) -> int:
@@ -234,6 +693,7 @@ def _create_job_run(conn: Any, job_name: str, triggered_by: str, snapshot: dict[
         """,
         (job_name,),
     )
+    invalidate_operations_status_cache()
     return int(row["id"])
 
 
@@ -280,7 +740,7 @@ def _finish_job_run(
             int(stats.get("inserted", stats.get("documents", 0)) or 0),
             int(stats.get("updated", stats.get("chunks", 0)) or 0),
             int(stats.get("failed", 0) or 0),
-            Jsonb(stats.get("checkpoint", {})),
+            Jsonb(_checkpoint_summary(stats)),
             error[:1000] if error else None,
             status,
             run_id,
@@ -297,9 +757,31 @@ def _finish_job_run(
             updated_at=now()
         WHERE job_name=%s
         """,
-        (status, Jsonb(stats.get("checkpoint", {})), error[:1000] if error else None, job_name),
+        (status, Jsonb(_checkpoint_summary(stats)), error[:1000] if error else None, job_name),
     )
     conn.execute("DELETE FROM job_locks WHERE job_name=%s", (job_name,))
+    invalidate_operations_status_cache()
+
+
+def _checkpoint_summary(stats: dict[str, Any]) -> dict[str, Any]:
+    checkpoint = dict(stats.get("checkpoint") or {})
+    for key in (
+        "processed_tickets",
+        "pulled",
+        "inserted",
+        "updated",
+        "failed",
+        "target",
+        "checked_empty",
+        "remaining_unchecked",
+        "cycle",
+    ):
+        if key in stats:
+            checkpoint[key] = stats[key]
+    if "run_id" in stats:
+        checkpoint["sync_run_id"] = stats["run_id"]
+    checkpoint["last_successful_completion_at"] = datetime.now(UTC).isoformat()
+    return checkpoint
 
 
 def _skip_job(job_name: str, triggered_by: str, reason: str, snapshot: dict[str, Any]) -> dict[str, Any]:
@@ -354,6 +836,66 @@ def _nightly_pipeline(settings: dict[str, Any]) -> dict[str, Any]:
     return stats
 
 
+def _execute_related_data_work_plan(settings: dict[str, Any]) -> dict[str, Any]:
+    status = operations_status()
+    plan = status.get("related_data_work_plan") or {}
+    recommendation = plan.get("recommendation")
+    allowed_jobs = {
+        "ticket_time_entry_gaps",
+        "ticket_history_gaps",
+        "ticket_note_gaps",
+    }
+    if recommendation == "hold":
+        return {
+            "processed": 0,
+            "failed": 0,
+            "recommendation": "hold",
+            "reason": plan.get("summary") or "No bounded related-data work-plan job is ready.",
+            "work_plan": plan,
+        }
+
+    ready_jobs = [
+        str(item.get("job_name"))
+        for item in plan.get("items", [])
+        if item.get("ready") and item.get("job_name") in allowed_jobs
+    ]
+    if not ready_jobs:
+        return {
+            "processed": 0,
+            "failed": 0,
+            "recommendation": recommendation or "none",
+            "reason": plan.get("summary") or "No bounded related-data work-plan job is ready.",
+            "work_plan": plan,
+        }
+
+    jobs_to_run: list[str] = []
+    if "ticket_time_entry_gaps" in ready_jobs:
+        jobs_to_run.append("ticket_time_entry_gaps")
+    if "ticket_history_gaps" in ready_jobs:
+        jobs_to_run.extend(["status_sample_ticket_history", "ticket_history_gaps"])
+    if "ticket_note_gaps" in ready_jobs:
+        jobs_to_run.append("ticket_note_gaps")
+
+    delegated_results: dict[str, dict[str, Any]] = {}
+    totals = {"processed": 0, "pulled": 0, "inserted": 0, "updated": 0, "failed": 0}
+    for job_name in jobs_to_run:
+        result = _execute_job(job_name, settings)
+        delegated_results[job_name] = result
+        totals["processed"] += int(result.get("processed_tickets", result.get("processed", result.get("pulled", 0))) or 0)
+        totals["pulled"] += int(result.get("pulled", 0) or 0)
+        totals["inserted"] += int(result.get("inserted", 0) or 0)
+        totals["updated"] += int(result.get("updated", 0) or 0)
+        totals["failed"] += int(result.get("failed", 0) or 0)
+
+    return {
+        **totals,
+        "recommendation": recommendation,
+        "delegated_jobs": jobs_to_run,
+        "delegated_results": delegated_results,
+        "work_plan": plan,
+    }
+
+
 def _execute_job(job_name: str, settings: dict[str, Any]) -> dict[str, Any]:
     if job_name == "recent_sync":
         return sync_recent(limit=100)
@@ -363,6 +905,26 @@ def _execute_job(job_name: str, settings: dict[str, Any]) -> dict[str, Any]:
         return sync_tickets(limit=_int(settings, "raw_backfill_batch_tickets"))
     if job_name == "raw_backfill_ticket_notes":
         return sync_ticket_notes(limit=_int(settings, "raw_backfill_batch_notes"))
+    if job_name == "ticket_note_gaps":
+        return sync_ticket_note_gaps(limit=_int(settings, "ticket_note_gap_batch_size"))
+    if job_name == "raw_backfill_time_entries":
+        return sync_time_entries(limit=_int(settings, "raw_backfill_batch_time_entries"))
+    if job_name == "ticket_time_entry_gaps":
+        return sync_ticket_time_entry_gaps(limit=_int(settings, "ticket_time_entry_gap_batch_size"))
+    if job_name == "open_ticket_time_entry_gaps":
+        return sync_open_ticket_time_entry_gaps(limit=_int(settings, "open_ticket_time_entry_gap_batch_size"))
+    if job_name == "raw_backfill_ticket_history":
+        return sync_ticket_history(limit=_int(settings, "raw_backfill_batch_ticket_history"))
+    if job_name == "targeted_waiting_ticket_history":
+        return sync_waiting_ticket_history(limit=_int(settings, "targeted_waiting_ticket_history_batch_size"))
+    if job_name == "status_sample_ticket_history":
+        return sync_status_sample_ticket_history(limit=_int(settings, "status_sample_ticket_history_batch_size"))
+    if job_name == "ticket_history_gaps":
+        return sync_ticket_history_gaps(limit=_int(settings, "ticket_history_gap_batch_size"))
+    if job_name == "open_ticket_history_gaps":
+        return sync_open_ticket_history_gaps(limit=_int(settings, "open_ticket_history_gap_batch_size"))
+    if job_name == "related_data_work_plan":
+        return _execute_related_data_work_plan(settings)
     if job_name == "sync_reference_data":
         return sync_reference_data()
     if job_name == "classify_tickets":
@@ -375,6 +937,19 @@ def _execute_job(job_name: str, settings: dict[str, Any]) -> dict[str, Any]:
         return run_embedding_batch(limit=_int(settings, "embedding_batch_size"))
     if job_name == "nightly_pipeline":
         return _nightly_pipeline(settings)
+    if job_name == "customer_success_score_snapshot":
+        cleanup = cleanup_customer_success_score_snapshots(
+            retention_days=_int(settings, "customer_success_snapshot_retention_days")
+        )
+        capture = capture_customer_success_score_snapshot(
+            limit=_int(settings, "customer_success_snapshot_batch_size"),
+            recent_days=30,
+        )
+        return {
+            "processed": int(capture.get("snapshot_rows_inserted", 0) or 0),
+            "cleanup": cleanup,
+            "capture": capture,
+        }
     raise ValueError(f"Unknown job: {job_name}")
 
 
@@ -392,6 +967,8 @@ def run_job(
         job = conn.execute("SELECT * FROM scheduled_jobs WHERE job_name=%s", (job_name,)).fetchone()
         if not job:
             return _skip_job(job_name, triggered_by, "unknown_job", snapshot)
+        if force and job_name in RAW_BACKFILL_JOBS and not _bool(snapshot, "raw_backfill_enabled"):
+            return _skip_job(job_name, triggered_by, "raw_backfill_disabled", snapshot)
         if not force and not job["enabled"]:
             return _skip_job(job_name, triggered_by, "job_disabled", snapshot)
         running = _running_job_names(conn)
@@ -413,6 +990,7 @@ def run_job(
         result = _execute_job(job_name, snapshot)
         with db_connection() as conn:
             _finish_job_run(conn, run_id, job_name, "completed", result)
+        invalidate_dashboard_caches()
         return {"ok": True, "job_name": job_name, "status": "completed", "run_id": run_id, "result": result}
     except Exception as exc:
         with db_connection() as conn:
@@ -463,6 +1041,7 @@ def set_job_enabled(job_name: str, enabled: bool) -> dict[str, Any]:
             """,
             (enabled, job_name),
         ).fetchone()
+    invalidate_operations_status_cache()
     return {"ok": bool(row), "job": row}
 
 
@@ -471,7 +1050,8 @@ def operations_jobs() -> dict[str, Any]:
     with db_connection() as conn:
         jobs = list(conn.execute("SELECT * FROM scheduled_jobs ORDER BY job_name").fetchall())
         running = list(conn.execute("SELECT * FROM job_runs WHERE status='running' ORDER BY started_at DESC").fetchall())
-    return {"ok": True, "jobs": jobs, "running": running}
+        scheduler = _scheduler_status(conn, datetime.now(UTC))
+    return {"ok": True, "jobs": jobs, "running": running, "scheduler": scheduler}
 
 
 def job_runs(limit: int = 50) -> dict[str, Any]:
@@ -498,11 +1078,17 @@ def request_stop(run_id: int) -> dict[str, Any]:
             """,
             (run_id,),
         ).fetchone()
+    invalidate_operations_status_cache()
     return {"ok": bool(row), "run": row}
 
 
 def operations_status() -> dict[str, Any]:
     ensure_operations_defaults()
+    cached = cache_get_json(OPERATIONS_STATUS_CACHE_KEY)
+    if cached is not None:
+        cached["cache"] = {"hit": True, "ttl_seconds": app_settings.operations_status_cache_ttl_seconds}
+        return cached
+
     settings = operations_settings()
     with db_connection() as conn:
         counts = conn.execute(
@@ -511,14 +1097,240 @@ def operations_status() -> dict[str, Any]:
               (SELECT count(*) FROM autotask_companies) AS companies,
               (SELECT count(*) FROM autotask_tickets) AS tickets,
               (SELECT count(*) FROM autotask_ticket_notes) AS ticket_notes,
+              (SELECT count(*) FROM autotask_time_entries) AS time_entries,
+              (SELECT count(*) FROM autotask_ticket_history) AS ticket_history,
               (SELECT count(*) FROM documents) AS documents,
               (SELECT count(*) FROM document_chunks WHERE is_active) AS active_chunks,
               (SELECT count(*) FROM document_chunks WHERE is_active AND is_noise) AS noise_chunks,
               (SELECT count(*) FROM document_chunks WHERE is_active AND NOT is_noise) AS useful_chunks,
-              (SELECT count(*) FROM document_embeddings) AS embeddings
+              (SELECT count(*) FROM document_embeddings) AS embeddings,
+              (SELECT count(*) FROM customer_success_score_snapshots) AS customer_success_score_snapshots
             """
         ).fetchone()
+        coverage = conn.execute(
+            """
+            WITH open_tickets AS (
+                SELECT id
+                FROM autotask_tickets
+                WHERE completed_at_autotask IS NULL
+                  AND COALESCE(status, '') <> ALL(%s)
+            ),
+            labor AS (
+                SELECT ticket_id, count(*) AS entry_count, sum(COALESCE(hours, 0)) AS labor_hours
+                FROM autotask_time_entries
+                GROUP BY ticket_id
+            ),
+            history AS (
+                SELECT ticket_id, count(*) AS history_count
+                FROM autotask_ticket_history
+                GROUP BY ticket_id
+            )
+            SELECT
+                count(*) AS open_tickets,
+                count(*) FILTER (WHERE COALESCE(labor.entry_count, 0) > 0) AS open_tickets_with_time_entries,
+                count(*) FILTER (WHERE COALESCE(labor.entry_count, 0) = 0) AS open_tickets_without_time_entries,
+                count(*) FILTER (WHERE labor_check.last_checked_at IS NOT NULL) AS open_tickets_checked_for_time_entries,
+                count(*) FILTER (
+                    WHERE COALESCE(labor.entry_count, 0) = 0
+                      AND labor_check.last_checked_at IS NOT NULL
+                      AND COALESCE(labor_check.last_result_count, 0) = 0
+                ) AS open_tickets_checked_empty_time_entries,
+                count(*) FILTER (
+                    WHERE COALESCE(labor.entry_count, 0) = 0
+                      AND labor_check.last_checked_at IS NULL
+                ) AS open_tickets_unchecked_time_entries,
+                COALESCE(sum(labor.entry_count), 0) AS open_ticket_time_entry_rows,
+                COALESCE(sum(labor.labor_hours), 0) AS open_ticket_labor_hours,
+                count(*) FILTER (WHERE COALESCE(history.history_count, 0) > 0) AS open_tickets_with_history,
+                count(*) FILTER (WHERE COALESCE(history.history_count, 0) = 0) AS open_tickets_without_history,
+                count(*) FILTER (WHERE history_check.last_checked_at IS NOT NULL) AS open_tickets_checked_for_history,
+                count(*) FILTER (
+                    WHERE COALESCE(history.history_count, 0) = 0
+                      AND history_check.last_checked_at IS NOT NULL
+                      AND COALESCE(history_check.last_result_count, 0) = 0
+                ) AS open_tickets_checked_empty_history,
+                count(*) FILTER (
+                    WHERE COALESCE(history.history_count, 0) = 0
+                      AND history_check.last_checked_at IS NULL
+                ) AS open_tickets_unchecked_history,
+                COALESCE(sum(history.history_count), 0) AS open_ticket_history_rows
+            FROM open_tickets
+            LEFT JOIN labor ON labor.ticket_id=open_tickets.id
+            LEFT JOIN history ON history.ticket_id=open_tickets.id
+            LEFT JOIN ticket_gap_sync_checks labor_check
+              ON labor_check.ticket_id=open_tickets.id AND labor_check.sync_type='open_ticket_time_entry_gaps'
+            LEFT JOIN ticket_gap_sync_checks history_check
+              ON history_check.ticket_id=open_tickets.id AND history_check.sync_type='open_ticket_history_gaps'
+            """,
+            (["5", "16", "20"],),
+        ).fetchone()
+        estate = conn.execute(
+            """
+            WITH note_tickets AS (
+                SELECT ticket_id, count(*) AS row_count
+                FROM autotask_ticket_notes
+                WHERE ticket_id IS NOT NULL
+                GROUP BY ticket_id
+            ),
+            time_tickets AS (
+                SELECT ticket_id, count(*) AS row_count
+                FROM autotask_time_entries
+                WHERE ticket_id IS NOT NULL
+                GROUP BY ticket_id
+            ),
+            history_tickets AS (
+                SELECT ticket_id, count(*) AS row_count
+                FROM autotask_ticket_history
+                WHERE ticket_id IS NOT NULL
+                GROUP BY ticket_id
+            ),
+            history_checks AS (
+                SELECT
+                    ticket_id,
+                    max(last_checked_at) AS last_checked_at,
+                    max(last_result_count) AS max_result_count
+                FROM ticket_gap_sync_checks
+                WHERE sync_type IN ('ticket_history_gaps', 'open_ticket_history_gaps', 'status_sample_ticket_history')
+                GROUP BY ticket_id
+            ),
+            assigned_resources AS (
+                SELECT DISTINCT assigned_resource_id
+                FROM autotask_tickets
+                WHERE assigned_resource_id IS NOT NULL
+            )
+            SELECT
+                count(*) AS total_tickets,
+                count(*) FILTER (WHERE t.updated_at_autotask IS NOT NULL) AS tickets_with_autotask_updated_at,
+                min(t.updated_at_autotask) AS oldest_autotask_update,
+                max(t.updated_at_autotask) AS newest_autotask_update,
+                count(*) FILTER (WHERE COALESCE(note_tickets.row_count, 0) > 0) AS tickets_with_notes,
+                count(*) FILTER (WHERE note_check.last_checked_at IS NOT NULL) AS tickets_checked_for_notes,
+                count(*) FILTER (
+                    WHERE COALESCE(note_tickets.row_count, 0) = 0
+                      AND note_check.last_checked_at IS NOT NULL
+                      AND COALESCE(note_check.last_result_count, 0) = 0
+                ) AS tickets_checked_empty_notes,
+                count(*) FILTER (
+                    WHERE COALESCE(note_tickets.row_count, 0) = 0
+                      AND note_check.last_checked_at IS NULL
+                ) AS tickets_unchecked_notes,
+                count(*) FILTER (WHERE COALESCE(time_tickets.row_count, 0) > 0) AS tickets_with_time_entries,
+                count(*) FILTER (WHERE estate_labor_check.last_checked_at IS NOT NULL) AS tickets_checked_for_time_entries,
+                count(*) FILTER (
+                    WHERE COALESCE(time_tickets.row_count, 0) = 0
+                      AND estate_labor_check.last_checked_at IS NOT NULL
+                      AND COALESCE(estate_labor_check.last_result_count, 0) = 0
+                ) AS tickets_checked_empty_time_entries,
+                count(*) FILTER (
+                    WHERE COALESCE(time_tickets.row_count, 0) = 0
+                      AND estate_labor_check.last_checked_at IS NULL
+                ) AS tickets_unchecked_time_entries,
+                count(*) FILTER (WHERE COALESCE(history_tickets.row_count, 0) > 0) AS tickets_with_history,
+                count(*) FILTER (WHERE history_checks.last_checked_at IS NOT NULL) AS tickets_checked_for_history,
+                count(*) FILTER (
+                    WHERE COALESCE(history_tickets.row_count, 0) = 0
+                      AND history_checks.last_checked_at IS NOT NULL
+                      AND COALESCE(history_checks.max_result_count, 0) = 0
+                ) AS tickets_checked_empty_history,
+                count(*) FILTER (
+                    WHERE COALESCE(history_tickets.row_count, 0) = 0
+                      AND history_checks.last_checked_at IS NULL
+                ) AS tickets_unchecked_history,
+                COALESCE(sum(note_tickets.row_count), 0) AS ticket_note_rows,
+                COALESCE(sum(time_tickets.row_count), 0) AS time_entry_rows,
+                COALESCE(sum(history_tickets.row_count), 0) AS ticket_history_rows,
+                (SELECT count(*) FROM assigned_resources) AS assigned_resource_ids,
+                (
+                    SELECT count(*)
+                    FROM assigned_resources ar
+                    JOIN autotask_reference_values ref
+                      ON ref.field_name='resource' AND ref.value=ar.assigned_resource_id::text
+                ) AS assigned_resource_ids_with_reference,
+                (SELECT count(*) FROM autotask_reference_values WHERE field_name='resource') AS resource_reference_rows
+            FROM autotask_tickets t
+            LEFT JOIN note_tickets ON note_tickets.ticket_id=t.id
+            LEFT JOIN time_tickets ON time_tickets.ticket_id=t.id
+            LEFT JOIN history_tickets ON history_tickets.ticket_id=t.id
+            LEFT JOIN history_checks ON history_checks.ticket_id=t.id
+            LEFT JOIN ticket_gap_sync_checks note_check
+              ON note_check.ticket_id=t.id AND note_check.sync_type='ticket_note_gaps'
+            LEFT JOIN ticket_gap_sync_checks estate_labor_check
+              ON estate_labor_check.ticket_id=t.id AND estate_labor_check.sync_type='ticket_time_entry_gaps'
+            """
+        ).fetchone()
+        estate_labor_targets = list(
+            conn.execute(
+                """
+                SELECT
+                    t.id,
+                    t.autotask_id,
+                    t.ticket_number,
+                    t.status,
+                    status_ref.label AS status_label,
+                    COALESCE(time_tickets.row_count, 0) AS time_entry_count,
+                    estate_labor_check.last_checked_at,
+                    estate_labor_check.last_result_count
+                FROM autotask_tickets t
+                LEFT JOIN (
+                    SELECT ticket_id, count(*) AS row_count
+                    FROM autotask_time_entries
+                    WHERE ticket_id IS NOT NULL
+                    GROUP BY ticket_id
+                ) time_tickets ON time_tickets.ticket_id=t.id
+                LEFT JOIN ticket_gap_sync_checks estate_labor_check
+                  ON estate_labor_check.ticket_id=t.id AND estate_labor_check.sync_type='ticket_time_entry_gaps'
+                LEFT JOIN autotask_reference_values status_ref
+                  ON status_ref.field_name='status' AND status_ref.value=t.status
+                WHERE COALESCE(time_tickets.row_count, 0) = 0
+                ORDER BY
+                    estate_labor_check.last_checked_at NULLS FIRST,
+                    t.updated_at_autotask DESC NULLS LAST,
+                    t.id
+                LIMIT 10
+                """
+            ).fetchall()
+        )
+        estate_history_targets = list(
+            conn.execute(
+                """
+                SELECT
+                    t.id,
+                    t.autotask_id,
+                    t.ticket_number,
+                    t.status,
+                    status_ref.label AS status_label,
+                    COALESCE(history_tickets.row_count, 0) AS history_count,
+                    history_check.last_checked_at,
+                    history_check.last_result_count
+                FROM autotask_tickets t
+                LEFT JOIN (
+                    SELECT ticket_id, count(*) AS row_count
+                    FROM autotask_ticket_history
+                    WHERE ticket_id IS NOT NULL
+                    GROUP BY ticket_id
+                ) history_tickets ON history_tickets.ticket_id=t.id
+                LEFT JOIN (
+                    SELECT
+                        ticket_id,
+                        max(last_checked_at) AS last_checked_at,
+                        max(last_result_count) AS last_result_count
+                    FROM ticket_gap_sync_checks
+                    WHERE sync_type IN ('ticket_history_gaps', 'open_ticket_history_gaps', 'status_sample_ticket_history')
+                    GROUP BY ticket_id
+                ) history_check ON history_check.ticket_id=t.id
+                LEFT JOIN autotask_reference_values status_ref
+                  ON status_ref.field_name='status' AND status_ref.value=t.status
+                WHERE COALESCE(history_tickets.row_count, 0) = 0
+                ORDER BY
+                    history_check.last_checked_at NULLS FIRST,
+                    t.updated_at_autotask DESC NULLS LAST,
+                    t.id
+                LIMIT 10
+                """
+            ).fetchall()
+        )
         running = list(conn.execute("SELECT * FROM job_runs WHERE status='running' ORDER BY started_at DESC").fetchall())
+        scheduler = _scheduler_status(conn, datetime.now(UTC))
     noise = noise_report()
     threshold_remaining: int | None = None
     threshold_error: str | None = None
@@ -526,8 +1338,14 @@ def operations_status() -> dict[str, Any]:
         threshold_remaining = autotask_threshold_remaining()
     except Exception as exc:
         threshold_error = str(exc)[:300]
-    return {
+    estate_coverage = _operations_estate_coverage(
+        dict(estate),
+        estate_labor_targets=[dict(row) for row in estate_labor_targets],
+        estate_history_targets=[dict(row) for row in estate_history_targets],
+    )
+    result = {
         "ok": True,
+        "cache": {"hit": False, "ttl_seconds": app_settings.operations_status_cache_ttl_seconds},
         "api_status": "ok",
         "db_status": "ok",
         "ollama_status": "available" if ollama_available() else "unavailable",
@@ -536,5 +1354,17 @@ def operations_status() -> dict[str, Any]:
         "disk_free_gb": round(disk_free_gb("/"), 2),
         "global_pause": settings["global_pause"],
         "counts": {**dict(counts), "eligible_missing_embeddings": noise.get("eligible_missing_embeddings", 0)},
+        "coverage": _operations_coverage(dict(coverage)),
+        "estate": estate_coverage,
+        "related_data_work_plan": _related_data_work_plan(
+            estate_coverage,
+            settings,
+            threshold_remaining=threshold_remaining,
+            global_pause=bool(settings["global_pause"]),
+        ),
+        "scheduler": scheduler,
         "running_jobs": running,
     }
+    encoded_result = jsonable_encoder(result)
+    cache_set_json(OPERATIONS_STATUS_CACHE_KEY, encoded_result, app_settings.operations_status_cache_ttl_seconds)
+    return encoded_result

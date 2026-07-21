@@ -20,7 +20,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Local document/chunk generation, classification, embeddings, vector retrieval, lexical fallback, and CPU answer generation.
 - Weak-evidence response and timeout fallback.
 - Recurring-issue analytics.
-- Operations scheduler with locks, pause, disk, conflict, and Autotask-threshold controls.
+- Operations scheduler with locks, pause, disk, conflict, Autotask-threshold controls, scheduler heartbeat/status caching, and bounded related-data gap jobs.
+- Automated local TimeEntries and TicketHistory ingestion is present for recent sync, open-ticket gap repair, and estate-wide gap sweeps.
 - Sensitive/private-entity redaction and read-only enforcement tests.
 - Pending known-fix candidate creation.
 - Milestone 1 auth foundation adds PBKDF2 password hashing, signed expiring session tokens, disabled-user and throttling hooks, optional fail-closed API route authentication, admin-operation role denial tests, pre-prompt prompt-injection/secret source filtering, and deterministic answer-verifier citation checks.
@@ -38,7 +39,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Prompt-injection scanning and deterministic answer verification have initial tests, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
-- Ticket-health data synchronization and analytics are incomplete.
+- Ticket-health related-data synchronization is automated but not fully caught up across the historical estate; TimeEntries and TicketHistory coverage still require continued bounded scheduled sweeps and certification.
 
 ## Milestone table
 
@@ -46,7 +47,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 |---|---|---|
 | 0. Governance and continuous validation | partial | CI PR merged; certification matrix/Quality Streak records still required |
 | 1. Security, identity, isolation, answer trust | active | Complete durable audit, full route/UI RBAC, company scope wiring, verifier breadth, and three-run evidence |
-| 2. Complete operational Autotask data | not_started | Field inventory and resumable scoped sync |
+| 2. Complete operational Autotask data | partial_foundation | TimeEntries/TicketHistory jobs restored; continue bounded catch-up and field certification |
 | 3. Ticket Health Analytics | not_started | Deterministic APIs/UI with evidence |
 | 4. Redis and CPU performance | not_started | Scoped cache design and benchmarks |
 | 5. Real-time technician updates | not_started | Authorized event architecture |
@@ -58,11 +59,11 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Publish and verify the UI auth/RBAC foundation PR.
+1. Publish and verify the related-data scheduler restoration PR.
 2. Wire authenticated actor/company scope through future cache/export contracts and broaden verifier unsupported-claim checks.
 3. Expand route and UI RBAC for Admin, Technician, and ReadOnly across all API actions.
 4. Expand deterministic verifier coverage for unsupported claims, source subset, section labeling, injection, secrets, and scope violations.
-5. Prepare the existing governed Second Brain projection update after this durable-audit branch PR is opened.
+5. Prepare the existing governed Second Brain projection update after this branch PR is opened.
 
 Parallel-safe work after roadmap merge:
 
@@ -77,6 +78,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 ## Critical blockers
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
+
+## Latest receipt — Related-data scheduler restoration
+
+- **Slice:** Restore canonical TimeEntries/TicketHistory sync and scheduler automation after detecting runtime/source drift from the live scheduler image.
+- **State:** `partial_foundation`; automation is restored and verified, but historical estate coverage still needs continued bounded catch-up and certification before Milestone 2 can be marked complete.
+- **Files changed:** `apps/api/app/sync.py`, `apps/api/app/operations.py`, `apps/api/app/db.py`, `apps/api/app/config.py`, `apps/api/app/cache.py`, `apps/api/app/customer_success.py`, `apps/api/app/ticket_health.py`, `apps/api/app/routing.py`, `apps/api/app/realtime.py`, `.env.example`, `docs/OPERATIONS_SCHEDULER.md`, `apps/api/tests/test_ingestion_rag.py`, and `apps/api/tests/test_repo_hygiene.py`.
+- **Implemented:** `recent_sync` again pulls TimeEntries; open-ticket TimeEntries/TicketHistory gap jobs are enabled every 15 minutes; estate-wide TimeEntries/TicketHistory sweeps are enabled hourly; scheduler status exposes open and estate coverage; schema initialization includes TimeEntries, TicketHistory, gap-check, scheduler heartbeat, ticket-health/customer-success, and Milestone 1 auth/audit/scope tables.
+- **Validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `74 passed`, and static web JavaScript syntax validation.
+- **Runtime evidence:** Local API and scheduler were rebuilt from canonical source; `/api/operations/status` returned `global_pause=false`, no Autotask threshold error, `time_entries=46810`, `ticket_history=28207`, open-ticket labor coverage `90/146`, and open-ticket TicketHistory coverage `146/146`; rebuilt scheduler completed `open_ticket_history_gaps`, `open_ticket_time_entry_gaps`, and `reclassify_chunks`.
+- **Classification evidence:** `/api/analytics/ticket-class-report` returned `classified_tickets=67726`, `total_tickets=67726`, `unclassified_tickets=0`, and manual bounded `classify_tickets` operation run `3928` completed.
+- **Read-only evidence:** Jobs only read from Autotask and update local Postgres; no Autotask write capability was run or added.
+- **Rollback:** Revert this branch commit and redeploy API/scheduler; DB additions are additive local tables/columns.
 
 ## Previous receipt — Milestone 1 auth/RBAC and answer-safety foundation
 

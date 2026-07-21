@@ -369,10 +369,39 @@ def test_scheduler_default_settings_are_conservative():
     defaults = operations_module.default_operations_settings()
     assert defaults["recent_sync_enabled"] is True
     assert defaults["raw_backfill_enabled"] is False
+    assert defaults["open_ticket_time_entry_gaps_enabled"] is True
+    assert defaults["open_ticket_history_gaps_enabled"] is True
+    assert defaults["ticket_time_entry_gaps_enabled"] is True
+    assert defaults["ticket_history_gaps_enabled"] is True
     assert defaults["document_build_enabled"] is False
     assert defaults["embedding_enabled"] is False
     assert defaults["nightly_pipeline_enabled"] is True
     assert defaults["min_free_disk_gb"] == 50
+
+
+def test_recent_sync_includes_time_entries(monkeypatch):
+    monkeypatch.setattr(sync_module, "sync_companies", lambda limit=None: {"kind": "companies", "limit": limit})
+    monkeypatch.setattr(sync_module, "sync_tickets", lambda limit=None: {"kind": "tickets", "limit": limit})
+    monkeypatch.setattr(sync_module, "sync_ticket_notes", lambda limit=None: {"kind": "ticket_notes", "limit": limit})
+    monkeypatch.setattr(sync_module, "sync_time_entries", lambda limit=None: {"kind": "time_entries", "limit": limit})
+
+    result = sync_module.sync_recent(limit=12)
+
+    assert result["time_entries"] == {"kind": "time_entries", "limit": 12}
+
+
+def test_scheduler_preserves_related_data_gap_jobs():
+    jobs = operations_module.DEFAULT_JOBS
+    assert jobs["open_ticket_time_entry_gaps"]["enabled"] is True
+    assert jobs["open_ticket_history_gaps"]["enabled"] is True
+    assert jobs["ticket_time_entry_gaps"]["enabled"] is True
+    assert jobs["ticket_history_gaps"]["enabled"] is True
+
+    source = inspect.getsource(operations_module._execute_job)
+    assert "sync_open_ticket_time_entry_gaps" in source
+    assert "sync_open_ticket_history_gaps" in source
+    assert "sync_ticket_time_entry_gaps" in source
+    assert "sync_ticket_history_gaps" in source
 
 
 def test_scheduler_preflight_global_pause_disk_and_threshold_guards(monkeypatch):
