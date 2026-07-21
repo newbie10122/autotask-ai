@@ -303,14 +303,15 @@ def _store_answer(
         for source in sources:
             conn.execute(
                 """
-                INSERT INTO assistant_query_sources(query_id, chunk_id, ticket_id, score, source_metadata)
-                SELECT %s, %s, %s, %s, %s
+                INSERT INTO assistant_query_sources(query_id, chunk_id, ticket_id, company_id, score, source_metadata)
+                SELECT %s, %s, %s, %s, %s, %s
                 WHERE EXISTS (SELECT 1 FROM document_chunks WHERE id=%s)
                 """,
                 (
                     query_id,
                     source.get("chunk_id"),
                     source.get("ticket_pk"),
+                    (source.get("source_metadata") or {}).get("company_id"),
                     float(source.get("score") or 0),
                     Jsonb(source.get("source_metadata") or {}),
                     source.get("chunk_id"),
@@ -334,14 +335,25 @@ def ask_assistant(
     limit: int = 5,
     include_noise: bool = False,
     authorized_company_ids: list[int] | None = None,
+    actor_username: str | None = None,
 ) -> dict[str, Any]:
     init_schema()
     started = time.monotonic()
     limit = min(max(limit, 1), 12)
     with db_connection() as conn:
         query_row = conn.execute(
-            "INSERT INTO assistant_queries(query, mode, model_name) VALUES (%s, %s, %s) RETURNING id",
-            (question, mode, settings.ollama_chat_model),
+            """
+            INSERT INTO assistant_queries(query, mode, model_name, actor_username, effective_scope)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                question,
+                mode,
+                settings.ollama_chat_model,
+                actor_username,
+                Jsonb({"company_ids": authorized_company_ids, "global": authorized_company_ids is None}),
+            ),
         ).fetchone()
     query_id = query_row["id"]
 
@@ -431,23 +443,44 @@ def ask_assistant(
     }
 
 
-def store_feedback(answer_id: int, rating: str, notes: str | None = None) -> dict[str, Any]:
+def store_feedback(
+    answer_id: int,
+    rating: str,
+    notes: str | None = None,
+    actor_username: str | None = None,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
     init_schema()
     with db_connection() as conn:
         feedback = conn.execute(
-            "INSERT INTO assistant_feedback(answer_id, rating, notes) VALUES (%s, %s, %s) RETURNING id",
-            (answer_id, rating, notes),
+            """
+            INSERT INTO assistant_feedback(answer_id, actor_username, effective_scope, rating, notes)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                answer_id,
+                actor_username,
+                Jsonb({"company_ids": authorized_company_ids, "global": authorized_company_ids is None}),
+                rating,
+                notes,
+            ),
         ).fetchone()
         memory = None
         if rating == "Save as Known Fix":
             answer = conn.execute("SELECT answer FROM assistant_answers WHERE id=%s", (answer_id,)).fetchone()
             memory = conn.execute(
                 """
-                INSERT INTO curated_memory(title, body, status)
-                VALUES (%s, %s, 'pending_review')
+                INSERT INTO curated_memory(title, body, actor_username, effective_scope, status)
+                VALUES (%s, %s, %s, %s, 'pending_review')
                 RETURNING id, status
                 """,
-                (f"Known fix candidate from answer {answer_id}", answer["answer"] if answer else ""),
+                (
+                    f"Known fix candidate from answer {answer_id}",
+                    answer["answer"] if answer else "",
+                    actor_username,
+                    Jsonb({"company_ids": authorized_company_ids, "global": authorized_company_ids is None}),
+                ),
             ).fetchone()
     return {"feedback_id": feedback["id"], "curated_memory": memory}
 
