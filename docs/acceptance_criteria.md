@@ -29,6 +29,7 @@ A milestone may be marked `verified_complete` only when:
 - CI validation does not start sync jobs, deploy production services, or write to Autotask.
 - CI failures block completion claims.
 - A capability certification and Quality Streak record format exists in `docs/CI_VALIDATION.md`.
+- A capability certification matrix exists in `docs/CAPABILITY_CERTIFICATION.md` and explicitly distinguishes partial evidence from `verified_complete` milestone status.
 - Repository hygiene tests pin the CI workflow, validation script, redacted Compose usage, migration ordering check, JavaScript syntax check, and receipt format.
 - Repository receipts include exact commands, results, commits, risks, rollback, and Second Brain state.
 - Local reconciled evidence on branch `agent/m0-ci-validation`: `./scripts/validate-ci.sh` passed with redacted Compose validation, 6 ordered migrations, API image build, Python compile, `53 passed`, and static web JavaScript syntax.

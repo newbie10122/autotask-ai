@@ -48,15 +48,18 @@ def test_ci_workflow_runs_safe_repository_validation():
     workflow = ROOT / ".github" / "workflows" / "ci.yml"
     validator = ROOT / "scripts" / "validate-ci.sh"
     docs = ROOT / "docs" / "CI_VALIDATION.md"
+    matrix = ROOT / "docs" / "CAPABILITY_CERTIFICATION.md"
 
     assert workflow.exists()
     assert validator.exists()
     assert docs.exists()
+    assert matrix.exists()
     assert validator.stat().st_mode & 0o111
 
     workflow_text = workflow.read_text()
     validator_text = validator.read_text()
     docs_text = docs.read_text()
+    matrix_text = matrix.read_text()
 
     assert "pull_request:" in workflow_text
     assert "workflow_dispatch:" in workflow_text
@@ -79,8 +82,13 @@ def test_ci_workflow_runs_safe_repository_validation():
 
     assert "./scripts/validate-ci.sh" in docs_text
     assert "Capability Certification Receipt" in docs_text
+    assert "Playwright Chromium browser UI RBAC smoke tests" in docs_text
     assert "Autotask write-back" in docs_text
     assert "must be `none`" in docs_text
+
+    assert "Capability Certification Matrix" in matrix_text
+    assert "No milestone is `verified_complete`" in matrix_text
+    assert "No Autotask write capability is implemented or approved" in matrix_text
 
 
 def test_no_obvious_secret_values_committed():
