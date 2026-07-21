@@ -48,17 +48,21 @@ def test_env_is_ignored_and_example_is_present():
 def test_ci_workflow_runs_safe_repository_validation():
     workflow = ROOT / ".github" / "workflows" / "ci.yml"
     validator = ROOT / "scripts" / "validate-ci.sh"
+    answer_safety_streak = ROOT / "scripts" / "answer-safety-quality-streak.sh"
     docs = ROOT / "docs" / "CI_VALIDATION.md"
     matrix = ROOT / "docs" / "CAPABILITY_CERTIFICATION.md"
 
     assert workflow.exists()
     assert validator.exists()
+    assert answer_safety_streak.exists()
     assert docs.exists()
     assert matrix.exists()
     assert validator.stat().st_mode & 0o111
+    assert answer_safety_streak.stat().st_mode & 0o111
 
     workflow_text = workflow.read_text()
     validator_text = validator.read_text()
+    answer_safety_streak_text = answer_safety_streak.read_text()
     docs_text = docs.read_text()
     matrix_text = matrix.read_text()
 
@@ -82,7 +86,15 @@ def test_ci_workflow_runs_safe_repository_validation():
     assert "cat .env" not in validator_text
     assert "set -x" not in validator_text
 
+    assert "ANSWER_SAFETY_STREAK_RUNS" in answer_safety_streak_text
+    assert "apps/api/tests/test_guardrails.py" in answer_safety_streak_text
+    assert "apps/api/tests/test_ingestion_rag.py" in answer_safety_streak_text
+    assert "docker compose run --rm -T --no-deps" in answer_safety_streak_text
+    assert "sync" not in answer_safety_streak_text
+    assert "set -x" not in answer_safety_streak_text
+
     assert "./scripts/validate-ci.sh" in docs_text
+    assert "./scripts/answer-safety-quality-streak.sh" in docs_text
     assert "Capability Certification Receipt" in docs_text
     assert "Playwright Chromium browser UI RBAC smoke tests" in docs_text
     assert "Autotask write-back" in docs_text
