@@ -33,12 +33,12 @@
 **Impact:** Security and operational actions may not be reconstructable after restart.  
 **Mitigation:** Database-backed immutable audit records with actor, scope, target, outcome, source references, and denied actions.
 
-### R5 — No automated CI or current Quality Streak evidence
+### R5 — Automated CI pending remote verification
 
 **Severity:** High  
-**State:** Open  
-**Impact:** Test code exists, but each commit cannot prove compliance or regression safety.  
-**Mitigation:** Milestone 0 CI, certification matrix, and three-consecutive-clean-run receipts.
+**State:** Partially mitigated  
+**Impact:** Local CI validation exists, but GitHub Actions has not yet proven the reconciled branch and no three-run Quality Streak evidence exists.  
+**Mitigation:** Open the governed CI PR, inspect the actual GitHub Actions run, repair failures if needed, and then build certification matrix plus three-consecutive-clean-run receipts.
 
 ## Medium risks
 
@@ -92,6 +92,20 @@
 **State:** Mitigating  
 **Impact:** Written progress could disagree with code, tests, or deployment reality.  
 **Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection.
+
+### R16 — CI runner environment differences
+
+**Severity:** Medium  
+**State:** Open until first PR run passes  
+**Impact:** The local validator passed, but GitHub-hosted runners may differ in Docker Compose, Node, network, cache, or resource limits.  
+**Mitigation:** Keep CI credentials-free, bounded, and deterministic; inspect the first actual Actions run before marking Milestone 0 verified complete.
+
+### R17 — Host test tooling is incomplete
+
+**Severity:** Low
+**State:** Mitigated by containerized CI validator
+**Impact:** Host `pytest` is not installed, so direct `cd apps/api && pytest` cannot run outside the container on this machine.
+**Mitigation:** `scripts/validate-ci.sh` runs pytest inside the API image with the repository mounted; install host test tooling only if a future local workflow requires non-container pytest.
 
 ## Low and deferred risks
 

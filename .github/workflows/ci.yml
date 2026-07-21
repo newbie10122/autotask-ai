@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: autotask-ai-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Autotask AI
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js for static web checks
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Show Docker Compose version
+        run: docker compose version
+
+      - name: Run repository validation
+        run: ./scripts/validate-ci.sh
