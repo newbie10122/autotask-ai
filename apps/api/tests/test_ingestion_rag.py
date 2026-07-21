@@ -984,6 +984,24 @@ def test_customer_success_summary_cache_key_uses_scope_role_and_window_contract(
     assert readonly != other_scope
 
 
+def test_active_cache_consumers_are_scoped_and_export_routes_absent():
+    active_cache_modules = [
+        operations_module,
+        ticket_health_module,
+        customer_success_module,
+    ]
+    for module in active_cache_modules:
+        source = inspect.getsource(module)
+        assert "cache_get_json" in source
+        assert "cache_set_json" in source
+        assert "scoped_cache_key" in source
+        assert "from .cache import cache_key" not in source
+        assert "from app.cache import cache_key" not in source
+
+    route_paths = {route.path for route in app.routes}
+    assert not any(token in path.lower() for path in route_paths for token in ("export", "download"))
+
+
 def test_ticket_health_data_paths_accept_and_apply_company_scope():
     scope_source = inspect.getsource(ticket_health_module._company_scope_clause)
     summary_source = inspect.getsource(ticket_health_module.ticket_health_summary)

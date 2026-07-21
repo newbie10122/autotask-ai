@@ -52,6 +52,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 realtime scope branch `agent/m1-realtime-scope-certification` adds authorized-company filtering for ticket-history realtime events and hides global job events from scoped callers.
 - Milestone 1 scoped local capability routes branch `agent/m1-scoped-local-capability-routes` exposes scoped read-only ticket-health, customer-success, routing, and realtime GET routes with route-matrix and scope-propagation tests.
 - Milestone 1 scoped local feedback routes branch `agent/m1-scoped-local-feedback-routes` exposes local-only ticket-health, customer-success, and routing feedback POST routes for Technician/Admin users with company-scope propagation and ReadOnly denial.
+- Milestone 1 cache/export consumer certification branch `agent/m1-cache-export-consumer-certification` asserts current active cache consumers use scoped cache contracts and no export/download routes exist.
 
 ## Verified gaps blocking production readiness
 
@@ -99,7 +100,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 scoped local feedback routes
+## Latest receipt — Milestone 1 cache/export consumer certification
+
+- **Slice:** Certify current active cache and export/download route state on branch `agent/m1-cache-export-consumer-certification` from canonical `main` `e05ac0c34b7457bf690fd06793c90c164239eb69`.
+- **State:** `partial`; current active cache consumers are covered by scoped cache contracts and export/download routes remain absent, but production-auth deployment evidence and broader capability Quality Streak records remain open.
+- **Files changed:** `apps/api/tests/test_ingestion_rag.py` and project status docs.
+- **Implemented:** Added a repository-level test proving current active cache consumers in operations, ticket-health, and customer-success use scoped cache machinery and do not directly import the unscoped cache-key helper. The same test verifies no export/download API routes exist.
+- **Validation:** Focused API/RAG test command passed with `49 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `112 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; implementation behavior is unchanged, but the explicit certification test is removed.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 scoped local feedback routes
 
 - **Slice:** Expose local-only scoped feedback routes on branch `agent/m1-scoped-local-feedback-routes` from canonical `main` `d6b49c9e4832ce1ce86819ce844085c2f1b8a268`.
 - **State:** `partial`; local ticket-health, customer-success, and routing feedback POST routes now have role and company-scope contracts, but production-auth deployment evidence and broader capability Quality Streak records remain open.
