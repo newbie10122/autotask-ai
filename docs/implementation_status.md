@@ -27,12 +27,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 durable-audit branch `agent/m1-durable-audit-scope-foundation` adds database-backed audit persistence, outcome/scope fields, and authorization-denial audit events.
 - Milestone 1 company-scope branch `agent/m1-company-scope-foundation` adds user-company scope tables, fail-closed assistant/analytics route scope checks, and scoped retrieval/recurring-analytics filters.
 - Milestone 1 scope-snapshot branch `agent/m1-scope-snapshots-foundation` adds actor/effective-scope snapshots for assistant queries, sources, feedback, and pending memory candidates.
+- Milestone 1 verifier-scope branch `agent/m1-verifier-scope-foundation` adds deterministic out-of-scope source rejection in answer verification.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation but is not yet enforced end to end in production defaults or UI.
 - Audit logging is database-backed for foundation events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, and pending memory candidates have first scope plumbing, but scope is not yet wired through every route, UI flow, verifier scope checks, cache, and export contract.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, and answer verification have first scope plumbing, but scope is not yet wired through every route, UI flow, cache, and export contract.
 - Prompt-injection scanning and deterministic answer verification have initial tests, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -56,8 +57,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Publish and verify the scope-snapshot foundation PR.
-2. Wire authenticated actor/company scope through remaining UI, verifier, and future cache/export contracts.
+1. Publish and verify the verifier-scope foundation PR.
+2. Wire authenticated actor/company scope through remaining UI and future cache/export contracts.
 3. Expand route and UI RBAC for Admin, Technician, and ReadOnly across all API actions.
 4. Expand deterministic verifier coverage for unsupported claims, source subset, section labeling, injection, secrets, and scope violations.
 5. Prepare the existing governed Second Brain projection update after this durable-audit branch PR is opened.
@@ -112,7 +113,7 @@ None currently identified for documentation and non-production implementation wo
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
 - **Rollback:** Revert this branch commit; migration is additive and default app-route auth remains off.
 
-## Latest receipt — Milestone 1 scope snapshot foundation
+## Previous receipt — Milestone 1 scope snapshot foundation
 
 - **Slice:** Add actor and effective-scope snapshots for assistant queries, query sources, feedback, and pending memory candidates on branch `agent/m1-scope-snapshots-foundation` from canonical `main` `99c454c40b45981b7d7579d45515621bbbfa91cd`.
 - **State:** `partial`; scope provenance is improved, but Milestone 1 still requires UI enforcement, verifier scope checks, future cache/export contracts, and Quality Streak evidence.
@@ -122,6 +123,17 @@ None currently identified for documentation and non-production implementation wo
 - **Full CI validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `71 passed`, and static web JavaScript syntax validation.
 - **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
 - **Rollback:** Revert this branch commit; migration is additive and default app-route auth remains off.
+
+## Latest receipt — Milestone 1 verifier scope foundation
+
+- **Slice:** Add deterministic verifier rejection for sources outside the effective authorized company scope on branch `agent/m1-verifier-scope-foundation` from canonical `main` `76292b640f4843659b504d19168e0352909cb73c`.
+- **State:** `partial`; answer verification now checks source scope, but Milestone 1 still requires broader unsupported-claim verifier work, UI enforcement, cache/export contracts, and Quality Streak evidence.
+- **Files changed:** `apps/api/app/answer_safety.py`, `apps/api/app/assistant.py`, and `apps/api/tests/test_guardrails.py`.
+- **Implemented:** `verify_answer(..., authorized_company_ids=...)`, out-of-scope source detection, scope violation warnings/reason, assistant verifier call wired to effective scope, and direct negative test.
+- **Validation:** `docker compose run --rm -T --no-deps -e DATABASE_URL=postgresql://autotask_ai:change-me@postgres-missing:5432/autotask_ai -v "$PWD":/workspace -w /workspace api sh -c 'python -m compileall -q apps/api/app workers && pytest -q apps/api/tests/test_guardrails.py apps/api/tests/test_ingestion_rag.py'` passed with `43 passed`.
+- **Full CI validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `72 passed`, and static web JavaScript syntax validation.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; no migration is included in this slice.
 
 ## Previous receipt — Milestone 0 CI reconciliation
 
@@ -144,4 +156,4 @@ None currently identified for documentation and non-production implementation wo
 
 ## Exact next action
 
-Open a draft PR for branch `agent/m1-scope-snapshots-foundation`, let GitHub CI run, update the existing governed Second Brain projection with scope-snapshot branch/PR evidence, then continue Milestone 1 UI enforcement and verifier scope checks.
+Open a draft PR for branch `agent/m1-verifier-scope-foundation`, let GitHub CI run, update the existing governed Second Brain projection with verifier-scope branch/PR evidence, then continue Milestone 1 UI enforcement and remaining verifier breadth.

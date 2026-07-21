@@ -54,12 +54,25 @@ def filter_safe_sources(sources: list[dict[str, Any]]) -> tuple[list[dict[str, A
     return safe_sources, warnings
 
 
-def verify_answer(answer: str, sources: list[dict[str, Any]]) -> AnswerVerificationResult:
+def verify_answer(
+    answer: str,
+    sources: list[dict[str, Any]],
+    authorized_company_ids: list[int] | None = None,
+) -> AnswerVerificationResult:
     secret_findings = find_sensitive_content(answer)
     injection_findings = detect_prompt_injection(answer)
     cited_tickets = sorted(set(TICKET_TOKEN_PATTERN.findall(answer)))
     allowed_tickets = source_ticket_ids(sources)
     unknown_tickets = [ticket for ticket in cited_tickets if ticket not in allowed_tickets]
+    scope_violations: list[str] = []
+    if authorized_company_ids is not None:
+        allowed_companies = {int(company_id) for company_id in authorized_company_ids}
+        for source in sources:
+            metadata = source.get("source_metadata") or {}
+            company_id = source.get("company_id") or metadata.get("company_id")
+            if company_id is not None and int(company_id) not in allowed_companies:
+                source_id = source.get("ticket_number") or source.get("autotask_id") or source.get("chunk_id")
+                scope_violations.append(str(source_id))
     general_guidance_labeled = "General IT Guidance" in answer
     warnings: list[str] = []
     if secret_findings:
@@ -68,6 +81,8 @@ def verify_answer(answer: str, sources: list[dict[str, Any]]) -> AnswerVerificat
         warnings.append("Prompt-injection language was detected in the answer.")
     if unknown_tickets:
         warnings.append(f"Answer cited unretrieved ticket(s): {', '.join(unknown_tickets)}.")
+    if scope_violations:
+        warnings.append(f"Answer used out-of-scope source(s): {', '.join(scope_violations)}.")
     if not has_required_answer_sections(answer):
         warnings.append("Answer is missing required sections.")
     if not general_guidance_labeled:
@@ -76,6 +91,8 @@ def verify_answer(answer: str, sources: list[dict[str, Any]]) -> AnswerVerificat
     fail_closed_reason = ""
     if unknown_tickets:
         fail_closed_reason = "unretrieved ticket citation"
+    elif scope_violations:
+        fail_closed_reason = "out-of-scope source"
     elif secret_findings:
         fail_closed_reason = "sensitive content in answer"
     elif injection_findings:
@@ -92,5 +109,6 @@ def verify_answer(answer: str, sources: list[dict[str, Any]]) -> AnswerVerificat
         citation_ticket_ids=cited_tickets,
         secret_findings=secret_findings,
         prompt_injection_findings=injection_findings,
+        scope_violations=scope_violations,
         general_guidance_labeled=general_guidance_labeled,
     )

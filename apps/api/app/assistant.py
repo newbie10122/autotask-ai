@@ -413,7 +413,7 @@ def ask_assistant(
         else:
             answer = _fallback_answer(sources, confidence, warning)
         answer = redact_private_entities(answer)
-        verification = verify_answer(answer, sources)
+        verification = verify_answer(answer, sources, authorized_company_ids=authorized_company_ids)
         if not verification.ok:
             warning = f"Answer verifier failed closed: {verification.fail_closed_reason}."
             answer = _fallback_answer(sources, confidence, warning)
