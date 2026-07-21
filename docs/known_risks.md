@@ -8,8 +8,8 @@
 
 **Severity:** Critical for production
 **State:** Partially mitigated
-**Impact:** Branch `agent/m1-auth-rbac-foundation` replaces placeholder token behavior with hashed passwords, signed expiring tokens, optional route enforcement, and admin denial tests. Branch `agent/m1-route-authority-audit-matrix` adds admin gates and a route inventory contract for sensitive routes. Branches `agent/m1-browser-rbac-smoke`, `agent/m1-browser-accessibility-smoke`, and `agent/m1-keyboard-focus-smoke` add first real-browser UI RBAC, axe accessibility, and keyboard/focus smoke coverage. Branch `agent/m1-production-auth-preflight` adds CI-validated deploy-time auth-boundary checks, but live production app-route auth remains approval-gated.
-**Mitigation:** Finish bootstrap/admin-user operations, live production-auth deployment receipt, and three-run security evidence before production enforcement.
+**Impact:** Branch `agent/m1-auth-rbac-foundation` replaces placeholder token behavior with hashed passwords, signed expiring tokens, optional route enforcement, and admin denial tests. Branch `agent/m1-route-authority-audit-matrix` adds admin gates and a route inventory contract for sensitive routes. Branches `agent/m1-browser-rbac-smoke`, `agent/m1-browser-accessibility-smoke`, and `agent/m1-keyboard-focus-smoke` add first real-browser UI RBAC, axe accessibility, and keyboard/focus smoke coverage. Branch `agent/m1-production-auth-preflight` adds CI-validated deploy-time auth-boundary checks. Branch `agent/m1-bootstrap-admin-user` adds a local hashed app-user bootstrap command, but live production app-route auth remains approval-gated.
+**Mitigation:** Finish live production-auth deployment receipt and three-run security evidence before production enforcement.
 **Approval gate:** Production authentication changes require security review and controlled deployment.
 
 ### R2 — Client/company isolation is not yet proven fail-closed

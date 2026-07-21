@@ -54,6 +54,7 @@ cp .env.example .env
 $EDITOR .env
 chmod +x scripts/*.sh
 scripts/production-auth-preflight.sh .env
+BOOTSTRAP_APP_PASSWORD='use-a-strong-temporary-password' scripts/bootstrap-app-user.sh --username admin --role Admin
 scripts/deploy.sh
 ```
 

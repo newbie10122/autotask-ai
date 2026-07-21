@@ -1,3 +1,6 @@
+from pathlib import Path
+import subprocess
+
 from fastapi.testclient import TestClient
 
 from app.audit import audit_sink
@@ -5,9 +8,11 @@ from app.config import settings
 from app.main import app
 from app.models import AuditAction, AuditLogEntry, Role
 from app.security import create_session_token, hash_password, verify_password
+import app.user_admin as user_admin
 
 
 client = TestClient(app)
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def test_health_endpoint():
@@ -39,6 +44,66 @@ def test_password_hashing_verifies_and_rejects_wrong_password():
     assert verify_password("correct horse battery staple", encoded)
     assert not verify_password("wrong password", encoded)
     assert "correct horse battery staple" not in encoded
+
+
+def test_bootstrap_app_user_validates_roles_and_password_length():
+    assert user_admin.normalize_roles([Role.admin.value, Role.admin.value]) == [Role.admin.value]
+    try:
+        user_admin.normalize_roles(["Owner"])
+    except ValueError as exc:
+        assert "Unsupported role" in str(exc)
+    else:
+        raise AssertionError("unsupported role should fail")
+
+    try:
+        user_admin.upsert_app_user("admin", "short", [Role.admin.value])
+    except ValueError as exc:
+        assert "at least" in str(exc)
+    else:
+        raise AssertionError("short bootstrap password should fail")
+
+
+def test_bootstrap_app_user_upserts_hash_only_and_returns_safe_metadata(monkeypatch):
+    captured = {}
+
+    class FakeConnection:
+        def execute(self, sql, params):
+            captured["sql"] = sql
+            captured["params"] = params
+            return self
+
+        def fetchone(self):
+            return {"username": "admin", "roles": [Role.admin.value], "disabled": False}
+
+    class FakeConnectionContext:
+        def __enter__(self):
+            return FakeConnection()
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(user_admin, "db_connection", lambda: FakeConnectionContext())
+
+    result = user_admin.upsert_app_user(" admin ", "correct horse battery staple", [Role.admin.value])
+
+    assert result == {"username": "admin", "roles": [Role.admin.value], "disabled": False}
+    assert "ON CONFLICT (username)" in captured["sql"]
+    assert captured["params"][0] == "admin"
+    assert captured["params"][1] != "correct horse battery staple"
+    assert captured["params"][1].startswith("pbkdf2_sha256$")
+
+
+def test_bootstrap_app_user_wrapper_requires_password_env():
+    result = subprocess.run(
+        ["scripts/bootstrap-app-user.sh", "--username", "admin"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "BOOTSTRAP_APP_PASSWORD" in result.stderr
 
 
 def test_login_rejects_invalid_credentials(monkeypatch):
