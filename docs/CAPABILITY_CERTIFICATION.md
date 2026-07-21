@@ -1,24 +1,24 @@
 # Capability Certification Matrix
 
 **Updated:** 2026-07-21  
-**Canonical main:** `6ea8a91e5a42aa6650a3f6fe05202227a11639c3`
+**Canonical main:** `52e77420dfd9790f40e1a2ab72423e37d3d393f8`
 **Autotask write-back:** none
 
 This matrix is a certification tracker, not a production-readiness claim. A capability may only move to `verified_complete` when its acceptance criteria, negative tests, rollback/recovery evidence, and applicable three-run Quality Streak are present.
 
 | Capability | State | Current evidence | Quality Streak | Remaining certification work |
 |---|---|---|---|---|
-| CI validation harness | partial | Redacted Compose, migration ordering, API build, compile, full pytest, static JS, Playwright browser UI RBAC smoke, first axe accessibility smoke, and keyboard/focus smoke are wired into `./scripts/validate-ci.sh`; PR #19 remote CI passed before this branch. | 3/3 validation-harness runs recorded in `docs/CI_VALIDATION.md`; not a production capability streak. | Keep receipts current after dependency or validation changes; capability-specific Quality Streaks remain separate. |
-| Authentication and route RBAC | partial | PRs #4, #12, #17, #19, and current branch evidence cover signed tokens, admin route gates, route matrix, denial audit, browser RBAC smoke, first browser accessibility smoke, and keyboard/focus smoke. | Not established. | Production auth enablement remains off by default; bootstrap/admin-user operations and production deployment evidence remain open. |
+| CI validation harness | partial | Redacted Compose, migration ordering, API build, compile, full pytest, static JS, Playwright browser UI RBAC smoke, first axe accessibility smoke, and keyboard/focus smoke are wired into `./scripts/validate-ci.sh`; PR #20 remote CI passed before this branch. | 3/3 validation-harness runs recorded in `docs/CI_VALIDATION.md`; not a production capability streak. | Keep receipts current after dependency or validation changes; capability-specific Quality Streaks remain separate. |
+| Authentication and route RBAC | partial | PRs #4, #12, #17, #19, and #20 cover signed tokens, admin route gates, route matrix, denial audit, browser RBAC smoke, first browser accessibility smoke, and keyboard/focus smoke. | Not established. | Production auth enablement remains off by default; bootstrap/admin-user operations and production deployment evidence remain open. |
 | Durable audit logging | partial | PRs #5, #13, and #14 cover durable audit storage, authorization-denial events, success actor/scope events, and verifier-failure audit. | Not established. | Broader workflow audit coverage and certification receipts remain open. |
 | Company/client isolation | partial | PRs #6, #7, #8, #12, and #15 cover company scope tables, scoped assistant/analytics retrieval, scope snapshots, verifier scope rejection, route matrix, and scoped cache/export contracts. | Not established. | Broader ticket-health/customer-success/routing scope certification and active scoped cache consumer validation remain open. |
-| Answer safety and verification | partial | PRs #4, #8, #14, and #16 cover prompt-injection/secret filtering, citation checks, out-of-scope source rejection, verifier-failure audit, preserved fail-closed reasons, and first unsupported resolution-claim checks. | Not established. | Broader source-sufficiency checks, deterministic-path receipts, and adversarial three-run evidence remain open. |
+| Answer safety and verification | partial | PRs #4, #8, #14, and #16 plus branch `agent/m1-source-sufficiency-verifier` cover prompt-injection/secret filtering, citation checks, out-of-scope source rejection, verifier-failure audit, preserved fail-closed reasons, unsupported resolution-claim checks, and first non-resolution source-sufficiency checks. | Not established. | Broader adversarial source-sufficiency evidence, deterministic-path receipts, and adversarial three-run evidence remain open. |
 | Read-only TimeEntries/TicketHistory sync | partial_foundation | PR #10 restored recent TimeEntries sync, open-ticket gap jobs, estate-wide sweeps, operations coverage, and scheduler automation; PR #11 repaired scheduler heartbeat freshness. | Not established. | Historical estate catch-up, SLA/status-duration source-lineage certification, restart/recovery receipts, and field completeness evidence remain open. |
-| Browser UI RBAC/accessibility | partial | PR #17 adds Playwright Chromium smoke tests for anonymous, Admin, and ReadOnly UI role states. PR #19 adds shared browser helpers, axe serious/critical checks, login accessible-name checks, and a visible Ask mode label. Branch `agent/m1-keyboard-focus-smoke` adds explicit focus-visible styling and keyboard traversal evidence. | Not established. | Production-auth deployment evidence and broader responsive/reduced-motion evidence remain open. |
+| Browser UI RBAC/accessibility | partial | PR #17 adds Playwright Chromium smoke tests for anonymous, Admin, and ReadOnly UI role states. PR #19 adds shared browser helpers, axe serious/critical checks, login accessible-name checks, and a visible Ask mode label. PR #20 adds explicit focus-visible styling and keyboard traversal evidence. | Not established. | Production-auth deployment evidence and broader responsive/reduced-motion evidence remain open. |
 
 ## Current Production Certification Summary
 
 - No milestone is `verified_complete`.
 - No Autotask write capability is implemented or approved.
 - The validation harness is stronger and has three clean browser-enabled evidence points, but production capability Quality Streaks remain incomplete.
-- Next work should target source-sufficiency certification, active scoped cache consumer validation, and capability-specific Quality Streaks.
+- Next work should target active scoped cache consumer validation and capability-specific Quality Streaks.

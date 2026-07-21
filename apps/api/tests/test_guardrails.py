@@ -155,6 +155,43 @@ def test_answer_verifier_allows_resolution_claim_with_source_overlap():
     assert result.unsupported_claims == []
 
 
+def test_answer_verifier_rejects_ticket_history_claim_without_source_sufficiency():
+    answer = build_guarded_answer(
+        ticket_history="T1 reports a payroll scanner outage affecting executive check-in.",
+        general_guidance="Check the impacted device class.",
+        next_steps=["Open the ticket and compare symptoms."],
+        tickets=["T1"],
+        confidence=0.8,
+    )
+
+    result = verify_answer(
+        answer,
+        [{"ticket_number": "T1", "content": "Ticket Number: T1\nDescription: Printer unable to print labels."}],
+    )
+
+    assert not result.ok
+    assert result.fail_closed_reason == "insufficient ticket-history source evidence"
+    assert result.insufficient_source_claims == ["T1 reports a payroll scanner outage affecting executive check-in."]
+
+
+def test_answer_verifier_allows_ticket_history_claim_with_source_sufficiency():
+    answer = build_guarded_answer(
+        ticket_history="T1 reports printer unable to print labels.",
+        general_guidance="Check print queue and device status.",
+        next_steps=["Open the ticket and compare symptoms."],
+        tickets=["T1"],
+        confidence=0.8,
+    )
+
+    result = verify_answer(
+        answer,
+        [{"ticket_number": "T1", "content": "Ticket Number: T1\nDescription: Printer unable to print labels."}],
+    )
+
+    assert result.ok
+    assert result.insufficient_source_claims == []
+
+
 def test_autotask_write_calls_are_not_enabled():
     client = AutotaskReadOnlyClient()
     for method_name in ("create_ticket", "update_ticket", "delete_ticket"):
