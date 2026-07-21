@@ -33,6 +33,7 @@ A milestone may be marked `verified_complete` only when:
 - Repository receipts include exact commands, results, commits, risks, rollback, and Second Brain state.
 - Local reconciled evidence on branch `agent/m0-ci-validation`: `./scripts/validate-ci.sh` passed with redacted Compose validation, 6 ordered migrations, API image build, Python compile, `53 passed`, and static web JavaScript syntax.
 - GitHub Actions evidence: PR `newbie10122/autotask-ai#3` latest run `29850162173` passed workflow `CI`, job `Validate Autotask AI`, for head `67de41334d7c609bfdb9fd52580addd139804ac7`; PR #3 was merged into canonical `main` as `fec62ba9963e0ade35e292f88b337bbbe8bf5714`. Milestone 0 still requires fuller certification matrix/Quality Streak records before it can be marked `verified_complete`.
+- Current canonical evidence: PR `newbie10122/autotask-ai#10` merged into `main` as `7ca491b82d1ac1085efbbede3d3ccc1a9fe35057`, with GitHub Actions run `29857699615` passing. Control documents must reference this as current truth rather than stale PR #9/#10 publication steps.
 
 ## Milestone 1
 
@@ -47,6 +48,8 @@ A milestone may be marked `verified_complete` only when:
 - Retrieved untrusted content is scanned for prompt injection and prohibited secrets.
 - Material answers pass an independent verifier or fail closed.
 - Three consecutive clean identity/isolation/verifier certification runs exist.
+- Every API route has an explicit authority matrix covering anonymous, ReadOnly, Technician, Admin, company-scope requirements, audit requirements, failure status, and Basic Auth compatibility behavior.
+- Denied authenticated and unauthenticated requests produce durable audit records with actor, roles where known, effective company scope where known, target, outcome, and sanitized reason metadata.
 - Current branch evidence on `agent/m1-auth-rbac-foundation`: password hashing, signed expiring tokens, `/auth/me`, optional bearer-token middleware, disabled-user rejection, invalid-login rejection, route-auth fail-closed behavior, admin-operation role denial, prompt-injection source filtering, secret-source filtering, and unretrieved-ticket citation rejection have tests.
 - Current branch validation: focused Docker test command passed with `54 passed`; full `./scripts/validate-ci.sh` passed with 7 ordered migrations and `65 passed`. This is foundation evidence only; durable audit, full UI/API RBAC, company-scope propagation, verifier breadth, and three-run streak evidence remain required.
 - Current branch evidence on `agent/m1-durable-audit-scope-foundation`: durable `audit_log` schema, audit outcome/scope fields, database audit insert/list behavior with memory fallback, missing-token denial events, insufficient-role denial events, and no-Postgres API tests exist.
@@ -68,6 +71,10 @@ A milestone may be marked `verified_complete` only when:
 - Client scope and source lineage are retained.
 - Missing/unmapped fields are visible and not silently guessed.
 - Three consecutive clean sync/recovery runs exist.
+- Current foundation evidence on PR `newbie10122/autotask-ai#10`: `recent_sync` includes TimeEntries, open-ticket TimeEntries/TicketHistory gap jobs are scheduled every 15 minutes, estate-wide TimeEntries/TicketHistory sweeps are scheduled hourly, operations status reports open-ticket and estate coverage, and regression tests preserve these contracts.
+- TimeEntries absence must be classified separately from unchecked or failed synchronization. A ticket with no TimeEntries can only be treated as confirmed-empty when a successful source query recorded a gap-check timestamp and zero-result count.
+- Scheduler readiness evidence requires fresh heartbeat updates, restart recovery evidence, bounded job cadence evidence, conflict-lock evidence, and distinct skipped/blocked/failed/idle reasons.
+- Current scheduler heartbeat repair evidence: the worker records heartbeat at tick start, tick finish, and failure; focused repo-hygiene validation passed with `12 passed`, full governed validation passed with `75 passed`, and live operations status showed `scheduler.state=healthy` with fresh `heartbeat_at` after rebuilding `worker-scheduler`.
 
 ## Milestone 3
 

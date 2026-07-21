@@ -56,9 +56,19 @@
 ### R7 — Incomplete operational Autotask data
 
 **Severity:** Medium
-**State:** Open
+**State:** Partially mitigated
 **Impact:** Ticket-health, prediction, and routing calculations may be incomplete or misleading.
-**Mitigation:** Field inventory, resumable time-entry/status/SLA synchronization, freshness reporting, and explicit unavailable-field handling.
+**Existing controls:** PR `newbie10122/autotask-ai#10` restored read-only TimeEntries and TicketHistory automation, including recent-sync TimeEntries, open-ticket gap repair, estate-wide gap sweeps, and operations coverage reporting.
+**Next mitigation:** Complete field inventory, source-lineage certification, SLA/status/waiting fields, freshness policy, restart/recovery tests, and explicit distinctions among synchronized, checked-empty, unchecked, failed, unavailable, and authorization-filtered data.
+
+### R18 — Scheduler heartbeat can drift from actual job execution
+
+**Severity:** Medium
+**State:** Partially mitigated
+**Impact:** Operations status can report a stale scheduler heartbeat even while jobs continue completing, weakening readiness evidence and making pause/restart diagnosis harder.
+**Evidence:** After PR #10, `recent_sync`, `open_ticket_history_gaps`, and `open_ticket_time_entry_gaps` completed, but `scheduler_heartbeats.heartbeat_at` remained at the rebuild-time tick and operations status showed `scheduler.state=stale`.
+**Existing controls:** The scheduler worker now records heartbeat at tick start, tick finish, and failure. Focused tests assert the worker heartbeat contract, and live runtime validation showed `scheduler.state=healthy` after restart with a fresh `heartbeat_at` and completed gap-job evidence.
+**Next mitigation:** Add pause/resume actor/reason provenance and include heartbeat restart checks in Quality Streak certification.
 
 ### R8 — Historical backfill resource and API pressure
 
@@ -130,4 +140,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #6 has an updated Autotask AI projection with local validation passing, but its remote `Validate knowledge` workflow is failing before job steps; this blocks merging the projection but does not block independent Autotask AI engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #6 has an updated Autotask AI projection with local validation passing; remote validation status must remain tracked there but does not block independent Autotask AI engineering.

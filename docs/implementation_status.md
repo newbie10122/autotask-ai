@@ -11,7 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`; canonical `main` is `fec62ba9963e0ade35e292f88b337bbbe8bf5714`.
+- Canonical `main` is `7ca491b82d1ac1085efbbede3d3ccc1a9fe35057`, which merged PR `newbie10122/autotask-ai#10`.
+- GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, and static web JavaScript syntax checks.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
 - FastAPI API and technician/admin web interface.
@@ -59,11 +60,11 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Publish and verify the related-data scheduler restoration PR.
-2. Wire authenticated actor/company scope through future cache/export contracts and broaden verifier unsupported-claim checks.
-3. Expand route and UI RBAC for Admin, Technician, and ReadOnly across all API actions.
-4. Expand deterministic verifier coverage for unsupported claims, source subset, section labeling, injection, secrets, and scope violations.
-5. Prepare the existing governed Second Brain projection update after this branch PR is opened.
+1. Reconcile stale control documents against canonical `main` and live runtime evidence.
+2. Repair scheduler heartbeat/restart provenance so completed jobs and heartbeat freshness agree.
+3. Expand route authority matrix, API denial coverage, and durable audit identity/scope records across all routes.
+4. Wire authenticated actor/company scope through future cache/export contracts and broaden verifier unsupported-claim checks.
+5. Add browser-based UI auth/RBAC and accessibility evidence.
 
 Parallel-safe work after roadmap merge:
 
@@ -79,6 +80,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
+## Latest receipt — Control-doc reconciliation and scheduler heartbeat repair
+
+- **Slice:** Reconcile stale roadmap control documents after PR #10 and repair scheduler heartbeat freshness after runtime evidence showed jobs completing while `scheduler_heartbeats` stayed stale.
+- **State:** `partial`; control documents are current for canonical `main` and heartbeat is repaired, but Milestone 1 and Milestone 2 remain incomplete under their acceptance criteria.
+- **Files changed:** `docs/implementation_status.md`, `docs/codex_next_prompt.md`, `docs/acceptance_criteria.md`, `docs/known_risks.md`, `workers/scheduler/main.py`, and `apps/api/tests/test_repo_hygiene.py`.
+- **Implemented:** `workers/scheduler/main.py` now records scheduler heartbeat at tick start, tick finish, and failure using `record_scheduler_heartbeat`; stale next-action references to PR #9/#10 were replaced with current Milestone 1 closeout work; acceptance and risk docs now preserve PR #10 evidence, checked-empty TimeEntries semantics, and scheduler readiness criteria.
+- **Validation:** Focused container validation passed with `python -m compileall -q apps/api/app workers && pytest -q apps/api/tests/test_repo_hygiene.py` reporting `12 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `75 passed`, and static web JavaScript syntax validation. `git diff --check` passed.
+- **Runtime evidence:** Rebuilt `worker-scheduler` from this branch. `/api/operations/status` reported `scheduler.state=healthy`, `heartbeat_age_seconds=37.2`, `heartbeat_at=2026-07-21T18:58:41.132495+00:00`, `last_tick_started_at=2026-07-21T18:57:47.802317+00:00`, and `last_tick_finished_at=2026-07-21T18:58:41.119964+00:00`. Matching job run `3935` completed `open_ticket_history_gaps` at `2026-07-21T18:58:41.115436+00:00`.
+- **Read-only evidence:** The runtime verification read Autotask through existing bounded scheduler jobs and updated local Postgres only; no Autotask write capability was run or added.
+- **Rollback:** Revert this branch commit and redeploy `worker-scheduler`; the heartbeat table is additive and existing job execution still remains governed by `scheduled_jobs`, `job_runs`, and `job_locks`.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
 ## Latest receipt — Related-data scheduler restoration
 
 - **Slice:** Restore canonical TimeEntries/TicketHistory sync and scheduler automation after detecting runtime/source drift from the live scheduler image.
@@ -87,6 +100,8 @@ None currently identified for documentation and non-production implementation wo
 - **Implemented:** `recent_sync` again pulls TimeEntries; open-ticket TimeEntries/TicketHistory gap jobs are enabled every 15 minutes; estate-wide TimeEntries/TicketHistory sweeps are enabled hourly; scheduler status exposes open and estate coverage; schema initialization includes TimeEntries, TicketHistory, gap-check, scheduler heartbeat, ticket-health/customer-success, and Milestone 1 auth/audit/scope tables.
 - **Validation:** `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `74 passed`, and static web JavaScript syntax validation.
 - **Runtime evidence:** Local API and scheduler were rebuilt from canonical source; `/api/operations/status` returned `global_pause=false`, no Autotask threshold error, `time_entries=46810`, `ticket_history=28207`, open-ticket labor coverage `90/146`, and open-ticket TicketHistory coverage `146/146`; rebuilt scheduler completed `open_ticket_history_gaps`, `open_ticket_time_entry_gaps`, and `reclassify_chunks`.
+- **Post-merge runtime update:** On `2026-07-21`, canonical `main` was verified at `7ca491b82d1ac1085efbbede3d3ccc1a9fe35057`; PR #10 CI run `29857699615` passed. Live operations returned `global_pause=false`, `time_entries=46899`, `ticket_history=28207`, open-ticket labor coverage `90/146` with `56` checked-empty TimeEntries, and open-ticket TicketHistory coverage `146/146`. The scheduler completed `recent_sync`, `open_ticket_history_gaps`, and `open_ticket_time_entry_gaps` after the pause was cleared.
+- **Follow-up risk found:** Job execution continued after PR #10, but `scheduler_heartbeats` stopped updating after rebuild while completed runs continued. Scheduler heartbeat freshness required a follow-up repair before it could be used as a production readiness signal.
 - **Classification evidence:** `/api/analytics/ticket-class-report` returned `classified_tickets=67726`, `total_tickets=67726`, `unclassified_tickets=0`, and manual bounded `classify_tickets` operation run `3928` completed.
 - **Read-only evidence:** Jobs only read from Autotask and update local Postgres; no Autotask write capability was run or added.
 - **Rollback:** Revert this branch commit and redeploy API/scheduler; DB additions are additive local tables/columns.
@@ -176,8 +191,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, exact branch head `a624c6caf1bfead3e9af87adf45a54d4c40871cd` records the Autotask AI PR #3 merge. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote `Validate knowledge` run `29854057777` failed before useful job steps with no runner/job detail; this is recorded on PR #6 and still needs follow-up before merge. Do not mark `merged` until PR #6 is merged. This M1 branch will require another sanitized projection after its Autotask AI PR is opened.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `a8a9981` records PR #10, canonical commit `7ca491b82d1ac1085efbbede3d3ccc1a9fe35057`, restored scheduler automation, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
-Open a draft PR for branch `agent/m1-ui-auth-rbac-foundation`, let GitHub CI run, update the existing governed Second Brain projection with UI-auth branch/PR evidence, then continue Milestone 1 remaining verifier breadth and cache/export scope contracts.
+Complete the current control-document reconciliation and scheduler heartbeat provenance fix, then continue Milestone 1 closeout with route authority matrix, comprehensive API denial/audit coverage, company-scope negative tests, and verifier breadth.
