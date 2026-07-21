@@ -302,6 +302,9 @@ def test_api_route_authority_matrix_classifies_every_route():
         ("GET", "/api/routing/technician-skill-profiles"),
         ("GET", "/api/routing/tickets/{ticket_id}/recommendation"),
         ("GET", "/api/realtime/events"),
+        ("POST", "/api/ticket-health/feedback"),
+        ("POST", "/api/customer-success/feedback"),
+        ("POST", "/api/routing/feedback"),
         ("POST", "/api/assistant/ask"),
         ("POST", "/api/assistant/feedback"),
     }
@@ -493,6 +496,78 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
     assert captured["customer_success_detail"] == (77, 14, [123])
     assert captured["ticket_routing_recommendation"] == (88, 4, [123])
     assert captured["recent_realtime_events"] == (9, [123])
+
+
+def test_local_feedback_routes_pass_scope_and_deny_readonly(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [123])
+
+    def fake_ticket_health_feedback(ticket_id, health_score, risk_bucket, outcome, notes, authorized_company_ids):
+        captured["ticket_health"] = (ticket_id, health_score, risk_bucket, outcome, notes, authorized_company_ids)
+        return {"ok": True}
+
+    def fake_customer_feedback(company_id, risk_bucket, outcome, notes, authorized_company_ids):
+        captured["customer_success"] = (company_id, risk_bucket, outcome, notes, authorized_company_ids)
+        return {"ok": True}
+
+    def fake_routing_feedback(ticket_id, recommended_resource_id, recommended_resource_name, outcome, notes, authorized_company_ids):
+        captured["routing"] = (
+            ticket_id,
+            recommended_resource_id,
+            recommended_resource_name,
+            outcome,
+            notes,
+            authorized_company_ids,
+        )
+        return {"ok": True}
+
+    monkeypatch.setattr("app.main.store_ticket_health_risk_feedback", fake_ticket_health_feedback)
+    monkeypatch.setattr("app.main.store_customer_risk_feedback", fake_customer_feedback)
+    monkeypatch.setattr("app.main.store_routing_feedback", fake_routing_feedback)
+    tech_token = create_session_token("tech", [Role.technician.value])["token"]
+    headers = {"Authorization": f"Bearer {tech_token}"}
+
+    assert client.post(
+        "/api/ticket-health/feedback",
+        json={
+            "ticket_id": 88,
+            "health_score": 70,
+            "risk_bucket": "high",
+            "outcome": "accurate",
+            "notes": "reviewed locally",
+        },
+        headers=headers,
+    ).status_code == 200
+    assert client.post(
+        "/api/customer-success/feedback",
+        json={"company_id": 77, "risk_bucket": "watch", "outcome": "dismissed", "notes": "local only"},
+        headers=headers,
+    ).status_code == 200
+    assert client.post(
+        "/api/routing/feedback",
+        json={
+            "ticket_id": 88,
+            "recommended_resource_id": 44,
+            "recommended_resource_name": "Tech",
+            "outcome": "needs_review",
+            "notes": "local only",
+        },
+        headers=headers,
+    ).status_code == 200
+
+    assert captured["ticket_health"] == (88, 70, "high", "accurate", "reviewed locally", [123])
+    assert captured["customer_success"] == (77, "watch", "dismissed", "local only", [123])
+    assert captured["routing"] == (88, 44, "Tech", "needs_review", "local only", [123])
+
+    readonly_token = create_session_token("reader", [Role.readonly.value])["token"]
+    denied = client.post(
+        "/api/ticket-health/feedback",
+        json={"ticket_id": 88, "outcome": "accurate"},
+        headers={"Authorization": f"Bearer {readonly_token}"},
+    )
+
+    assert denied.status_code == 403
 
 
 def test_admin_assistant_ask_uses_explicit_global_scope(monkeypatch):

@@ -51,12 +51,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 ticket-health/customer-success/routing scope branch `agent/m1-scope-certification-ticket-health-routing` adds optional company-scope filters and fail-closed detail/feedback behavior for local capability functions.
 - Milestone 1 realtime scope branch `agent/m1-realtime-scope-certification` adds authorized-company filtering for ticket-history realtime events and hides global job events from scoped callers.
 - Milestone 1 scoped local capability routes branch `agent/m1-scoped-local-capability-routes` exposes scoped read-only ticket-health, customer-success, routing, and realtime GET routes with route-matrix and scope-propagation tests.
+- Milestone 1 scoped local feedback routes branch `agent/m1-scoped-local-feedback-routes` exposes local-only ticket-health, customer-success, and routing feedback POST routes for Technician/Admin users with company-scope propagation and ReadOnly denial.
 
 ## Verified gaps blocking production readiness
 
 - Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix. A production-auth preflight now requires app-route auth or an explicit external-auth boundary, but live production enforcement remains approval-gated.
 - Audit logging is database-backed for foundation, denial, and first material success events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, ticket-health/customer-success summary cache keys, ticket-health/customer-success/routing local capability functions, scoped read-only local capability routes, realtime ticket-history events, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with production-auth deployment evidence.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, static web controls, active operations-status cache consumption, ticket-health/customer-success summary cache keys, ticket-health/customer-success/routing local capability functions, scoped read-only local capability routes, scoped local feedback routes, realtime ticket-history events, browser RBAC smoke coverage, first browser accessibility smoke coverage, and keyboard/focus smoke coverage have scope/RBAC plumbing, but scope is not yet fully certified with production-auth deployment evidence.
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
 - Answer-safety has a candidate three-run conversational Quality Streak harness and local 3/3 evidence, but broader capability-specific Quality Streak evidence is not established; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -98,7 +99,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 scoped local capability routes
+## Latest receipt — Milestone 1 scoped local feedback routes
+
+- **Slice:** Expose local-only scoped feedback routes on branch `agent/m1-scoped-local-feedback-routes` from canonical `main` `d6b49c9e4832ce1ce86819ce844085c2f1b8a268`.
+- **State:** `partial`; local ticket-health, customer-success, and routing feedback POST routes now have role and company-scope contracts, but production-auth deployment evidence and broader capability Quality Streak records remain open.
+- **Files changed:** `apps/api/app/main.py`, `apps/api/app/ticket_health.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** Added Technician/Admin local feedback POST routes for ticket-health, customer-success, and routing. ReadOnly users are denied. Feedback calls pass authorized company scope; ticket-health feedback now filters ticket lookup by authorized company scope before writing local review evidence.
+- **Validation:** Focused API/RAG test command passed with `79 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `111 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added. These routes write local review records only.
+- **Rollback:** Revert this branch commit; local feedback helpers remain internally available, but the POST route surface is removed.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 scoped local capability routes
 
 - **Slice:** Expose scoped read-only local capability routes on branch `agent/m1-scoped-local-capability-routes` from canonical `main` `d2b325e1405caa070079dd60c464798ea45e2954`.
 - **State:** `partial`; ticket-health, customer-success, routing, and realtime GET routes now have first-class company-scope route contracts, but local feedback POST exposure, production-auth deployment evidence, and broader capability Quality Streak records remain open.

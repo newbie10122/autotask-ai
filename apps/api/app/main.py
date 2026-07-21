@@ -10,7 +10,7 @@ from .audit import audit_sink
 from .assistant import ask_assistant, pending_memory, store_feedback
 from .autotask import AutotaskReadOnlyClient
 from .config import settings
-from .customer_success import customer_success_detail, customer_success_summary
+from .customer_success import customer_success_detail, customer_success_summary, store_customer_risk_feedback
 from .db import database_available, db_connection, init_schema
 from .documents import create_documents_from_tickets, noise_report
 from .embeddings import run_embedding_batch
@@ -26,10 +26,15 @@ from .operations import (
     update_operations_settings,
 )
 from .realtime import recent_realtime_events
-from .routing import technician_skill_profiles, ticket_routing_recommendation
+from .routing import store_routing_feedback, technician_skill_profiles, ticket_routing_recommendation
 from .sync import sync_companies, sync_recent, sync_runs, sync_status as get_sync_status, sync_ticket_notes, sync_tickets
 from .ticket_analytics import classify_tickets, recurring_issues_report, reference_data_status, sync_reference_data, ticket_class_report
-from .ticket_health import ticket_health_detail_by_number_scoped, ticket_health_detail_scoped, ticket_health_summary
+from .ticket_health import (
+    store_ticket_health_risk_feedback,
+    ticket_health_detail_by_number_scoped,
+    ticket_health_detail_scoped,
+    ticket_health_summary,
+)
 from .security import authenticate_user, create_session_token, verify_session_token
 
 app = FastAPI(title="Autotask AI API", version="0.1.0")
@@ -61,6 +66,29 @@ class AskRequest(BaseModel):
 class FeedbackRequest(BaseModel):
     answer_id: int
     rating: Literal["Good", "Bad", "Needs Edit", "Save as Known Fix"]
+    notes: str | None = None
+
+
+class TicketHealthRiskFeedbackRequest(BaseModel):
+    ticket_id: int
+    health_score: int | None = Field(default=None, ge=0, le=100)
+    risk_bucket: Literal["critical", "high", "watch", "normal"] | None = None
+    outcome: Literal["accurate", "too_high", "too_low", "needs_review"]
+    notes: str | None = None
+
+
+class CustomerRiskFeedbackRequest(BaseModel):
+    company_id: int
+    risk_bucket: Literal["critical", "high", "watch", "normal"] | None = None
+    outcome: Literal["confirmed_risk", "dismissed", "needs_review"]
+    notes: str | None = None
+
+
+class RoutingFeedbackRequest(BaseModel):
+    ticket_id: int
+    recommended_resource_id: int | None = None
+    recommended_resource_name: str | None = None
+    outcome: Literal["accepted", "rejected", "needs_review"]
     notes: str | None = None
 
 
@@ -642,6 +670,80 @@ def api_realtime_events(
         getattr(request.state, "user", None),
         audit_scope(authorized_company_ids),
         {"limit": limit},
+    )
+    return result
+
+
+@app.post("/api/ticket-health/feedback")
+def api_ticket_health_risk_feedback(
+    payload: TicketHealthRiskFeedbackRequest,
+    request: Request,
+    _user: dict | None = Depends(require_roles(Role.admin, Role.technician)),
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = store_ticket_health_risk_feedback(
+        payload.ticket_id,
+        payload.health_score,
+        payload.risk_bucket,
+        payload.outcome,
+        payload.notes,
+        authorized_company_ids=authorized_company_ids,
+    )
+    record_success_audit(
+        AuditAction.feedback,
+        "ticket_health.risk_feedback",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"ticket_id": payload.ticket_id, "outcome": payload.outcome},
+    )
+    return result
+
+
+@app.post("/api/customer-success/feedback")
+def api_customer_risk_feedback(
+    payload: CustomerRiskFeedbackRequest,
+    request: Request,
+    _user: dict | None = Depends(require_roles(Role.admin, Role.technician)),
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = store_customer_risk_feedback(
+        payload.company_id,
+        payload.risk_bucket,
+        payload.outcome,
+        payload.notes,
+        authorized_company_ids=authorized_company_ids,
+    )
+    record_success_audit(
+        AuditAction.feedback,
+        "customer_success.risk_feedback",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"company_id": payload.company_id, "outcome": payload.outcome},
+    )
+    return result
+
+
+@app.post("/api/routing/feedback")
+def api_routing_feedback(
+    payload: RoutingFeedbackRequest,
+    request: Request,
+    _user: dict | None = Depends(require_roles(Role.admin, Role.technician)),
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = store_routing_feedback(
+        payload.ticket_id,
+        payload.recommended_resource_id,
+        payload.recommended_resource_name,
+        payload.outcome,
+        payload.notes,
+        authorized_company_ids=authorized_company_ids,
+    )
+    record_success_audit(
+        AuditAction.feedback,
+        "routing.feedback",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"ticket_id": payload.ticket_id, "outcome": payload.outcome},
     )
     return result
 
