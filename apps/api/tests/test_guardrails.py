@@ -192,6 +192,75 @@ def test_answer_verifier_allows_ticket_history_claim_with_source_sufficiency():
     assert result.insufficient_source_claims == []
 
 
+def test_answer_verifier_uses_ticket_ids_from_source_metadata():
+    answer = build_guarded_answer(
+        ticket_history="T42 reports printer unable to print labels.",
+        general_guidance="Check print queue and device status.",
+        next_steps=["Open the ticket and compare symptoms."],
+        tickets=["T42"],
+        confidence=0.8,
+    )
+
+    result = verify_answer(
+        answer,
+        [
+            {
+                "source_metadata": {"ticket_number": "T42", "company_id": 123},
+                "content": "Ticket Number: T42\nDescription: Printer unable to print labels.",
+            }
+        ],
+        authorized_company_ids=[123],
+    )
+
+    assert result.ok
+    assert result.citation_ticket_ids == ["T42"]
+    assert result.insufficient_source_claims == []
+
+
+def test_answer_verifier_rejects_cross_ticket_evidence_substitution():
+    answer = build_guarded_answer(
+        ticket_history="T2 reports payroll scanner outage affecting check-in.",
+        general_guidance="Check impacted device class.",
+        next_steps=["Open the cited ticket and compare symptoms."],
+        tickets=["T2"],
+        confidence=0.8,
+    )
+
+    result = verify_answer(
+        answer,
+        [
+            {"ticket_number": "T1", "content": "Ticket Number: T1\nDescription: Payroll scanner outage affecting check-in."},
+            {"ticket_number": "T2", "content": "Ticket Number: T2\nDescription: Printer unable to print labels."},
+        ],
+    )
+
+    assert not result.ok
+    assert result.fail_closed_reason == "insufficient ticket-history source evidence"
+    assert result.insufficient_source_claims == ["T2 reports payroll scanner outage affecting check-in."]
+
+
+def test_answer_verifier_allows_explicit_weak_history_fallback_without_sources():
+    answer = (
+        "Confidence: 0.20\n\n"
+        "From CompuOne Ticket History\n"
+        "No ticket history evidence was found for this request.\n\n"
+        "General IT Guidance\n"
+        "Check basic connectivity and device status.\n\n"
+        "Suggested Next Steps\n"
+        "- Gather more details from the user.\n\n"
+        "Based on Tickets\n"
+        "- None\n\n"
+        "Warnings\n"
+        "- None"
+    )
+
+    result = verify_answer(answer, [])
+
+    assert result.ok
+    assert result.unsupported_claims == []
+    assert result.insufficient_source_claims == []
+
+
 def test_autotask_write_calls_are_not_enabled():
     client = AutotaskReadOnlyClient()
     for method_name in ("create_ticket", "update_ticket", "delete_ticket"):

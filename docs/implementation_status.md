@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `44c080169baa31ece7cc15f4684130149cf69b53`, which merged PR `newbie10122/autotask-ai#23`.
+- Canonical `main` is `5919c397aa9c76087cea51e9b99b230c15cdbb43`, which merged PR `newbie10122/autotask-ai#24`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -44,6 +44,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 active scoped-cache branch `agent/m1-active-scoped-cache-consumer` moves the operations-status cache consumer onto the scoped cache-key contract.
 - Milestone 1 production-auth preflight branch `agent/m1-production-auth-preflight` adds CI-validated production auth boundary checks.
 - Milestone 1 bootstrap/admin-user branch `agent/m1-bootstrap-admin-user` adds a local operator command for creating or updating hashed app users without storing plaintext passwords.
+- Milestone 1 adversarial verifier branch `agent/m1-adversarial-verifier-breadth` broadens conversational answer-safety checks for ticket-source metadata, cross-ticket evidence mismatch, and weak/no-evidence fallback language.
 
 ## Verified gaps blocking production readiness
 
@@ -91,7 +92,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 bootstrap/admin-user operations
+## Latest receipt — Milestone 1 adversarial conversational verifier breadth
+
+- **Slice:** Broaden conversational answer verifier evidence on branch `agent/m1-adversarial-verifier-breadth` from canonical `main` `5919c397aa9c76087cea51e9b99b230c15cdbb43`.
+- **State:** `partial`; conversational answer evidence is stronger, but broader adversarial verifier evidence, live production-auth deployment evidence, remaining scope/cache certification, and Quality Streak records remain open.
+- **Files changed:** `apps/api/app/answer_safety.py`, `apps/api/tests/test_guardrails.py`, and project status docs.
+- **Implemented:** The verifier now recognizes cited ticket IDs stored inside `source_metadata`, continues to reject cross-ticket evidence substitution, and allows explicit no-history/no-source fallback language without treating it as an unsupported factual claim.
+- **Validation:** Focused guardrail tests passed with `17 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `99 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; tests use synthetic local evidence only.
+- **Rollback:** Revert this branch commit; no schema/runtime configuration change is included.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 bootstrap/admin-user operations
 
 - **Slice:** Add local bootstrap/admin-user operations on branch `agent/m1-bootstrap-admin-user` from canonical `main` `44c080169baa31ece7cc15f4684130149cf69b53`.
 - **State:** `partial`; local app-user bootstrap is safer and repeatable, but live production auth enforcement, deployment receipt, broader adversarial verifier evidence, and Quality Streak records remain open.
@@ -100,7 +112,7 @@ None currently identified for documentation and non-production implementation wo
 - **Validation:** Focused API tests passed with `28 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `96 passed`, static web JavaScript syntax validation, Playwright browser smoke `6 passed`, and `git diff --check`.
 - **Read-only evidence:** No sync jobs, production deployment, live credential changes, or Autotask write capability were run or added; tests are hermetic and mock the database upsert.
 - **Rollback:** Revert this branch commit; the deployment README loses the bootstrap command and no schema/runtime state changes are included.
-- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+- **Second Brain state:** `updated`; existing projection PR #6 records PR #24 at commit `f1a24d7`.
 
 ## Previous receipt — Milestone 1 production-auth preflight
 

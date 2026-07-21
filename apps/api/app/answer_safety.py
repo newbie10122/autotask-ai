@@ -40,8 +40,11 @@ STOPWORDS = {
 }
 WEAK_HISTORY_PHRASES = (
     "i do not have enough matching",
+    "i do not have enough retrieved",
     "no related ticket",
     "no matching ticket",
+    "no ticket history evidence",
+    "not enough source evidence",
 )
 
 
@@ -62,8 +65,16 @@ class AnswerVerificationResult:
 def source_ticket_ids(sources: list[dict[str, Any]]) -> set[str]:
     ids: set[str] = set()
     for source in sources:
+        ids.update(_source_ticket_ids(source))
+    return ids
+
+
+def _source_ticket_ids(source: dict[str, Any]) -> set[str]:
+    ids: set[str] = set()
+    metadata = source.get("source_metadata") or {}
+    for container in (source, metadata):
         for key in ("ticket_number", "autotask_id", "ticket_id"):
-            value = source.get(key)
+            value = container.get(key)
             if value:
                 ids.add(str(value))
     return ids
@@ -113,12 +124,7 @@ def _sources_for_claim(line: str, sources: list[dict[str, Any]]) -> list[dict[st
     return [
         source
         for source in sources
-        if cited_tickets
-        & {
-            str(source.get("ticket_number") or ""),
-            str(source.get("autotask_id") or ""),
-            str(source.get("ticket_id") or ""),
-        }
+        if cited_tickets & _source_ticket_ids(source)
     ]
 
 
