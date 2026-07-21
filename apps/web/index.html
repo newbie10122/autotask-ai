@@ -33,7 +33,9 @@
           </div>
         </div>
         <div class="auth-panel">
+          <label for="loginUsername">Username</label>
           <input id="loginUsername" autocomplete="username" placeholder="Username" />
+          <label for="loginPassword">Password</label>
           <input id="loginPassword" autocomplete="current-password" placeholder="Password" type="password" />
           <button id="loginButton" type="button">Sign In</button>
           <button id="logoutButton" type="button">Sign Out</button>
@@ -190,9 +192,10 @@
     <script>
       let authToken = window.localStorage.getItem("autotaskAiToken") || "";
       let authUser = null;
+      let appRouteAuthRequired = false;
       const roleRank = { ReadOnly: 1, Technician: 2, Admin: 3 };
       const hasRole = (requiredRole) => {
-        if (!authUser) return true;
+        if (!authUser) return !appRouteAuthRequired;
         const actual = Math.max(...(authUser.roles || []).map((role) => roleRank[role] || 0), 0);
         return actual >= (roleRank[requiredRole] || 0);
       };
@@ -340,7 +343,9 @@
 
       async function loadSettings() {
         const ready = await api("/ready");
+        appRouteAuthRequired = Boolean(ready.app_route_auth_required);
         document.getElementById("apiStatus").textContent = ready.status === "ready" ? "API ready" : ready.status;
+        updateRoleControls();
       }
 
       async function loadSync() {

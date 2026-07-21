@@ -10,7 +10,7 @@ from .audit import audit_sink
 from .assistant import ask_assistant, pending_memory, store_feedback
 from .autotask import AutotaskReadOnlyClient
 from .config import settings
-from .db import database_available, init_schema
+from .db import database_available, db_connection, init_schema
 from .documents import create_documents_from_tickets, noise_report
 from .embeddings import run_embedding_batch
 from .models import AuditAction, AuditLogEntry, LoginRequest, Role
@@ -205,6 +205,7 @@ def ready() -> dict:
         "status": "ready",
         "database": "available" if database_available() else "unavailable",
         "autotask": "configured" if settings.autotask_username else "missing",
+        "app_route_auth_required": settings.app_route_auth_required,
     }
 
 
@@ -254,40 +255,40 @@ def get_settings() -> dict:
 
 
 @app.get("/audit-log")
-def audit_log() -> dict:
+def audit_log(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return {"entries": [entry.model_dump(mode="json") for entry in audit_sink.list_recent()]}
 
 
 @app.get("/api/autotask/threshold")
-def autotask_threshold() -> dict:
+def autotask_threshold(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.admin_action, target="autotask.threshold"))
     payload = AutotaskReadOnlyClient().threshold_information()
     return {"ok": True, "base_url": settings.autotask_base_url, "username": settings.autotask_username, "threshold": payload}
 
 
 @app.post("/api/autotask/test/companies")
-def autotask_test_companies() -> dict:
+def autotask_test_companies(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     payload = AutotaskReadOnlyClient().query_entity("Companies", filters=[{"op": "gte", "field": "id", "value": 0}])
     items = payload.get("items") or payload.get("records") or []
     return {"ok": True, "entity": "Companies", "count": len(items[: settings.autotask_page_size])}
 
 
 @app.post("/api/autotask/test/tickets")
-def autotask_test_tickets() -> dict:
+def autotask_test_tickets(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     payload = AutotaskReadOnlyClient().query_entity("Tickets", filters=[{"op": "gte", "field": "id", "value": 0}])
     items = payload.get("items") or payload.get("records") or []
     return {"ok": True, "entity": "Tickets", "count": len(items[: settings.autotask_page_size])}
 
 
 @app.post("/api/autotask/test/ticket-notes")
-def autotask_test_ticket_notes() -> dict:
+def autotask_test_ticket_notes(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     payload = AutotaskReadOnlyClient().query_entity("TicketNotes", filters=[{"op": "gte", "field": "id", "value": 0}])
     items = payload.get("items") or payload.get("records") or []
     return {"ok": True, "entity": "TicketNotes", "count": len(items[: settings.autotask_page_size])}
 
 
 @app.post("/autotask/test-connection")
-def autotask_test_connection() -> dict:
+def autotask_test_connection(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     audit_sink.record(AuditLogEntry(actor="system", action=AuditAction.admin_action, target="autotask.test_connection"))
     return AutotaskReadOnlyClient().test_connection()
 
@@ -303,22 +304,34 @@ def sync_status() -> dict:
 
 
 @app.post("/api/sync/companies/start")
-def start_companies_sync(payload: SyncRequest | None = None) -> dict:
+def start_companies_sync(
+    payload: SyncRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
     return sync_companies(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
 
 
 @app.post("/api/sync/tickets/start")
-def start_tickets_sync(payload: SyncRequest | None = None) -> dict:
+def start_tickets_sync(
+    payload: SyncRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
     return sync_tickets(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
 
 
 @app.post("/api/sync/ticket-notes/start")
-def start_ticket_notes_sync(payload: SyncRequest | None = None) -> dict:
+def start_ticket_notes_sync(
+    payload: SyncRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
     return sync_ticket_notes(limit=(payload.limit if payload else None), full_sync=bool(payload and payload.full_sync))
 
 
 @app.post("/api/sync/recent/start")
-def start_recent_sync(payload: SyncRequest | None = None) -> dict:
+def start_recent_sync(
+    payload: SyncRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
     return sync_recent(limit=(payload.limit if payload else None))
 
 
@@ -333,12 +346,18 @@ def api_sync_runs() -> dict:
 
 
 @app.post("/api/documents/build")
-def build_documents(payload: SyncRequest | None = None) -> dict:
+def build_documents(
+    payload: SyncRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
     return create_documents_from_tickets(limit=(payload.limit if payload else None))
 
 
 @app.post("/api/embeddings/run")
-def run_embeddings(payload: SyncRequest | None = None) -> dict:
+def run_embeddings(
+    payload: SyncRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
     return run_embedding_batch(limit=(payload.limit if payload else None))
 
 
@@ -348,7 +367,7 @@ def knowledge_noise_report() -> dict:
 
 
 @app.post("/api/sync/reference-data/start")
-def start_reference_data_sync() -> dict:
+def start_reference_data_sync(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return sync_reference_data()
 
 
@@ -358,7 +377,10 @@ def api_reference_data_status() -> dict:
 
 
 @app.post("/api/analytics/classify-tickets")
-def api_classify_tickets(payload: SyncRequest | None = None) -> dict:
+def api_classify_tickets(
+    payload: SyncRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
     return classify_tickets(limit=(payload.limit if payload else None))
 
 
@@ -465,5 +487,5 @@ def assistant_feedback(
 
 
 @app.get("/api/admin/curated-memory")
-def admin_curated_memory() -> dict:
+def admin_curated_memory(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     return {"items": pending_memory()}

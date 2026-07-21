@@ -20,6 +20,7 @@ def test_ready_endpoint():
     response = client.get("/ready")
     assert response.status_code == 200
     assert "status" in response.json()
+    assert "app_route_auth_required" in response.json()
 
 
 def test_auth_model_records_login_audit_event():
@@ -132,6 +133,115 @@ def test_admin_route_requires_admin_role_when_route_auth_enabled(monkeypatch):
     assert allowed.status_code == 200
 
 
+def test_admin_route_matrix_denies_readonly_and_audits_each_denial(monkeypatch):
+    events = []
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
+    token = create_session_token("reader", [Role.readonly.value])["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    admin_routes = [
+        ("GET", "/audit-log", None),
+        ("GET", "/api/autotask/threshold", None),
+        ("POST", "/api/autotask/test/companies", None),
+        ("POST", "/api/autotask/test/tickets", None),
+        ("POST", "/api/autotask/test/ticket-notes", None),
+        ("POST", "/autotask/test-connection", None),
+        ("POST", "/api/sync/companies/start", {}),
+        ("POST", "/api/sync/tickets/start", {}),
+        ("POST", "/api/sync/ticket-notes/start", {}),
+        ("POST", "/api/sync/recent/start", {}),
+        ("POST", "/api/sync/reference-data/start", None),
+        ("POST", "/api/documents/build", {}),
+        ("POST", "/api/embeddings/run", {}),
+        ("POST", "/api/analytics/classify-tickets", {}),
+        ("POST", "/api/operations/settings", {"settings": {"global_pause": True}}),
+        ("POST", "/api/operations/jobs/recent_sync/run", None),
+        ("POST", "/api/operations/jobs/recent_sync/enable", None),
+        ("POST", "/api/operations/jobs/recent_sync/disable", None),
+        ("POST", "/api/operations/pause", None),
+        ("POST", "/api/operations/resume", None),
+        ("POST", "/api/operations/jobs/1/request-stop", None),
+        ("GET", "/api/admin/curated-memory", None),
+    ]
+
+    for method, path, payload in admin_routes:
+        response = client.request(method, path, headers=headers, json=payload)
+        assert response.status_code == 403, path
+
+    denials = [event for event in events if event.action == AuditAction.authorization_denied]
+    assert len(denials) == len(admin_routes)
+    assert {event.actor for event in denials} == {"reader"}
+    assert {event.outcome for event in denials} == {"denied"}
+    assert all(event.metadata["required_roles"] == [Role.admin.value] for event in denials)
+
+
+def test_api_route_authority_matrix_classifies_every_route():
+    route_keys = {
+        (method, route.path)
+        for route in app.routes
+        for method in getattr(route, "methods", set())
+        if method in {"GET", "POST"} and route.path.startswith(("/", "/api"))
+    }
+    public_or_auth_utility = {
+        ("GET", "/health"),
+        ("GET", "/ready"),
+        ("POST", "/auth/login"),
+        ("POST", "/auth/logout"),
+        ("GET", "/auth/me"),
+        ("GET", "/docs"),
+        ("GET", "/docs/oauth2-redirect"),
+        ("GET", "/openapi.json"),
+        ("GET", "/redoc"),
+    }
+    authenticated_read = {
+        ("GET", "/settings"),
+        ("GET", "/sync/status"),
+        ("GET", "/api/sync/status"),
+        ("GET", "/api/sync/runs"),
+        ("GET", "/api/knowledge/noise-report"),
+        ("GET", "/api/reference-data/status"),
+        ("GET", "/api/analytics/ticket-class-report"),
+        ("GET", "/api/operations/status"),
+        ("GET", "/api/operations/settings"),
+        ("GET", "/api/operations/jobs"),
+        ("GET", "/api/operations/jobs/runs"),
+    }
+    company_scoped = {
+        ("GET", "/api/analytics/recurring-issues"),
+        ("POST", "/api/assistant/ask"),
+        ("POST", "/api/assistant/feedback"),
+    }
+    admin_only = {
+        ("GET", "/audit-log"),
+        ("GET", "/api/autotask/threshold"),
+        ("POST", "/api/autotask/test/companies"),
+        ("POST", "/api/autotask/test/tickets"),
+        ("POST", "/api/autotask/test/ticket-notes"),
+        ("POST", "/autotask/test-connection"),
+        ("POST", "/api/sync/companies/start"),
+        ("POST", "/api/sync/tickets/start"),
+        ("POST", "/api/sync/ticket-notes/start"),
+        ("POST", "/api/sync/recent/start"),
+        ("POST", "/api/sync/reference-data/start"),
+        ("POST", "/api/documents/build"),
+        ("POST", "/api/embeddings/run"),
+        ("POST", "/api/analytics/classify-tickets"),
+        ("POST", "/api/operations/settings"),
+        ("POST", "/api/operations/jobs/{job_name}/run"),
+        ("POST", "/api/operations/jobs/{job_name}/enable"),
+        ("POST", "/api/operations/jobs/{job_name}/disable"),
+        ("POST", "/api/operations/pause"),
+        ("POST", "/api/operations/resume"),
+        ("POST", "/api/operations/jobs/{run_id}/request-stop"),
+        ("GET", "/api/admin/curated-memory"),
+    }
+
+    matrix = public_or_auth_utility | authenticated_read | company_scoped | admin_only
+    assert route_keys - matrix == set()
+    assert admin_only <= route_keys
+    assert company_scoped <= route_keys
+
+
 def test_assistant_ask_denies_authenticated_user_without_company_scope(monkeypatch):
     monkeypatch.setattr(settings, "app_route_auth_required", True)
     monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [])
@@ -232,6 +342,29 @@ def test_feedback_passes_actor_and_scope_snapshot(monkeypatch):
         "actor_username": "tech",
         "authorized_company_ids": [123],
     }
+
+
+def test_authorized_company_ids_for_user_reads_database_scope(monkeypatch):
+    class FakeConn:
+        def execute(self, sql, params=None):
+            assert "FROM app_user_company_scopes" in sql
+            assert params == ("tech",)
+            return self
+
+        def fetchall(self):
+            return [{"company_id": 321}, {"company_id": 654}]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr("app.main.db_connection", lambda: FakeConn())
+
+    from app.main import authorized_company_ids_for_user
+
+    assert authorized_company_ids_for_user({"username": "tech", "roles": [Role.technician.value]}) == [321, 654]
 
 
 def test_audit_sink_persists_when_database_available(monkeypatch):

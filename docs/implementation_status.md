@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `7ca491b82d1ac1085efbbede3d3ccc1a9fe35057`, which merged PR `newbie10122/autotask-ai#10`.
+- Canonical `main` is `b65683bea439b025f85c0b0708611e44e1a78110`, which merged PR `newbie10122/autotask-ai#11`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, and static web JavaScript syntax checks.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -31,12 +31,13 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 scope-snapshot branch `agent/m1-scope-snapshots-foundation` adds actor/effective-scope snapshots for assistant queries, sources, feedback, and pending memory candidates.
 - Milestone 1 verifier-scope branch `agent/m1-verifier-scope-foundation` adds deterministic out-of-scope source rejection in answer verification.
 - Milestone 1 UI-auth branch `agent/m1-ui-auth-rbac-foundation` adds static-web token login/logout support, Bearer request headers, app-auth status, role-aware disabled controls, and clearer 401/403 messages.
+- Milestone 1 route-authority branch `agent/m1-route-authority-audit-matrix` adds admin gates to manual sync/build/classify/Autotask probe/audit/memory routes, route inventory tests, ReadOnly denial audit coverage, direct database company-scope coverage, and static UI RBAC/accessibility contracts.
 
 ## Verified gaps blocking production readiness
 
-- Route authentication/RBAC is implemented as an opt-in foundation but is not yet enforced end to end in production defaults or UI.
-- Audit logging is database-backed for foundation events, but identity/company-scope linkage is not yet complete across every workflow.
-- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, and static web controls have first scope/RBAC plumbing, but scope is not yet wired through cache/export contracts or fully certified with browser/accessibility checks.
+- Route authentication/RBAC is implemented as an opt-in foundation and sensitive mutating/admin-inspection API routes now have a tested authority matrix, but production defaults still keep app-route auth off.
+- Audit logging is database-backed for foundation and denial events, but success-path identity/company-scope linkage is not yet complete across every workflow.
+- Assistant retrieval, recurring-issue analytics, query rows, query sources, feedback, pending memory candidates, answer verification, and static web controls have first scope/RBAC plumbing, but scope is not yet wired through cache/export contracts or fully certified with real-browser accessibility checks.
 - Prompt-injection scanning and deterministic answer verification have initial tests, but independent verifier coverage is not yet sufficient for Milestone 1 completion.
 - Three-run Quality Streak evidence is not established.
 - Governed memory approval/version/rollback workflow is incomplete.
@@ -60,11 +61,10 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Reconcile stale control documents against canonical `main` and live runtime evidence.
-2. Repair scheduler heartbeat/restart provenance so completed jobs and heartbeat freshness agree.
-3. Expand route authority matrix, API denial coverage, and durable audit identity/scope records across all routes.
-4. Wire authenticated actor/company scope through future cache/export contracts and broaden verifier unsupported-claim checks.
-5. Add browser-based UI auth/RBAC and accessibility evidence.
+1. Expand durable audit identity/scope success records across assistant, feedback, analytics, operations, sync, memory, denied requests, and verifier failures.
+2. Wire authenticated actor/company scope through future cache/export contracts and broaden verifier unsupported-claim checks.
+3. Add real-browser UI auth/RBAC and accessibility evidence beyond the static HTML contract.
+4. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
 
 Parallel-safe work after roadmap merge:
 
@@ -80,7 +80,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Control-doc reconciliation and scheduler heartbeat repair
+## Latest receipt — Milestone 1 route authority and static UI contract
+
+- **Slice:** Expand Milestone 1 API route authority, denial-audit coverage, company-scope DB coverage, and static web RBAC/accessibility contracts on branch `agent/m1-route-authority-audit-matrix` from canonical `main` `b65683bea439b025f85c0b0708611e44e1a78110`.
+- **State:** `partial`; sensitive API route authority is materially stronger and statically verified, but Milestone 1 still requires success-path audit actor/scope linkage, cache/export contracts, verifier breadth, real-browser UI evidence, production auth enablement, and Quality Streak records.
+- **Files changed:** `apps/api/app/main.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_repo_hygiene.py`, `apps/web/index.html`, and project status docs.
+- **Implemented:** Admin role gates now cover audit log, Autotask threshold/test probes, manual sync starts, reference-data sync, document build, embedding run, ticket classification, operations mutators, and curated memory. `/ready` exposes the non-secret app-route-auth mode for UI decisions. `authorized_company_ids_for_user()` now imports and uses `db_connection` directly instead of silently failing to empty scope. Static web controls fail closed for unauthenticated users when app-route auth is required, and login fields have explicit labels.
+- **Validation:** Focused container validation passed with API plus repository-hygiene tests reporting `34 passed`. Full `./scripts/validate-ci.sh` passed with redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `79 passed`, and static web JavaScript syntax validation. `git diff --check` passed.
+- **Read-only evidence:** No sync jobs, production deployment, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; default Basic Auth deployment remains compatible because `APP_ROUTE_AUTH_REQUIRED=false` remains the default and the added route gates only apply when app-route auth is enabled.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Control-doc reconciliation and scheduler heartbeat repair
 
 - **Slice:** Reconcile stale roadmap control documents after PR #10 and repair scheduler heartbeat freshness after runtime evidence showed jobs completing while `scheduler_heartbeats` stayed stale.
 - **State:** `partial`; control documents are current for canonical `main` and heartbeat is repaired, but Milestone 1 and Milestone 2 remain incomplete under their acceptance criteria.
@@ -191,8 +202,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `a8a9981` records PR #10, canonical commit `7ca491b82d1ac1085efbbede3d3ccc1a9fe35057`, restored scheduler automation, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `9e0f0a4` records PR #11, canonical commit `b65683bea439b025f85c0b0708611e44e1a78110`, scheduler heartbeat repair, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
-Complete the current control-document reconciliation and scheduler heartbeat provenance fix, then continue Milestone 1 closeout with route authority matrix, comprehensive API denial/audit coverage, company-scope negative tests, and verifier breadth.
+Merge the current Milestone 1 route-authority/static-UI-contract branch after CI passes, update the existing Second Brain projection, then continue Milestone 1 closeout with success-path audit actor/scope records, cache/export contracts, verifier breadth, and real-browser UI evidence.

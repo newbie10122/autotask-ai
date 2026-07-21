@@ -8,8 +8,8 @@
 
 **Severity:** Critical for production
 **State:** Partially mitigated
-**Impact:** Branch `agent/m1-auth-rbac-foundation` replaces placeholder token behavior with hashed passwords, signed expiring tokens, optional route enforcement, and admin denial tests, but production defaults still keep app-route auth off behind Nginx Basic Auth and UI boundaries are not yet complete.
-**Mitigation:** Finish full route/UI RBAC, bootstrap/admin-user operations, durable audit, and three-run security evidence before production enforcement.
+**Impact:** Branch `agent/m1-auth-rbac-foundation` replaces placeholder token behavior with hashed passwords, signed expiring tokens, optional route enforcement, and admin denial tests. Branch `agent/m1-route-authority-audit-matrix` adds admin gates and a route inventory contract for sensitive routes, but production defaults still keep app-route auth off behind Nginx Basic Auth and real-browser UI evidence is not complete.
+**Mitigation:** Finish success-path audit actor/scope linkage, bootstrap/admin-user operations, real-browser UI RBAC/accessibility evidence, and three-run security evidence before production enforcement.
 **Approval gate:** Production authentication changes require security review and controlled deployment.
 
 ### R2 — Client/company isolation is not yet proven fail-closed
@@ -18,7 +18,7 @@
 **State:** Partially mitigated
 **Impact:** Retrieval, analytics, citations, or future caches could expose one client’s information to an unauthorized user.
 **Existing controls:** Branch `agent/m1-company-scope-foundation` adds user-company scope storage, fail-closed assistant/analytics route scope checks, and scoped retrieval/recurring-analytics filters when app route auth is enabled.
-**Next mitigation:** Carry effective scope through query sources, feedback, memory, UI, future cache/export paths, verifier checks, and broader cross-client negative tests.
+**Next mitigation:** Carry effective scope through future cache/export paths, verifier checks, ticket-health/customer-success/routing APIs, and broader cross-client negative tests.
 
 ### R3 — Independent answer verification and prompt-injection defense are incomplete
 
@@ -34,7 +34,7 @@
 **State:** Partially mitigated
 **Impact:** Security and operational actions may not be reconstructable after restart unless every material path writes identity-linked audit records.
 **Existing controls:** Branch `agent/m1-durable-audit-scope-foundation` adds durable `audit_log` persistence, outcome/scope fields, and authorization-denial audit events with no-DB fallback.
-**Next mitigation:** Link audit records to authenticated users and effective company scope across assistant, sync, analytics, memory, settings, jobs, and denied actions.
+**Next mitigation:** Link success-path audit records to authenticated users and effective company scope across assistant, sync, analytics, memory, settings, jobs, and verifier failures.
 
 ### R5 — Quality Streak evidence not yet established
 
