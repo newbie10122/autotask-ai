@@ -38,6 +38,11 @@ STOPWORDS = {
     "with",
     "your",
 }
+WEAK_HISTORY_PHRASES = (
+    "i do not have enough matching",
+    "no related ticket",
+    "no matching ticket",
+)
 
 
 @dataclass
@@ -47,6 +52,7 @@ class AnswerVerificationResult:
     warnings: list[str] = field(default_factory=list)
     citation_ticket_ids: list[str] = field(default_factory=list)
     unsupported_claims: list[str] = field(default_factory=list)
+    insufficient_source_claims: list[str] = field(default_factory=list)
     secret_findings: list[str] = field(default_factory=list)
     prompt_injection_findings: list[str] = field(default_factory=list)
     scope_violations: list[str] = field(default_factory=list)
@@ -100,6 +106,38 @@ def _unsupported_ticket_history_claims(answer: str, sources: list[dict[str, Any]
     return unsupported
 
 
+def _sources_for_claim(line: str, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cited_tickets = set(TICKET_TOKEN_PATTERN.findall(line))
+    if not cited_tickets:
+        return sources
+    return [
+        source
+        for source in sources
+        if cited_tickets
+        & {
+            str(source.get("ticket_number") or ""),
+            str(source.get("autotask_id") or ""),
+            str(source.get("ticket_id") or ""),
+        }
+    ]
+
+
+def _source_sufficiency_violations(answer: str, sources: list[dict[str, Any]]) -> list[str]:
+    violations: list[str] = []
+    for line in _ticket_history_lines(answer):
+        normalized = line.lower()
+        if any(phrase in normalized for phrase in WEAK_HISTORY_PHRASES):
+            continue
+        claim_tokens = _tokens(TICKET_TOKEN_PATTERN.sub(" ", line))
+        if len(claim_tokens) < 3:
+            continue
+        candidate_sources = _sources_for_claim(line, sources)
+        source_tokens = _tokens("\n".join(str(source.get("content") or "") for source in candidate_sources))
+        if not candidate_sources or len(claim_tokens & source_tokens) < 2:
+            violations.append(redact_private_entities(line))
+    return violations
+
+
 def filter_safe_sources(sources: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
     safe_sources: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -131,6 +169,7 @@ def verify_answer(
     allowed_tickets = source_ticket_ids(sources)
     unknown_tickets = [ticket for ticket in cited_tickets if ticket not in allowed_tickets]
     unsupported_claims = _unsupported_ticket_history_claims(answer, sources)
+    insufficient_source_claims = _source_sufficiency_violations(answer, sources)
     scope_violations: list[str] = []
     if authorized_company_ids is not None:
         allowed_companies = {int(company_id) for company_id in authorized_company_ids}
@@ -152,6 +191,8 @@ def verify_answer(
         warnings.append(f"Answer used out-of-scope source(s): {', '.join(scope_violations)}.")
     if unsupported_claims:
         warnings.append("Answer included unsupported ticket-history resolution claim(s).")
+    if insufficient_source_claims:
+        warnings.append("Answer included ticket-history claim(s) with insufficient retrieved source evidence.")
     if not has_required_answer_sections(answer):
         warnings.append("Answer is missing required sections.")
     if not general_guidance_labeled:
@@ -168,6 +209,8 @@ def verify_answer(
         fail_closed_reason = "prompt injection text in answer"
     elif unsupported_claims:
         fail_closed_reason = "unsupported ticket-history claim"
+    elif insufficient_source_claims:
+        fail_closed_reason = "insufficient ticket-history source evidence"
     elif not has_required_answer_sections(answer):
         fail_closed_reason = "missing required answer sections"
     elif not general_guidance_labeled:
@@ -179,6 +222,7 @@ def verify_answer(
         warnings=warnings,
         citation_ticket_ids=cited_tickets,
         unsupported_claims=unsupported_claims,
+        insufficient_source_claims=insufficient_source_claims,
         secret_findings=secret_findings,
         prompt_injection_findings=injection_findings,
         scope_violations=scope_violations,
