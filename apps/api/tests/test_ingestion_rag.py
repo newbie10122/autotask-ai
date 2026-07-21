@@ -720,3 +720,22 @@ def test_scoped_cache_key_rejects_missing_contract_inputs():
             assert "Scoped cache keys require" in str(exc)
         else:
             raise AssertionError(f"missing {key} should fail")
+
+
+def test_operations_status_cache_key_uses_scope_role_and_auth_contract():
+    outer = operations_module.operations_status_cache_key()
+    readonly = operations_module.operations_status_cache_key(
+        authority_class="authenticated-read",
+        roles=["ReadOnly"],
+        scope={"global": True},
+    )
+    admin = operations_module.operations_status_cache_key(
+        authority_class="authenticated-read",
+        roles=["Admin"],
+        scope={"global": True},
+    )
+
+    assert outer.startswith("autotask-ai:operations-status:")
+    assert readonly.startswith("autotask-ai:operations-status:")
+    assert outer != readonly
+    assert readonly != admin

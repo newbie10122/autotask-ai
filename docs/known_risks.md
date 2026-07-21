@@ -18,7 +18,7 @@
 **State:** Partially mitigated
 **Impact:** Retrieval, analytics, citations, or future caches could expose one client’s information to an unauthorized user.
 **Existing controls:** Branch `agent/m1-company-scope-foundation` adds user-company scope storage, fail-closed assistant/analytics route scope checks, and scoped retrieval/recurring-analytics filters when app route auth is enabled.
-**Next mitigation:** Carry effective scope through active scoped cache consumers, verifier checks, ticket-health/customer-success/routing APIs, and broader cross-client negative tests.
+**Next mitigation:** Carry effective scope through remaining cache consumers, verifier checks, ticket-health/customer-success/routing APIs, and broader cross-client negative tests.
 
 ### R3 — Independent answer verification and prompt-injection defense are incomplete
 
@@ -81,9 +81,9 @@
 ### R9 — Cache leakage or staleness
 
 **Severity:** Medium
-**State:** Future risk
+**State:** Partially mitigated
 **Impact:** Redis could reuse data across clients or after source/model/permission changes.
-**Mitigation:** Scope/version-aware keys, short TTLs, explicit invalidation, outage fallback, and isolation tests before enabling answer caching.
+**Mitigation:** Scope/version-aware keys, short TTLs, explicit invalidation, outage fallback, and isolation tests before enabling answer caching. The active operations-status cache consumer now uses scoped cache keys; remaining and future cache consumers still require certification.
 
 ### R10 — Parallel agent merge conflict or inconsistent architecture
 

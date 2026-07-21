@@ -12,7 +12,7 @@ from fastapi.encoders import jsonable_encoder
 from psycopg.types.json import Jsonb
 
 from .autotask import AutotaskReadOnlyClient
-from .cache import cache_delete, cache_get_json, cache_key, cache_set_json, invalidate_dashboard_caches
+from .cache import cache_get_json, cache_set_json, invalidate_dashboard_caches, scoped_cache_key
 from .config import settings as app_settings
 from .customer_success import capture_customer_success_score_snapshot, cleanup_customer_success_score_snapshots
 from .db import db_connection, init_schema
@@ -184,11 +184,28 @@ RAW_BACKFILL_JOBS = {
     "raw_backfill_companies",
 }
 MUTATES_CHUNKS = {"build_documents", "reclassify_chunks"}
-OPERATIONS_STATUS_CACHE_KEY = cache_key("operations-status", {"version": 2})
+OPERATIONS_STATUS_CACHE_VERSION = 3
+
+
+def operations_status_cache_key(
+    *,
+    authority_class: str = "outer-auth",
+    roles: list[str] | None = None,
+    scope: dict[str, Any] | None = None,
+) -> str:
+    return scoped_cache_key(
+        "operations-status",
+        {"view": "operations-status"},
+        authority_class=authority_class,
+        roles=roles or ["OuterAuth"],
+        scope=scope or {"global": True, "app_route_auth_required": False},
+        version=OPERATIONS_STATUS_CACHE_VERSION,
+        config={"ttl_seconds": app_settings.operations_status_cache_ttl_seconds},
+    )
 
 
 def invalidate_operations_status_cache() -> None:
-    cache_delete(OPERATIONS_STATUS_CACHE_KEY)
+    invalidate_dashboard_caches()["operations_status"]
 
 
 def _coverage_percent(covered: int, total: int) -> float:
@@ -1082,11 +1099,12 @@ def request_stop(run_id: int) -> dict[str, Any]:
     return {"ok": bool(row), "run": row}
 
 
-def operations_status() -> dict[str, Any]:
+def operations_status(cache_context: dict[str, Any] | None = None) -> dict[str, Any]:
     ensure_operations_defaults()
-    cached = cache_get_json(OPERATIONS_STATUS_CACHE_KEY)
+    cache_key = operations_status_cache_key(**(cache_context or {}))
+    cached = cache_get_json(cache_key)
     if cached is not None:
-        cached["cache"] = {"hit": True, "ttl_seconds": app_settings.operations_status_cache_ttl_seconds}
+        cached["cache"] = {"hit": True, "ttl_seconds": app_settings.operations_status_cache_ttl_seconds, "scoped": True}
         return cached
 
     settings = operations_settings()
@@ -1345,7 +1363,7 @@ def operations_status() -> dict[str, Any]:
     )
     result = {
         "ok": True,
-        "cache": {"hit": False, "ttl_seconds": app_settings.operations_status_cache_ttl_seconds},
+        "cache": {"hit": False, "ttl_seconds": app_settings.operations_status_cache_ttl_seconds, "scoped": True},
         "api_status": "ok",
         "db_status": "ok",
         "ollama_status": "available" if ollama_available() else "unavailable",
@@ -1366,5 +1384,5 @@ def operations_status() -> dict[str, Any]:
         "running_jobs": running,
     }
     encoded_result = jsonable_encoder(result)
-    cache_set_json(OPERATIONS_STATUS_CACHE_KEY, encoded_result, app_settings.operations_status_cache_ttl_seconds)
+    cache_set_json(cache_key, encoded_result, app_settings.operations_status_cache_ttl_seconds)
     return encoded_result
