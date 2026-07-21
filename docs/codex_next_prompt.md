@@ -4,12 +4,12 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 ## Immediate run objective
 
-Continue Milestone 1 from branch `agent/m1-verifier-scope-foundation`:
+Continue Milestone 1 from branch `agent/m1-ui-auth-rbac-foundation`:
 
-1. Push/open a draft PR for the verifier-scope foundation if it is not already open.
+1. Push/open a draft PR for the UI auth/RBAC foundation if it is not already open.
 2. Confirm the latest GitHub Actions result for that PR head.
 3. Update the existing governed Autotask AI Second Brain projection PR after the Autotask AI PR exists or materially changes.
-4. Continue immediately to UI enforcement and remaining verifier breadth.
+4. Continue immediately to remaining verifier breadth and cache/export scope contracts.
 5. Do not mark Milestone 1 `verified_complete` until full API/UI RBAC, persistent audit, fail-closed client isolation, independent verifier breadth, and three-run Quality Streak evidence all pass.
 
 Current foundation evidence:
@@ -27,10 +27,12 @@ Current foundation evidence:
 - `./scripts/validate-ci.sh` passed on the scope-snapshot branch with 10 ordered migrations and full pytest `71 passed`.
 - Verifier-scope branch adds out-of-scope source detection to answer verification and wires assistant verifier calls to effective company scope.
 - `./scripts/validate-ci.sh` passed on the verifier-scope branch with 10 ordered migrations and full pytest `72 passed`.
+- UI-auth branch adds local login/logout, Bearer headers, role display, role-aware disabled controls, and clearer 401/403 messages.
+- `./scripts/validate-ci.sh` passed on the UI-auth branch with 10 ordered migrations and full pytest `72 passed`.
 
 Next eligible safe work:
 
-- UI auth/RBAC states and remaining verifier unsupported-claim checks.
+- Remaining verifier unsupported-claim checks and future cache/export scope contracts.
 - UI auth/RBAC states and API denial coverage for all roles.
 - Verifier expansion for unsupported claims, scope violations, guidance labeling, secrets, injection, weak evidence, and fallback behavior.
 
