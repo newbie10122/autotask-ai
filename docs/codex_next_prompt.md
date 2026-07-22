@@ -13,6 +13,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
 - Current active branch validation: `agent/predictive-source-lineage` passed full governed validation with `123` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `source_lineage.certification_state=partial_source_lineage`, with queue, priority, and category-derived fields marked not fully certified for prediction
 - Current active branch validation: `agent/m2-field-certification` passed focused validation for field-certification/predictive-source-lineage tests with `2 passed`, scoped route authority/scope propagation tests with `2 passed`, runtime local Postgres report execution, and full governed validation with `124` API tests, `11` Playwright browser tests, and clean `git diff --check`. Runtime field certification returned `partial_field_certification`, summary `certified=2`, `partial=1`, `source_limited=2`, and blockers `ticket_status_history`, `status_duration`, and `waiting_states`.
+- Current active branch validation: `agent/predictive-model-variants` has focused variant/model-comparison tests passing with `3 passed`, runtime local Postgres evaluation passing for 50-ticket and 100-ticket samples, and full governed validation passing with `125` API tests, `11` Playwright browser tests, and clean `git diff --check`. The 100-ticket holdout showed all variants retain default recall `0.0`; queue+priority has ROC AUC `0.613` and PR AUC `0.115`.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -28,8 +29,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Validate and merge `agent/m2-field-certification` if full governed validation and exact-head CI pass.
-2. Continue predictive work with broader model evaluation while keeping all outputs read-only and advisory.
+1. Validate and merge `agent/predictive-model-variants` if full governed validation and exact-head CI pass.
+2. Continue bounded TicketHistory/status-duration/waiting certification work while keeping all predictive outputs read-only and advisory.
 3. Update the existing Second Brain projection PR after this material slice merges.
 
 ## Milestone status

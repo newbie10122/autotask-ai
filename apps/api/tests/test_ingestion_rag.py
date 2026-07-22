@@ -1110,6 +1110,41 @@ def test_ticket_predictive_calibration_and_auc_metrics_are_review_only():
     assert auc["pr_auc"] == 0.834
 
 
+def test_ticket_predictive_variant_report_is_review_only_and_scored():
+    report = ticket_health_module._predictive_variant_report(
+        [
+            {
+                "actual_delayed": True,
+                "variant_rate": 0.8,
+                "variant_predicted": True,
+            },
+            {
+                "actual_delayed": False,
+                "variant_rate": 0.7,
+                "variant_predicted": True,
+            },
+            {
+                "actual_delayed": False,
+                "variant_rate": 0.1,
+                "variant_predicted": False,
+            },
+        ],
+        name="test_variant",
+        model_type="lightweight_statistical",
+        probability_key="variant_rate",
+        prediction_key="variant_predicted",
+        features=["current_queue"],
+        lineage_status="current-field proxy",
+    )
+
+    assert report["review_only"] is True
+    assert report["selection_allowed"] is False
+    assert report["metrics"]["precision"] == 0.5
+    assert report["brier_score"] == 0.18
+    assert report["threshold_sweep"][0]["threshold"] in {0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5}
+    assert report["lineage_status"] == "current-field proxy"
+
+
 def test_ticket_predictive_concentration_uses_sanitized_buckets():
     concentration = ticket_health_module._sanitized_concentration(
         [
