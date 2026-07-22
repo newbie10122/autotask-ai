@@ -277,6 +277,18 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
               certification_status: "certified",
               coverage_percent: 100,
               prediction_use: "excluded_until_certified_for_model_training"
+            },
+            {
+              key: "priority",
+              label: "Priority current-field/reference lineage",
+              certification_status: "partial",
+              coverage_percent: 100,
+              meaningful_label_coverage_percent: 75,
+              authoritative_label_coverage_percent: 25,
+              authoritative_label_rows: 25,
+              bootstrap_label_rows: 50,
+              inferred_label_rows: 25,
+              prediction_use: "excluded_until_certified_for_model_training"
             }
           ]
         })
