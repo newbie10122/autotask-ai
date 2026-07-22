@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `f6611aa` through PR #119; Second Brain PR #13 is open at head `9b9bca1` with local knowledge validation passing through PR #119 and TicketHistory schema probe evidence.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `8e031d1` through PR #121; Second Brain PR #13 is open at head `977d6be` with local knowledge validation passing through PR #121 and status source-candidate schema guidance evidence.
 
 ### R16 — CI runner environment differences
 
@@ -141,7 +141,7 @@
 **State:** Confirmed source limitation
 **Impact:** Local TicketHistory may be present for tickets while still lacking parseable status-transition events. Treating those rows as exact status-duration evidence would overstate waiting/customer/vendor/technician duration accuracy.
 **Evidence:** Branch `agent/status-transition-certification` adds scoped parser certification and local runtime evidence returned `parsed_status_transitions=0`, `timestamped_status_transitions=0`, and `source_limited=true` for the inspected TicketHistory sample. Branch `agent/status-transition-source-candidates` adds a scoped source-candidate report that classifies local TicketHistory, current status, proxy timestamps, and unprobed candidate Autotask status-history entities without running a live Autotask probe. Branch `agent/status-history-entity-probe` adds an Admin-only manual bounded read-only probe for candidate status-transition entities. PR #81 executes aggregate-only local shape inventory and finds `38648` TicketHistory rows with `100%` timestamp coverage but `0` structured status-transition rows; current waiting-state taxonomy is available as snapshot-only and `status_duration_summary()` no longer uses proxy timestamps as waiting-duration evidence.
-**Mitigation:** Keep status-duration and waiting-state analytics source-limited until parser-compatible status transitions are backfilled or another read-only Autotask source exposes timestamped status changes. Current status may support present-state filters/taxonomy only; do not feed historical duration fields into predictive models or certified ticket-health calculations until Milestone 2 source-lineage evidence improves. Any candidate status-history entity must pass the bounded read-only availability probe before a sync path is added.
+**Mitigation:** Keep status-duration and waiting-state analytics source-limited until parser-compatible status transitions are backfilled or another read-only Autotask source exposes timestamped status changes. Current status may support present-state filters/taxonomy only; do not feed historical duration fields into predictive models or certified ticket-health calculations until Milestone 2 source-lineage evidence improves. Any candidate status-history entity must pass the bounded read-only availability probe and TicketHistory schema probe guidance before a sync path is added.
 
 ### R15 — Future Autotask writeback
 
@@ -151,4 +151,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `9b9bca1` with local validation passing through PR #119 TicketHistory schema probe evidence; pending merge there does not block independent Autotask AI engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `977d6be` with local validation passing through PR #121 status source-candidate schema guidance evidence; pending merge there does not block independent Autotask AI engineering.
