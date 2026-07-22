@@ -11,9 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `ce74485`, which merged PR `newbie10122/autotask-ai#101` (`Expose reference lineage source authority`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#101` run `29954546273`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for reference-lineage source authority passed focused API reference/field-certification tests with `7 passed`, focused Operations browser validation with `1 passed`, full repository validation with `158 passed`, and Playwright browser smoke with `13 passed`.
-- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `93ad3a6` after recording Autotask AI progress through PR #101; local `python3 tools/validate_knowledge.py` passed with `107` Markdown files, `107` unique IDs, and `219` internal links.
+- Canonical `main` is `8910014`, which merged PR `newbie10122/autotask-ai#103` (`Report reference label source candidates`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#103` run `29956218766`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for reference-label source candidates passed focused API reference/field-certification tests with `7 passed`, full repository validation with `158 passed`, and Playwright browser smoke with `13 passed`.
+- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `1068a9d` after recording Autotask AI progress through PR #103; local `python3 tools/validate_knowledge.py` passed with `108` Markdown files, `108` unique IDs, and `224` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -77,7 +77,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #97 records local pause/resume provenance in Operations settings/status and success audits: action, actor, reason, timestamp, and policy flags proving local metadata only, no job execution, and no Autotask writes.
 - PR #99 preserves bootstrap reference-label provenance during reference sync, reports reference label counts by source, and displays bootstrap/inferred/source counts in the UI.
 - PR #101 separates meaningful local reference labels from authoritative Autotask-sourced labels in reference lineage, field certification, and Operations field-certification cards.
-- Current branch `agent/m2-reference-label-source-candidates` adds aggregate-only raw candidate label-key evidence to reference lineage and field certification, including the corrected category raw source key `ticketCategory`.
+- PR #103 adds aggregate-only raw candidate label-key evidence to reference lineage and field certification, including the corrected category raw source key `ticketCategory`.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -136,22 +136,22 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge reference-label source-candidate evidence.
+1. Record reference-label source-candidate merge evidence.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 reference-label source-candidate evidence
+## Current receipt — Milestone 2 reference-label source-candidate merge evidence
 
-- **Slice:** Add aggregate raw candidate label-key evidence on branch `agent/m2-reference-label-source-candidates` from canonical `main` `0f47f56`.
-- **State:** `partial_foundation`; local ticket payloads can now prove whether raw display-label candidate keys exist, but authoritative reference-label completeness remains open.
-- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
-- **Implemented:** Reference lineage now reports bounded aggregate source candidates for priority, category, issue type, subissue type, queue, and status without returning raw labels. It also corrects category raw value lineage to `ticketCategory`, matching the sync mapping.
+- **Slice:** Record reference-label source-candidate merge evidence after PR #103 and Second Brain PR #13 update.
+- **State:** `partial_foundation`; local ticket payloads can prove whether raw display-label candidate keys exist, but authoritative reference-label completeness remains open.
+- **Files changed:** Project status docs only.
+- **Implemented by PR #103:** Reference lineage now reports bounded aggregate source candidates for priority, category, issue type, subissue type, queue, and status without returning raw labels. It also corrects category raw value lineage to `ticketCategory`, matching the sync mapping.
 - **Runtime evidence:** Local API rebuild returned Nginx `/ready` `HTTP 200`; `/api/ticket-health/field-certification` returned source-candidate state `raw_label_candidates_unavailable` with `5000` sampled tickets, `6` fields, `0` fields with candidate labels, and corrected category raw key `ticketCategory`.
-- **Validation:** Focused API validation passed with `7 passed`; full repository validation passed with `158` API tests and `13` Playwright tests; `git diff --check` passed. GitHub CI is still required before merge.
-- **Read-only/authority evidence:** This branch only changes local aggregate certification/reporting. It does not run reference sync, sync jobs, live Autotask probes, production deployment, model threshold/workflow changes, routing/assignment changes, or Autotask writes.
-- **Rollback:** Revert this branch commit; reference lineage returns to source-authority evidence without raw label-key candidate coverage.
-- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+- **Validation:** PR #103 CI run `29956218766` passed; focused API validation passed with `7 passed`; full repository validation passed with `158` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only reconciliation requires docs whitespace validation and CI before merge.
+- **Read-only/authority evidence:** This docs-only branch does not run reference sync, sync jobs, live Autotask probes, production deployment, model threshold/workflow changes, routing/assignment changes, or Autotask writes.
+- **Rollback:** Revert this docs-only commit; application behavior remains the PR #103 behavior on canonical main.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `1068a9d` and records PR #103 reference-label source-candidate evidence with local knowledge validation passing.
 
 ## Historical receipt — Milestone 2 reference-lineage source-authority merge evidence
 
@@ -998,8 +998,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `93ad3a6`. It records Autotask AI progress through PR #101, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, PR #99 reference-label provenance evidence, and PR #101 reference-lineage source-authority evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `107` Markdown files, `107` unique IDs, and `219` internal links.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `1068a9d`. It records Autotask AI progress through PR #103, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, PR #99 reference-label provenance evidence, PR #101 reference-lineage source-authority evidence, and PR #103 reference-label source-candidate evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `108` Markdown files, `108` unique IDs, and `224` internal links.
 
 ## Exact next action
 
-Commit and merge this pause/resume provenance merge-evidence reconciliation, then continue the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
+Commit and merge this reference-label source-candidate merge-evidence reconciliation, then continue the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
