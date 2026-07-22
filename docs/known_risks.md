@@ -1,6 +1,6 @@
 # Autotask AI Known Risks
 
-**Updated:** 2026-07-21
+**Updated:** 2026-07-22
 
 ## Critical and high risks
 
@@ -130,7 +130,10 @@
 ### R14 — Prediction and routing bias
 
 **Severity:** Deferred but material
-**Mitigation:** Explainable baselines, holdout evaluation, calibration, reason codes, abstention, fairness/concentration review, and recommendation-only authority. The `agent/predictive-ticket-review-ranking` foundation keeps ranking review-only, emits sample size/confidence/limitations, and abstains on low scoped historical samples; `agent/predictive-evaluation-baseline` adds initial holdout metrics against a simple priority baseline; `agent/predictive-threshold-sweep` adds advisory F1/threshold-sweep evidence without auto-tuning. Bias/concentration review and production certification remain required before predictive claims are trusted.
+**State:** Partially mitigated; evaluation caveat found.
+**Impact:** Aggregate accuracy can look strong while the current signal misses delayed tickets, and lower thresholds can improve recall only by accepting substantial false positives. This could mislead technicians if presented as an automatic or trusted predictor.
+**Evidence:** On canonical `main` `c688c6d622e60e866ee63302a1f577f498635741`, the local 100-ticket holdout for `/api/ticket-health/predictive-evaluation?limit=100&delayed_days_threshold=7` returned default statistical `accuracy=0.94`, `precision=null`, `recall=0.0`, and `f1=0.0`; the advisory best-F1 threshold `0.05` returned `accuracy=0.3`, `precision=0.068`, `recall=0.833`, and `f1=0.125`.
+**Mitigation:** Keep predictive ranking and threshold-sweep output review-only. Do not auto-select the highest-F1 threshold and do not deploy threshold, model, routing, escalation, notification, assignment, or workflow changes from this evidence. Next work must document target/label semantics, calibration, Brier/PR/ROC metrics, threshold confusion, coverage/abstention, sanitized client/category concentration, and a human-review threshold policy before predictive claims are trusted.
 
 ### R15 — Future Autotask writeback
 

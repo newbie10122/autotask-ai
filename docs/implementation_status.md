@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `96a3e9503b0195af8157324afb6824a04aeb03e0`, which merged PR `newbie10122/autotask-ai#37`.
+- Canonical `main` is `c688c6d622e60e866ee63302a1f577f498635741`, which merged PR `newbie10122/autotask-ai#42`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -70,7 +70,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
 - Answer-safety and security/isolation have candidate three-run local Quality Streak harnesses and local 3/3 evidence, but live production-auth deployment evidence remains open; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
-- Ticket-health related-data synchronization is automated and now visibly inspectable in the Operations UI, but historical estate coverage still requires continued bounded scheduled sweeps and field/source-lineage certification.
+- Ticket-health related-data synchronization is automated and now visibly inspectable in the Operations UI. Runtime evidence on 2026-07-22 showed the scheduler healthy, recent scheduled jobs completing, and local counts at `tickets=67726`, `time_entries=49636`, and `ticket_history=29582`; historical estate coverage still requires continued bounded scheduled sweeps and field/source-lineage certification.
+- Predictive evaluation currently shows that the default Bayesian delay signal has high aggregate accuracy but zero delayed-ticket recall on the local 100-ticket holdout: `accuracy=0.94`, `recall=0.0`, `f1=0.0`. The advisory best-F1 threshold in that same report is `0.05`, with `precision=0.068`, `recall=0.833`, and `f1=0.125`; this is evidence for human review only and does not authorize automatic threshold, model, routing, escalation, or workflow changes.
 
 ## Milestone table
 
@@ -83,17 +84,18 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 | 4. Redis and CPU performance | not_started | Scoped cache design and benchmarks |
 | 5. Real-time technician updates | not_started | Authorized event architecture |
 | 6. Technician Performance Assistant | partial_foundation | Current RAG exists; guided/draft workflows not certified |
-| 7. Predictive Service Intelligence | partial_foundation | Review-only statistical ticket ranking exists; holdout evaluation, bias review, and production certification remain open |
+| 7. Predictive Service Intelligence | partial_foundation | Review-only statistical ticket ranking plus initial holdout/threshold evidence exists; target semantics, calibration, leakage review, bias/concentration review, shadow evaluation, and production certification remain open |
 | 8. Routing recommendations | not_started | Resource/workload data and evaluation |
 | 9. Customer Success Intelligence | not_started | Certified internal capabilities |
 | 10. Production certification/99% closeout | not_started | All target milestones and evidence |
 
 ## Active execution queue
 
-1. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence.
-2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
-3. Expand review-only predictive ranking with offline evaluation/baselines and bias checks after data certification improves.
-4. Build capability-specific Quality Streak receipts without marking milestones complete prematurely.
+1. Reconcile stale control documents to canonical `main` `c688c6d622e60e866ee63302a1f577f498635741`, PR #42, current CI/runtime evidence, current Second Brain projection state, and the actual predictive evaluation finding.
+2. Expand review-only predictive evaluation with documented target/label semantics, calibration bands, Brier/PR/ROC secondary metrics, threshold confusion evidence, coverage/abstention, sanitized concentration checks, and a human-review threshold policy artifact.
+3. Add a local read-only shadow evaluation mechanism over a bounded recent sample; it must not write to Autotask, send notifications, alter ranking thresholds, or trigger workflow/routing/escalation changes.
+4. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
+5. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
 Parallel-safe work after roadmap merge:
 
@@ -111,14 +113,14 @@ None currently identified for documentation and non-production implementation wo
 
 ## Latest receipt — Predictive threshold sweep
 
-- **Slice:** Add predictive evaluation threshold-sweep evidence on branch `agent/predictive-threshold-sweep` from canonical `main` `42729ef339fac1eff582eb45dead9c065e86021f`.
+- **Slice:** Add predictive evaluation threshold-sweep evidence on branch `agent/predictive-threshold-sweep`; merged as PR `newbie10122/autotask-ai#42` into canonical `main` `c688c6d622e60e866ee63302a1f577f498635741`.
 - **State:** `partial_foundation`; the evaluation report can now compare candidate Bayesian delay thresholds by precision, recall, and F1, but no threshold changes are applied automatically and Milestone 7 still requires bias/concentration review and production certification.
 - **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
 - **Implemented:** Predictive evaluation metrics now include F1, and `/api/ticket-health/predictive-evaluation` returns `threshold_sweep` plus `best_threshold_by_f1` as advisory evidence. The sweep is explicitly review-only and does not tune weights or alter ranking behavior.
-- **Validation:** focused container tests passed with `2 passed`: binary metric F1 and threshold sweep ordering.
+- **Validation:** focused container tests passed with `2 passed`: binary metric F1 and threshold sweep ordering. GitHub Actions run `29882172665` passed workflow `CI`, job `Validate Autotask AI`, for PR #42 before merge. Local runtime evaluation on 2026-07-22 returned holdout size `100`, training groups `32`, default statistical `accuracy=0.94`, `recall=0.0`, `f1=0.0`, and advisory best-F1 threshold `0.05` with `precision=0.068`, `recall=0.833`, and `f1=0.125`.
 - **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added.
 - **Rollback:** Revert this branch commit; predictive evaluation remains available without F1/threshold-sweep evidence.
-- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#6` was updated through PR #42 at branch head `8a7919e89b5f171a84d3be3913b4c54a971e6925` with local `python3 tools/validate_knowledge.py` passing. It is not marked merged.
 
 ## Previous receipt — Predictive evaluation baseline
 
@@ -551,8 +553,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `07423b9` records PR #16, canonical commit `a4f02bc0987dfe0ba9cb0fd6164d67310acb2cc6`, unsupported-claim verifier breadth, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, scheduler heartbeat repair, and runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `8a7919e89b5f171a84d3be3913b4c54a971e6925` records Autotask AI PR #42, canonical commit `c688c6d622e60e866ee63302a1f577f498635741`, predictive threshold evidence, prior predictive evaluation/ranking/UI work, operations automation visibility, Ask Assistant ticket-detail links, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
-Merge the current Milestone 1 browser UI RBAC smoke branch after CI passes, update the existing Second Brain projection, then continue Milestone 1 closeout with broader accessibility evidence, source-sufficiency certification, and Quality Streak receipts.
+Complete the control-document reconciliation branch, validate it, open/merge the PR if CI passes, update the existing Second Brain projection, then begin the next safe predictive evaluation slice: target/label semantics, calibration/Brier/PR/ROC evidence, threshold confusion/coverage/abstention evidence, sanitized concentration analysis, human-review threshold policy, and local read-only shadow evaluation.
