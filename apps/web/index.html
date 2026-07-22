@@ -76,6 +76,16 @@
           <button data-rating="Needs Edit" data-requires-role="Technician" type="button">Needs Edit</button>
           <button data-rating="Save as Known Fix" data-requires-role="Technician" type="button">Save as Known Fix</button>
         </div>
+        <div id="ticketModal" class="modal-overlay" hidden>
+          <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="ticketModalTitle">
+            <div class="section-row">
+              <h3 id="ticketModalTitle">Ticket Details</h3>
+              <button id="closeTicketModal" class="secondary-button" type="button">Close</button>
+            </div>
+            <div id="ticketModalStatus" class="result">Loading ticket details.</div>
+            <div id="ticketModalBody" class="ticket-detail-grid"></div>
+          </div>
+        </div>
       </section>
 
       <section id="analytics">
@@ -284,6 +294,148 @@
         (items && items.length ? items : [empty]).forEach((item) => {
           const li = document.createElement("li");
           li.textContent = item;
+          el.appendChild(li);
+        });
+      };
+      const formatValue = (value) => {
+        if (value === null || value === undefined || value === "") return "Not available";
+        if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(2);
+        return String(value);
+      };
+      const renderKeyValue = (target, label, value) => {
+        const row = document.createElement("div");
+        const key = document.createElement("span");
+        key.textContent = label;
+        const strong = document.createElement("strong");
+        strong.textContent = formatValue(value);
+        row.append(key, strong);
+        target.appendChild(row);
+      };
+      const showTicketModal = () => {
+        document.getElementById("ticketModal").hidden = false;
+        document.getElementById("closeTicketModal").focus();
+      };
+      const hideTicketModal = () => {
+        document.getElementById("ticketModal").hidden = true;
+      };
+      const renderTicketDetail = (data) => {
+        const status = document.getElementById("ticketModalStatus");
+        const body = document.getElementById("ticketModalBody");
+        body.innerHTML = "";
+        if (!data || data.ok === false) {
+          status.textContent = `Ticket detail unavailable: ${data?.error || "request failed"}.`;
+          return;
+        }
+        const ticket = data.ticket || {};
+        document.getElementById("ticketModalTitle").textContent = `Ticket ${formatValue(ticket.ticket_number || ticket.autotask_id)}`;
+        status.textContent = "Loaded from local ticket-health evidence. No Autotask data was changed.";
+
+        const summary = document.createElement("div");
+        summary.className = "detail-card";
+        const summaryTitle = document.createElement("h4");
+        summaryTitle.textContent = "Summary";
+        summary.appendChild(summaryTitle);
+        renderKeyValue(summary, "Title", ticket.title);
+        renderKeyValue(summary, "Status", ticket.status_label || ticket.status);
+        renderKeyValue(summary, "Priority", ticket.priority_label || ticket.priority);
+        renderKeyValue(summary, "Queue", ticket.queue_label || ticket.queue);
+        renderKeyValue(summary, "Assigned", ticket.assigned_resource_name || ticket.assigned_resource_id);
+        renderKeyValue(summary, "Health", ticket.health_score);
+        renderKeyValue(summary, "Risk", ticket.risk_bucket);
+        body.appendChild(summary);
+
+        const duration = document.createElement("div");
+        duration.className = "detail-card";
+        const durationTitle = document.createElement("h4");
+        durationTitle.textContent = "Status Duration";
+        duration.appendChild(durationTitle);
+        const durationSummary = data.status_duration_summary || {};
+        renderKeyValue(duration, "Current status", durationSummary.current_status || ticket.status_label || ticket.status);
+        renderKeyValue(duration, "Current duration hours", durationSummary.current_duration_hours);
+        renderKeyValue(duration, "Transitions", (data.transitions || []).length);
+        body.appendChild(duration);
+
+        const history = document.createElement("div");
+        history.className = "detail-card detail-card-wide";
+        const historyTitle = document.createElement("h4");
+        historyTitle.textContent = "Recent History";
+        history.appendChild(historyTitle);
+        const historyList = document.createElement("ul");
+        (data.history_events || []).slice(0, 8).forEach((event) => {
+          const item = document.createElement("li");
+          item.textContent = `${formatValue(event.happened_at)} - ${formatValue(event.action)}: ${formatValue(event.detail)}`;
+          historyList.appendChild(item);
+        });
+        if (!historyList.children.length) {
+          const item = document.createElement("li");
+          item.textContent = "No local history events found.";
+          historyList.appendChild(item);
+        }
+        history.appendChild(historyList);
+        body.appendChild(history);
+
+        const labor = document.createElement("div");
+        labor.className = "detail-card detail-card-wide";
+        const laborTitle = document.createElement("h4");
+        laborTitle.textContent = "Recent Labor";
+        labor.appendChild(laborTitle);
+        const laborList = document.createElement("ul");
+        (data.labor_entries || []).slice(0, 8).forEach((entry) => {
+          const item = document.createElement("li");
+          item.textContent = `${formatValue(entry.created_at_autotask)} - ${formatValue(entry.resource_name || entry.resource_id)}: ${formatValue(entry.hours)}h ${formatValue(entry.summary)}`;
+          laborList.appendChild(item);
+        });
+        if (!laborList.children.length) {
+          const item = document.createElement("li");
+          item.textContent = "No local labor entries found.";
+          laborList.appendChild(item);
+        }
+        labor.appendChild(laborList);
+        body.appendChild(labor);
+
+        const warnings = document.createElement("div");
+        warnings.className = "detail-card detail-card-wide";
+        const warningsTitle = document.createElement("h4");
+        warningsTitle.textContent = "Warnings";
+        warnings.appendChild(warningsTitle);
+        const warningList = document.createElement("ul");
+        (data.warnings || ["None"]).forEach((warning) => {
+          const item = document.createElement("li");
+          item.textContent = warning;
+          warningList.appendChild(item);
+        });
+        warnings.appendChild(warningList);
+        body.appendChild(warnings);
+      };
+      const openTicketDetail = async (ticketNumber) => {
+        document.getElementById("ticketModalTitle").textContent = `Ticket ${ticketNumber}`;
+        document.getElementById("ticketModalStatus").textContent = "Loading ticket details.";
+        document.getElementById("ticketModalBody").innerHTML = "";
+        showTicketModal();
+        try {
+          const data = await api(`/api/ticket-health/ticket-number/${encodeURIComponent(ticketNumber)}`);
+          renderTicketDetail(data);
+        } catch (error) {
+          document.getElementById("ticketModalStatus").textContent = `Ticket detail unavailable: ${error.message}`;
+        }
+      };
+      const renderBasedOnTickets = (items) => {
+        const el = document.getElementById("basedOnTickets");
+        el.innerHTML = "";
+        if (!items || !items.length) {
+          const li = document.createElement("li");
+          li.textContent = "No related tickets selected.";
+          el.appendChild(li);
+          return;
+        }
+        items.forEach((item) => {
+          const li = document.createElement("li");
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "link-button";
+          button.textContent = item;
+          button.addEventListener("click", () => openTicketDetail(item));
+          li.appendChild(button);
           el.appendChild(li);
         });
       };
@@ -550,7 +702,7 @@
           currentAnswerId = data.answer_id;
           renderAnswer(data.answer);
           document.getElementById("confidence").textContent = `Confidence: ${data.confidence}`;
-          writeList(document.getElementById("basedOnTickets"), data.based_on_tickets, "No related tickets selected.");
+          renderBasedOnTickets(data.based_on_tickets);
           writeList(document.getElementById("warnings"), data.warnings, "None");
           setAskStatus("done", "Assistant response complete.");
           await loadAudit();
@@ -566,6 +718,14 @@
           button.disabled = false;
           button.textContent = "Ask";
         }
+      });
+
+      document.getElementById("closeTicketModal").addEventListener("click", hideTicketModal);
+      document.getElementById("ticketModal").addEventListener("click", (event) => {
+        if (event.target.id === "ticketModal") hideTicketModal();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") hideTicketModal();
       });
 
       document.getElementById("loginButton").addEventListener("click", async () => {

@@ -19,7 +19,7 @@ async function stopStaticServer(server) {
   await new Promise((resolve) => server.close(resolve));
 }
 
-async function stubApi(page, { routeAuthRequired = true, user = null, askHandler = null } = {}) {
+async function stubApi(page, { routeAuthRequired = true, user = null, askHandler = null, ticketDetailHandler = null } = {}) {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     const pathname = url.pathname;
@@ -92,6 +92,9 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
     }
     if (pathname === "/api/assistant/ask" && askHandler) {
       return askHandler(route);
+    }
+    if (pathname.startsWith("/api/ticket-health/ticket-number/") && ticketDetailHandler) {
+      return ticketDetailHandler(route);
     }
     return route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true }) });
   });

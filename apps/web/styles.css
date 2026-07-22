@@ -151,6 +151,23 @@ button:disabled {
   background: #94a3b8;
   color: #f8fafc;
 }
+.secondary-button {
+  background: #334155;
+}
+.secondary-button:hover {
+  background: #1f2937;
+}
+.link-button {
+  background: transparent;
+  color: var(--accent-dark);
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+}
+.link-button:hover {
+  background: transparent;
+  color: var(--accent);
+}
 
 .metrics, .connection-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -268,6 +285,64 @@ th, td {
 .issue-item { display: grid; gap: 6px; }
 .issue-item span { color: var(--muted); font-size: 13px; }
 .issue-item ul { margin: 4px 0 0; padding-left: 18px; }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, .48);
+}
+.modal-overlay[hidden] {
+  display: none;
+}
+.modal-panel {
+  width: min(980px, 100%);
+  max-height: min(86vh, 900px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .24);
+  padding: 20px;
+}
+.ticket-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.detail-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #ffffff;
+}
+.detail-card-wide {
+  grid-column: 1 / -1;
+}
+.detail-card h4 {
+  margin: 0 0 10px;
+  color: var(--accent-dark);
+}
+.detail-card div {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #eef2f7;
+}
+.detail-card div:first-of-type {
+  border-top: 0;
+}
+.detail-card span {
+  color: var(--muted);
+}
+.detail-card strong,
+.detail-card li {
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 760px) {
   body {
@@ -290,5 +365,7 @@ th, td {
   .status-pills { justify-content: flex-start; }
   .section-row { align-items: stretch; flex-direction: column; }
   .section-row select { max-width: none; }
+  .ticket-detail-grid { grid-template-columns: 1fr; }
+  .detail-card div { grid-template-columns: 1fr; }
   main { padding: 16px; }
 }
