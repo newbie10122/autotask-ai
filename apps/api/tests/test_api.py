@@ -421,6 +421,102 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
     assert curated_read.metadata["item_count"] == 1
 
 
+def test_audit_log_supports_bounded_admin_filters_and_audits_read(monkeypatch):
+    events = []
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr("app.db.db_connection", lambda: (_ for _ in ()).throw(RuntimeError("database unavailable")))
+    monkeypatch.setattr(audit_sink, "entries", [
+        AuditLogEntry(actor="tech", action=AuditAction.search, target="analytics.recurring_issues", outcome="success"),
+        AuditLogEntry(actor="reader", action=AuditAction.authorization_denied, target="api.secret", outcome="denied"),
+        AuditLogEntry(actor="admin", action=AuditAction.admin_action, target="operations.pause", outcome="success"),
+    ])
+
+    def record_and_capture(entry):
+        events.append(entry)
+        audit_sink.entries.append(entry)
+        return entry
+
+    monkeypatch.setattr(audit_sink, "record", record_and_capture)
+    token = create_session_token("admin", [Role.admin.value])["token"]
+
+    response = client.get(
+        "/audit-log?action=authorization_denied&outcome=denied&actor=reader&limit=5",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["filters"] == {"actor": "reader", "action": "authorization_denied", "outcome": "denied"}
+    assert payload["limit"] == 5
+    assert [entry["actor"] for entry in payload["entries"]] == ["reader"]
+    assert payload["entries"][0]["target"] == "api.secret"
+    audit_event = next(event for event in events if event.target == "audit_log.read")
+    assert audit_event.actor == "admin"
+    assert audit_event.scope == {"global": True}
+    assert audit_event.metadata["limit"] == 5
+    assert audit_event.metadata["filters"] == {
+        "actor": "reader",
+        "action": "authorization_denied",
+        "outcome": "denied",
+    }
+
+
+def test_audit_log_rejects_unbounded_limit_when_route_auth_enabled(monkeypatch):
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    token = create_session_token("admin", [Role.admin.value])["token"]
+
+    response = client.get("/audit-log?limit=1000", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 422
+
+
+def test_operations_read_routes_record_actor_scope_and_safe_metadata(monkeypatch):
+    events = []
+    monkeypatch.setattr(settings, "app_route_auth_required", True)
+    monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
+    monkeypatch.setattr(
+        "app.main.operations_status",
+        lambda cache_context=None: {
+            "ok": True,
+            "scheduler": {"state": "healthy"},
+            "counts": {"tickets": 7},
+            "cache_context": cache_context,
+        },
+    )
+    monkeypatch.setattr("app.main.operations_settings", lambda: {"global_pause": False, "sync_enabled": True})
+    monkeypatch.setattr("app.main.operations_jobs", lambda: {"jobs": [{"name": "recent_sync"}, {"name": "ticket_history_gaps"}]})
+    monkeypatch.setattr("app.main.job_runs", lambda limit=100: {"runs": [{"id": 1}, {"id": 2}], "limit": limit})
+    token = create_session_token("reader", [Role.readonly.value])["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    routes = [
+        ("/api/operations/status", "operations.status.read"),
+        ("/api/operations/settings", "operations.settings.read"),
+        ("/api/operations/jobs", "operations.jobs.read"),
+        ("/api/operations/jobs/runs", "operations.job_runs.read"),
+    ]
+
+    for path, _target in routes:
+        response = client.get(path, headers=headers)
+        assert response.status_code == 200, path
+
+    read_events = [event for event in events if event.action == AuditAction.search]
+    assert {event.target for event in read_events} >= {target for _path, target in routes}
+    for event in read_events:
+        assert event.actor == "reader"
+        assert event.outcome == "success"
+        assert event.scope == {"global": True}
+        assert event.metadata["roles"] == [Role.readonly.value]
+    status_event = next(event for event in read_events if event.target == "operations.status.read")
+    assert status_event.metadata["scheduler_state"] == "healthy"
+    settings_event = next(event for event in read_events if event.target == "operations.settings.read")
+    assert settings_event.metadata["setting_count"] == 2
+    jobs_event = next(event for event in read_events if event.target == "operations.jobs.read")
+    assert jobs_event.metadata["job_count"] == 2
+    runs_event = next(event for event in read_events if event.target == "operations.job_runs.read")
+    assert runs_event.metadata == {"roles": [Role.readonly.value], "run_count": 2, "limit": 100}
+
+
 def test_assistant_ask_denies_authenticated_user_without_company_scope(monkeypatch):
     monkeypatch.setattr(settings, "app_route_auth_required", True)
     monkeypatch.setattr("app.main.authorized_company_ids_for_user", lambda _user: [])

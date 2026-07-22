@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `0516706387056409668a2e9e266c7cee0211f4c8`, which merged PR `newbie10122/autotask-ai#70` (`Expose calibrated predictive ranking signal`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#70` run `29893774960`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local governed validation passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `135 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
+- Canonical `main` is `ffd53e9dbe26bcbf20f7c8669d8c895a6381f6bd`, which merged PR `newbie10122/autotask-ai#71` (`Record Second Brain projection merge`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#71` run `29923309671`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local governed validation passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `135 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
 - Second Brain projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after recording Autotask AI progress through PR #70 at projection branch head `4306bcc`; local `python3 tools/validate_knowledge.py` passed before merge.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -62,6 +62,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Conversational behavior branch `agent/ticket-history-only-no-llm` makes Ticket History Only deterministic and local-evidence-only; it skips the local chat model while keeping generated prose explicit to General + Ticket History and Deep Dive.
 - Conversational UI branch `agent/ask-mode-ready-status` makes Ask Assistant ready text mode-specific so Ticket History Only no longer advertises local CPU model wait time.
 - Milestone 1 admin-read audit branch `agent/m1-audit-scope-closeout` records durable success audit events for admin reads of the audit log and pending curated-memory queue, including actor, roles, global scope, and safe count metadata.
+- Milestone 1 audit inspection branch `agent/audit-log-filtering` adds bounded Admin-only audit-log filters and records success audits for Operations inspection read routes with actor, roles, global scope, and compact safe count/state metadata.
 - Milestone 2 related-data catch-up cadence branch `agent/m2-related-data-catchup-cadence` increases bounded estate TimeEntries/TicketHistory gap batch defaults to `100` and exposes estimated bounded runs remaining in the Operations related-data work plan.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
@@ -114,10 +115,22 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 ## Active execution queue
 
 1. Treat status-duration/waiting as source-limited unless parser-compatible status transitions are backfilled or another read-only Autotask source becomes available.
-2. Continue the next safe Milestone 1 audit/scope closeout slice in parallel where file ownership is isolated.
+2. Validate and merge the current Milestone 1 audit inspection slice, then create a new governed Second Brain projection PR for the material audit state change.
 3. Continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work using existing local TimeEntries/TicketHistory coverage and bounded scheduled jobs.
 4. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 5. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+
+## Current receipt — Milestone 1 audit inspection coverage
+
+- **Slice:** Add bounded audit-log filtering and Operations read inspection audits on branch `agent/audit-log-filtering` from canonical `main` `ffd53e9dbe26bcbf20f7c8669d8c895a6381f6bd`.
+- **State:** `partial`; durable audit inspection coverage is stronger, but full workflow audit certification, live production-auth deployment evidence, and capability-specific Quality Streak evidence remain open.
+- **Files changed:** `apps/api/app/audit.py`, `apps/api/app/main.py`, `apps/api/tests/test_api.py`, and project status docs.
+- **Implemented:** `GET /audit-log` remains Admin-only and now accepts bounded `actor`, `action`, `outcome`, `target`, and `limit` filters, returns the applied filter contract, and records the read with safe filter/limit metadata. Operations read routes for status, settings, jobs, and job runs now record identity-linked success audit events with compact scheduler state/count metadata when inspected.
+- **Validation:** Initial focused container command without the governed `/workspace` mount found no tests because the API image workdir only contains the copied app. Rerun with the validator mount pattern passed: `docker compose run --rm -T --no-deps -v "$PWD":/workspace -w /workspace api pytest apps/api/tests/test_api.py -q` returned `34 passed`. Full governed validation passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `138 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live Autotask probe, model workflow change, or Autotask write capability was run or added.
+- **Rollback:** Revert this branch commit; no migration is included and audit-log reads/Operations reads return to prior behavior.
+- **Verifier:** Read-only sidecar recommended Operations inspection read audit coverage as the highest-value safe Milestone 1 slice; coordinator integrated it with the audit-log filtering slice.
+- **Second Brain state:** `pending-update`; create a new governed Second Brain projection branch/PR after this Autotask AI PR is merged.
 
 Parallel-safe work after roadmap merge:
 
@@ -736,8 +749,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`merged` — projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`. The merged projection records Autotask AI progress through PR #70, canonical commit `0516706387056409668a2e9e266c7cee0211f4c8`, calibrated predictive ranking evidence, related-data catch-up visibility, admin inspection read audit coverage, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, prior predictive evaluation/ranking/UI work, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` before merge.
+`pending-update` — projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`, recording Autotask AI progress through PR #70. PR #71 is recorded in project-local evidence on canonical `main`; after this material audit inspection PR merges, create a new governed Second Brain projection branch/PR that includes PR #71 and this audit slice. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` before the PR #6 merge.
 
 ## Exact next action
 
-Validate and merge this Second Brain merge-state reconciliation branch, then continue the next safe Milestone 1 audit/scope closeout, Milestone 2 field/source-lineage certification, and review-only predictive evaluation work. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
+Validate and merge `agent/audit-log-filtering`, create the next governed Second Brain projection PR for the material audit update, then continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.

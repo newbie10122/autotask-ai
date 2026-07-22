@@ -2,7 +2,7 @@ from typing import Literal
 
 from collections.abc import Callable
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -337,9 +337,39 @@ def get_settings() -> dict:
 
 
 @app.get("/audit-log")
-def audit_log(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    record_success_audit(AuditAction.admin_action, "audit_log.read", _user, audit_scope())
-    return {"entries": [entry.model_dump(mode="json") for entry in audit_sink.list_recent()]}
+def audit_log(
+    actor: str | None = Query(default=None, min_length=1, max_length=128),
+    action: AuditAction | None = None,
+    outcome: str | None = Query(default=None, min_length=1, max_length=64),
+    target: str | None = Query(default=None, min_length=1, max_length=160),
+    limit: int = Query(default=100, ge=1, le=500),
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
+    filters = {
+        key: value
+        for key, value in {
+            "actor": actor,
+            "action": action.value if action else None,
+            "outcome": outcome,
+            "target": target,
+        }.items()
+        if value is not None
+    }
+    record_success_audit(
+        AuditAction.admin_action,
+        "audit_log.read",
+        _user,
+        audit_scope(),
+        {"filters": filters, "limit": limit},
+    )
+    entries = audit_sink.list_recent(
+        actor=actor,
+        action=action,
+        outcome=outcome,
+        target=target,
+        limit=limit,
+    )
+    return {"entries": [entry.model_dump(mode="json") for entry in entries], "filters": filters, "limit": limit}
 
 
 @app.get("/api/autotask/threshold")
@@ -883,20 +913,45 @@ def api_routing_feedback(
 @app.get("/api/operations/status")
 def api_operations_status(request: Request) -> dict:
     if not settings.app_route_auth_required:
-        return operations_status()
+        result = operations_status()
+        record_success_audit(
+            AuditAction.search,
+            "operations.status.read",
+            None,
+            audit_scope(),
+            {"scheduler_state": (result.get("scheduler") or {}).get("state")},
+        )
+        return result
     user = current_user(request)
-    return operations_status(
+    result = operations_status(
         {
             "authority_class": "authenticated-read",
             "roles": user.get("roles") or ["Authenticated"],
             "scope": audit_scope(),
         }
     )
+    record_success_audit(
+        AuditAction.search,
+        "operations.status.read",
+        user,
+        audit_scope(),
+        {"scheduler_state": (result.get("scheduler") or {}).get("state")},
+    )
+    return result
 
 
 @app.get("/api/operations/settings")
-def api_operations_settings() -> dict:
-    return {"ok": True, "settings": operations_settings()}
+def api_operations_settings(request: Request) -> dict:
+    user = current_user(request) if settings.app_route_auth_required else None
+    result = {"ok": True, "settings": operations_settings()}
+    record_success_audit(
+        AuditAction.search,
+        "operations.settings.read",
+        user,
+        audit_scope(),
+        {"setting_count": len(result["settings"])},
+    )
+    return result
 
 
 @app.post("/api/operations/settings")
@@ -907,13 +962,31 @@ def api_update_operations_settings(payload: OperationsSettingsRequest, _user: di
 
 
 @app.get("/api/operations/jobs")
-def api_operations_jobs() -> dict:
-    return operations_jobs()
+def api_operations_jobs(request: Request) -> dict:
+    user = current_user(request) if settings.app_route_auth_required else None
+    result = operations_jobs()
+    record_success_audit(
+        AuditAction.search,
+        "operations.jobs.read",
+        user,
+        audit_scope(),
+        {"job_count": len(result.get("jobs") or [])},
+    )
+    return result
 
 
 @app.get("/api/operations/jobs/runs")
-def api_operations_job_runs() -> dict:
-    return job_runs()
+def api_operations_job_runs(request: Request) -> dict:
+    user = current_user(request) if settings.app_route_auth_required else None
+    result = job_runs()
+    record_success_audit(
+        AuditAction.search,
+        "operations.job_runs.read",
+        user,
+        audit_scope(),
+        {"run_count": len(result.get("runs") or []), "limit": result.get("limit")},
+    )
+    return result
 
 
 @app.post("/api/operations/jobs/{job_name}/run")
