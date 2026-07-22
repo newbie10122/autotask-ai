@@ -111,6 +111,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: `npm run test:web` passed with `8 passed`; full `./scripts/validate-ci.sh` passed with production-auth preflight, 10 ordered migrations, full pytest `112 passed`, static web JavaScript syntax, Playwright browser smoke `8 passed`, and `git diff --check`. This is conversational UI evidence only; live production-auth deployment evidence remains required.
 - Current branch evidence on `agent/answer-ticket-links`: Ask Assistant ticket IDs embedded inside rendered answer paragraphs and bullet evidence render as clickable buttons that open the same scoped ticket-health detail modal.
 - Current branch validation: `npm run test:web` passed with `9 passed`. This is conversational UI evidence only; live production-auth deployment evidence remains required.
+- Post-merge conversational UI evidence on canonical `main` `98c047d290fa3ae89b1d196fbfcc91771e55de98`: Ask Assistant now shows visible request phases for searching scoped ticket history, preparing evidence, waiting on the local CPU model, and rendering the answer; timeout/error/done states explicitly say whether a browser request remains active.
+- Post-merge validation: focused `npx playwright test apps/web/tests/ask-status.spec.js` passed with `4 passed`; full `./scripts/validate-ci.sh` passed with full pytest `133 passed`, static web JavaScript syntax, Playwright browser smoke `12 passed`, and `git diff --check`. This is conversational UI evidence only; live production-auth deployment evidence remains required.
 
 ## Milestone 2
 
