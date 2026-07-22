@@ -492,10 +492,16 @@ def test_scheduler_default_settings_are_conservative():
     assert defaults["open_ticket_history_gaps_enabled"] is True
     assert defaults["ticket_time_entry_gaps_enabled"] is True
     assert defaults["ticket_history_gaps_enabled"] is True
+    assert defaults["ticket_time_entry_gap_batch_size"] == 100
+    assert defaults["ticket_history_gap_batch_size"] == 100
     assert defaults["document_build_enabled"] is False
     assert defaults["embedding_enabled"] is False
     assert defaults["nightly_pipeline_enabled"] is True
     assert defaults["min_free_disk_gb"] == 50
+    default_upgrade_source = inspect.getsource(operations_module.ensure_operations_defaults)
+    assert '"ticket_time_entry_gap_batch_size", "ticket_history_gap_batch_size"' in default_upgrade_source
+    assert "WHERE key=%s AND value=%s" in default_upgrade_source
+    assert "Jsonb(25)" in default_upgrade_source
 
 
 def test_recent_sync_includes_time_entries(monkeypatch):
@@ -521,6 +527,32 @@ def test_scheduler_preserves_related_data_gap_jobs():
     assert "sync_open_ticket_history_gaps" in source
     assert "sync_ticket_time_entry_gaps" in source
     assert "sync_ticket_history_gaps" in source
+
+
+def test_related_data_work_plan_estimates_bounded_catchup_runs():
+    estate = {
+        "related_data": {
+            "time_entries": {"backlog_tickets": 32082, "unchecked": 31089, "coverage_percent": 52.63},
+            "ticket_history": {"backlog_tickets": 64047, "unchecked": 64047, "coverage_percent": 5.43},
+            "notes": {"backlog_tickets": 263, "unchecked": 0, "coverage_percent": 99.61},
+        }
+    }
+    settings = operations_module.default_operations_settings()
+
+    plan = operations_module._related_data_work_plan(
+        estate,
+        settings,
+        threshold_remaining=1000,
+        global_pause=False,
+    )
+
+    by_job = {item["job_name"]: item for item in plan["items"]}
+    assert by_job["ticket_time_entry_gaps"]["recommended_limit"] == 100
+    assert by_job["ticket_time_entry_gaps"]["estimated_runs_to_check"] == 311
+    assert by_job["ticket_history_gaps"]["recommended_limit"] == 100
+    assert by_job["ticket_history_gaps"]["estimated_runs_to_check"] == 641
+    assert by_job["ticket_note_gaps"]["estimated_runs_to_check"] == 0
+    assert plan["recommendation"] == "ticket_time_entry_gaps"
 
 
 def test_scheduler_preflight_global_pause_disk_and_threshold_guards(monkeypatch):

@@ -11,9 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `a98f99a9156548958ea370c7b6042e0e74f99ed9`, which merged PR `newbie10122/autotask-ai#66` (`Record Ask mode ready status evidence`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#66` run `29892106293`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local governed validation passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `134 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
-- Existing Second Brain projection PR `newbie10122/helix-second-brain#6` is updated through PR #66 on branch `agent/autotask-ai-governed-roadmap-projection` at head `8042a4b`; local `python3 tools/validate_knowledge.py` passed. It remains open and must not be marked merged until the PR is actually merged.
+- Canonical `main` is `d831d8b0a2a173605fba927327a79330667546f9`, which merged PR `newbie10122/autotask-ai#68` (`Audit admin inspection reads`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#68` run `29893027627`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local governed validation passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `134 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
+- Existing Second Brain projection PR `newbie10122/helix-second-brain#6` is updated through PR #68 on branch `agent/autotask-ai-governed-roadmap-projection` at head `7fdbf65`; local `python3 tools/validate_knowledge.py` passed. It remains open and must not be marked merged until the PR is actually merged.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -62,6 +62,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Conversational behavior branch `agent/ticket-history-only-no-llm` makes Ticket History Only deterministic and local-evidence-only; it skips the local chat model while keeping generated prose explicit to General + Ticket History and Deep Dive.
 - Conversational UI branch `agent/ask-mode-ready-status` makes Ask Assistant ready text mode-specific so Ticket History Only no longer advertises local CPU model wait time.
 - Milestone 1 admin-read audit branch `agent/m1-audit-scope-closeout` records durable success audit events for admin reads of the audit log and pending curated-memory queue, including actor, roles, global scope, and safe count metadata.
+- Milestone 2 related-data catch-up cadence branch `agent/m2-related-data-catchup-cadence` increases bounded estate TimeEntries/TicketHistory gap batch defaults to `100` and exposes estimated bounded runs remaining in the Operations related-data work plan.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
@@ -131,7 +132,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 admin-read audit closeout
+## Latest receipt — Milestone 2 related-data catch-up cadence
+
+- **Slice:** Improve bounded related-data estate catch-up cadence and visibility on branch `agent/m2-related-data-catchup-cadence` from canonical `main` `d831d8b0a2a173605fba927327a79330667546f9`.
+- **State:** `partial_foundation`; scheduled TimeEntries/TicketHistory catch-up remains bounded and read-only, but estate-wide coverage is not complete.
+- **Runtime observation:** Local Operations status on 2026-07-22 returned scheduler `healthy`, `global_pause=false`, counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`.
+- **Implemented:** Estate TimeEntries and TicketHistory gap batch defaults move from `25` to `100` within the existing configured upper bound, and existing persisted settings still equal to the old default `25` are upgraded while operator-customized values are preserved. `/api/operations/status` related-data work-plan items now include `estimated_runs_to_check`. Operations UI renders backlog, unchecked count, bounded limit, and estimated runs next to recent related-data job movement.
+- **Validation:** focused container validation passed for scheduler defaults, related-data gap job preservation, and bounded catch-up run estimates with `3 passed`; focused Operations Playwright validation passed with `1 passed`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, Autotask writes, model threshold changes, routing, escalation, notification, assignment, status, priority, or workflow changes were run or added.
+- **Rollback:** Revert this branch commit; estate gap jobs return to prior `25` defaults and Operations hides estimated catch-up runs.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Historical receipt — Milestone 1 admin-read audit closeout
 
 - **Slice:** Record admin inspection read success audits on branch `agent/m1-audit-scope-closeout` from canonical `main` `725621de2356cd1337a8e17f68e7f02ff9616040`.
 - **State:** `partial`; admin read audit coverage improved, but full durable-audit certification and production-auth deployment evidence remain open.

@@ -5,6 +5,7 @@ import shutil
 import socket
 import time
 from datetime import UTC, datetime, time as clock_time
+from math import ceil
 from typing import Any, Callable
 
 import httpx
@@ -45,13 +46,13 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "raw_backfill_batch_notes": 5000,
     "ticket_note_gap_batch_size": 25,
     "raw_backfill_batch_time_entries": 5000,
-    "ticket_time_entry_gap_batch_size": 25,
+    "ticket_time_entry_gap_batch_size": 100,
     "open_ticket_time_entry_gap_batch_size": 25,
     "open_ticket_time_entry_gaps_enabled": True,
     "raw_backfill_batch_ticket_history": 250,
     "targeted_waiting_ticket_history_batch_size": 25,
     "status_sample_ticket_history_batch_size": 25,
-    "ticket_history_gap_batch_size": 25,
+    "ticket_history_gap_batch_size": 100,
     "open_ticket_history_gap_batch_size": 25,
     "open_ticket_history_gaps_enabled": True,
     "ticket_time_entry_gaps_enabled": True,
@@ -360,12 +361,14 @@ def _related_data_work_plan(
         unchecked = int(coverage.get("unchecked") or 0)
         checked_empty = int(coverage.get("checked_empty") or 0)
         batch_limit = int(settings.get(setting_key) or DEFAULT_SETTINGS[setting_key])
+        estimated_runs = ceil(unchecked / batch_limit) if unchecked > 0 and batch_limit > 0 else 0
         items.append(
             {
                 "job_name": job_name,
                 "label": label,
                 "endpoint": endpoint,
                 "recommended_limit": batch_limit,
+                "estimated_runs_to_check": estimated_runs,
                 "backlog_tickets": backlog,
                 "unchecked": unchecked,
                 "checked_empty": checked_empty,
@@ -408,6 +411,15 @@ def ensure_operations_defaults() -> None:
                 ON CONFLICT (key) DO NOTHING
                 """,
                 (key, Jsonb(value)),
+            )
+        for key in ("ticket_time_entry_gap_batch_size", "ticket_history_gap_batch_size"):
+            conn.execute(
+                """
+                UPDATE system_settings
+                SET value=%s, updated_at=now()
+                WHERE key=%s AND value=%s
+                """,
+                (Jsonb(DEFAULT_SETTINGS[key]), key, Jsonb(25)),
             )
         for job_name, job in DEFAULT_JOBS.items():
             conn.execute(
