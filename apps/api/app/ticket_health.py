@@ -1853,6 +1853,146 @@ def _ticket_predictive_review_signal(
     }
 
 
+def _binary_classification_metrics(rows: list[dict[str, Any]], prediction_key: str) -> dict[str, Any]:
+    total = len(rows)
+    true_positive = sum(1 for row in rows if row.get("actual_delayed") and row.get(prediction_key))
+    true_negative = sum(1 for row in rows if not row.get("actual_delayed") and not row.get(prediction_key))
+    false_positive = sum(1 for row in rows if not row.get("actual_delayed") and row.get(prediction_key))
+    false_negative = sum(1 for row in rows if row.get("actual_delayed") and not row.get(prediction_key))
+    predicted_positive = true_positive + false_positive
+    actual_positive = true_positive + false_negative
+    return {
+        "total": total,
+        "true_positive": true_positive,
+        "true_negative": true_negative,
+        "false_positive": false_positive,
+        "false_negative": false_negative,
+        "accuracy": round((true_positive + true_negative) / total, 3) if total else None,
+        "precision": round(true_positive / predicted_positive, 3) if predicted_positive else None,
+        "recall": round(true_positive / actual_positive, 3) if actual_positive else None,
+    }
+
+
+def ticket_health_predictive_evaluation(
+    limit: int = 500,
+    delayed_days_threshold: int = 7,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    row_limit = min(max(limit, 50), 1000)
+    threshold_days = min(max(int(delayed_days_threshold or 7), 1), 90)
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    with db_connection() as conn:
+        holdout_rows = [
+            dict(row)
+            for row in conn.execute(
+                f"""
+                SELECT
+                    t.id,
+                    t.ticket_number,
+                    COALESCE(t.queue, '') AS queue_key,
+                    COALESCE(t.priority, '') AS priority_key,
+                    t.created_at_autotask,
+                    t.completed_at_autotask,
+                    EXTRACT(EPOCH FROM (t.completed_at_autotask - t.created_at_autotask)) / 86400 AS resolution_days
+                FROM autotask_tickets t
+                WHERE t.completed_at_autotask IS NOT NULL
+                  AND t.created_at_autotask IS NOT NULL
+                  AND NOT t.analytics_exclude
+                  {company_scope_sql}
+                ORDER BY t.completed_at_autotask DESC, t.id DESC
+                LIMIT %s
+                """,
+                (*company_scope_params, row_limit),
+            ).fetchall()
+        ]
+        if not holdout_rows:
+            return {
+                "ok": True,
+                "review_only": True,
+                "summary": {"holdout_size": 0, "training_groups": 0},
+                "baseline": _binary_classification_metrics([], "baseline_predicted_delayed"),
+                "statistical": _binary_classification_metrics([], "statistical_predicted_delayed"),
+                "warnings": ["No completed local tickets are available for predictive holdout evaluation."],
+            }
+        holdout_start = min(row["created_at_autotask"] for row in holdout_rows if row.get("created_at_autotask"))
+        training_rows = conn.execute(
+            f"""
+            SELECT
+                COALESCE(t.queue, '') AS queue_key,
+                COALESCE(t.priority, '') AS priority_key,
+                count(*) AS sample_size,
+                count(*) FILTER (
+                    WHERE EXTRACT(EPOCH FROM (t.completed_at_autotask - t.created_at_autotask)) / 86400 > %s
+                ) AS delayed_count
+            FROM autotask_tickets t
+            WHERE t.completed_at_autotask IS NOT NULL
+              AND t.created_at_autotask IS NOT NULL
+              AND t.completed_at_autotask < %s
+              AND NOT t.analytics_exclude
+              {company_scope_sql}
+            GROUP BY COALESCE(t.queue, ''), COALESCE(t.priority, '')
+            """,
+            (threshold_days, holdout_start, *company_scope_params),
+        ).fetchall()
+    training_stats = {
+        (str(row["queue_key"] or ""), str(row["priority_key"] or "")): {
+            "sample_size": int(row.get("sample_size") or 0),
+            "delayed_count": int(row.get("delayed_count") or 0),
+        }
+        for row in training_rows
+    }
+    evaluated: list[dict[str, Any]] = []
+    abstentions = 0
+    for row in holdout_rows:
+        key = (str(row.get("queue_key") or ""), str(row.get("priority_key") or ""))
+        stats = training_stats.get(key, {"sample_size": 0, "delayed_count": 0})
+        sample_size = int(stats.get("sample_size") or 0)
+        delayed_count = int(stats.get("delayed_count") or 0)
+        smoothed_delay_rate = (
+            delayed_count + (0.5 * PREDICTION_PRIOR_SAMPLE_SIZE)
+        ) / (sample_size + PREDICTION_PRIOR_SAMPLE_SIZE)
+        statistical_abstained = sample_size < PREDICTION_MIN_SAMPLE_SIZE
+        abstentions += 1 if statistical_abstained else 0
+        evaluated.append(
+            {
+                "ticket_number": row.get("ticket_number"),
+                "queue_key": row.get("queue_key"),
+                "priority_key": row.get("priority_key"),
+                "resolution_days": _round_optional(row.get("resolution_days")),
+                "actual_delayed": _num(row.get("resolution_days")) > threshold_days,
+                "baseline_predicted_delayed": str(row.get("priority_key") or "") in {"1", "4"},
+                "statistical_predicted_delayed": (
+                    False if statistical_abstained else smoothed_delay_rate >= 0.5
+                ),
+                "statistical_abstained": statistical_abstained,
+                "training_sample_size": sample_size,
+                "bayesian_delay_rate": round(smoothed_delay_rate, 3),
+            }
+        )
+    statistical_rows = [row for row in evaluated if not row["statistical_abstained"]]
+    return {
+        "ok": True,
+        "review_only": True,
+        "threshold_days": threshold_days,
+        "summary": {
+            "holdout_size": len(evaluated),
+            "training_groups": len(training_stats),
+            "statistical_evaluated": len(statistical_rows),
+            "statistical_abstentions": abstentions,
+            "holdout_started_at": holdout_start,
+        },
+        "baseline": _binary_classification_metrics(evaluated, "baseline_predicted_delayed"),
+        "statistical": _binary_classification_metrics(statistical_rows, "statistical_predicted_delayed"),
+        "sample": evaluated[:25],
+        "warnings": [
+            "This is offline local evaluation evidence only; it does not tune weights automatically.",
+            "Training rows are limited to tickets completed before the holdout window to reduce leakage.",
+            "No Autotask ticket, assignment, status, or priority is changed.",
+            "Bias and client/category concentration review remains required before production trust.",
+        ],
+    }
+
+
 def ticket_health_review_queue(
     limit: int = 25,
     queue: str | None = None,

@@ -59,6 +59,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
+- Predictive evaluation branch `agent/predictive-evaluation-baseline` adds a scoped holdout report comparing a simple priority baseline against the Bayesian statistical delay signal.
 
 ## Verified gaps blocking production readiness
 
@@ -107,7 +108,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Predictive review UI
+## Latest receipt — Predictive evaluation baseline
+
+- **Slice:** Add a read-only predictive holdout evaluation report on branch `agent/predictive-evaluation-baseline` from canonical `main` `0e2f122db69d6ce367e82f792de4ff5c6ad97fe1`.
+- **State:** `partial_foundation`; predictive ranking now has initial local holdout metrics, but Milestone 7 still requires broader target/label documentation, bias/concentration review, leakage review, and production certification.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/app/main.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `/api/ticket-health/predictive-evaluation` compares a simple priority baseline with the Bayesian queue/priority delay signal over recent completed-ticket holdout rows. Training data is limited to tickets completed before the holdout window, low-sample statistical rows abstain, and the report returns accuracy, precision, recall, sample counts, and leakage/bias warnings.
+- **Validation:** focused container tests passed with `3 passed`: route authority matrix, scoped route propagation, and binary classification metric calculations.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added; the report reads local completed-ticket history only and does not tune weights automatically.
+- **Rollback:** Revert this branch commit; predictive review ranking remains available, but the evaluation report route is removed.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Predictive review UI
 
 - **Slice:** Surface review-only predictive ticket ranking in the web UI on branch `agent/predictive-review-ui` from canonical `main` `ab65f9390ac3ad69f44648a564b6830dfd906bf5`.
 - **State:** `partial_foundation`; technicians can now inspect predictive ranking and abstention evidence in the browser, but Milestone 7 still requires holdout evaluation, leakage controls, bias/concentration review, and production certification.

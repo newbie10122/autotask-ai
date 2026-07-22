@@ -1053,6 +1053,27 @@ def test_ticket_predictive_review_signal_uses_bayesian_history_and_feedback():
     assert signal["review_only"] is True
 
 
+def test_ticket_predictive_binary_metrics_report_precision_recall():
+    metrics = ticket_health_module._binary_classification_metrics(
+        [
+            {"actual_delayed": True, "predicted": True},
+            {"actual_delayed": True, "predicted": False},
+            {"actual_delayed": False, "predicted": True},
+            {"actual_delayed": False, "predicted": False},
+        ],
+        "predicted",
+    )
+
+    assert metrics["total"] == 4
+    assert metrics["true_positive"] == 1
+    assert metrics["true_negative"] == 1
+    assert metrics["false_positive"] == 1
+    assert metrics["false_negative"] == 1
+    assert metrics["accuracy"] == 0.5
+    assert metrics["precision"] == 0.5
+    assert metrics["recall"] == 0.5
+
+
 def test_customer_success_data_paths_fail_closed_and_filter_company_scope():
     summary_source = inspect.getsource(customer_success_module.customer_success_summary)
     detail_source = inspect.getsource(customer_success_module.customer_success_detail)
