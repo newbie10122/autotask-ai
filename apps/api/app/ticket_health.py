@@ -2947,6 +2947,21 @@ def status_transition_source_candidates_report(
             "next_step": "Keep these as freshness/lifecycle context; they are not exact status-transition timestamps.",
         },
         {
+            "key": "ticket_history_schema_metadata",
+            "label": "TicketHistory schema metadata",
+            "source": "TicketHistory entityInformation/fields",
+            "access": "manual_admin_only_read_only_probe",
+            "certification_status": "not_certified",
+            "candidate_route": "/api/autotask/probe/ticket-history-schema",
+            "evidence_required": [
+                "queryable fields",
+                "timestamp fields",
+                "structured status-transition fields",
+                "unstructured action/detail fields",
+            ],
+            "next_step": "Use the Admin-only read-only TicketHistory schema probe to determine whether exact transition fields exist or only unstructured action/detail evidence is available.",
+        },
+        {
             "key": "candidate_status_history_entities",
             "label": "Autotask status-history candidate entities",
             "source": "read-only Autotask entity metadata/query probe required",
@@ -2958,7 +2973,7 @@ def status_transition_source_candidates_report(
                 "TicketHistory",
                 "TicketChangeHistory",
             ],
-            "next_step": "Use the Admin-only bounded read-only status-transition source probe before adding any new sync path.",
+            "next_step": "Use the Admin-only bounded read-only status-transition source and TicketHistory schema probes before adding any new sync path.",
         },
     ]
     blockers = [

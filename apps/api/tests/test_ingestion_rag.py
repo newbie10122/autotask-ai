@@ -3290,6 +3290,11 @@ def test_status_transition_source_candidates_are_review_only_and_scoped():
     assert by_candidate["local_ticket_history"]["certification_status"] == "source_limited"
     assert by_candidate["ticket_current_status"]["certification_status"] == "current_state_only"
     assert by_candidate["ticket_proxy_timestamps"]["certification_status"] == "proxy_only"
+    assert by_candidate["ticket_history_schema_metadata"]["certification_status"] == "not_certified"
+    assert by_candidate["ticket_history_schema_metadata"]["candidate_route"] == (
+        "/api/autotask/probe/ticket-history-schema"
+    )
+    assert "structured status-transition fields" in by_candidate["ticket_history_schema_metadata"]["evidence_required"]
     assert by_candidate["candidate_status_history_entities"]["certification_status"] == "not_certified"
     assert by_candidate["candidate_status_history_entities"]["access"] == "not_queried_by_this_report"
     assert report["policy"]["autotask_writes_allowed"] is False

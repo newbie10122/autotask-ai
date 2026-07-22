@@ -73,6 +73,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `17b90fe`: PR #115 records the PR #114 runtime picklist sync evidence and Second Brain projection PR #13 head `d46a520`.
 - Post-merge Milestone 2 evidence on canonical `main` `3a8f926`: PR #117 adds field-certification remaining-blocker diagnostics and Operations UI visibility. Local API rebuild returned `/ready` `HTTP 200`; field certification diagnostics reported one automation-improvable coverage blocker (`ticket_status_history`) and three source/lineage blockers (`status_duration`, `waiting_states`, and `queue`). Focused API validation passed with `6 passed`, focused Operations Playwright passed with `1 passed`, static JavaScript syntax passed, full `./scripts/validate-ci.sh` passed with `163` API tests and `13` Playwright tests, and PR #117 CI run `29962878273` passed before merge.
 - Post-merge Milestone 2 evidence on canonical `main` `f6611aa`: PR #119 adds an Admin-only read-only TicketHistory schema probe. Local API rebuild returned `/ready` `HTTP 200`; the live probe found `6` schema fields, queryable `ticketID`, timestamp field `date`, unstructured fields `action` and `detail`, no structured old/new status-transition fields, and `autotask_writes_allowed=false`. Focused schema-probe validation passed with `1 passed`, focused route/audit validation passed with `2 passed`, full `./scripts/validate-ci.sh` passed with `164` API tests and `13` Playwright tests, and PR #119 CI run `29963679064` passed before merge.
+- Current active branch validation: `agent/m2-status-source-candidate-schema-guidance` adds the TicketHistory schema probe as an explicit candidate in `/api/ticket-health/status-transition-sources`. Local API rebuild returned `/ready` `HTTP 200`; the live report exposed `candidate_route=/api/autotask/probe/ticket-history-schema` and evidence requirements for queryable fields, timestamp fields, structured status-transition fields, and unstructured action/detail fields. Focused source-candidate validation passed with `1 passed`, `git diff --check` passed, and full `./scripts/validate-ci.sh` passed with `164` API tests and `13` Playwright tests. GitHub CI is still required before merge.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -88,8 +89,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Continue status-duration source discovery, waiting-duration source discovery, TicketHistory estate coverage, and queue-at-creation/history blockers without Autotask writes, production deployment, or model workflow changes.
-2. Continue production-auth deployment evidence only when explicitly approved for that protected action.
+1. Merge `agent/m2-status-source-candidate-schema-guidance` after full validation and CI pass, then project evidence to Second Brain.
+2. Continue status-duration source discovery, waiting-duration source discovery, TicketHistory estate coverage, and queue-at-creation/history blockers without Autotask writes, production deployment, or model workflow changes.
+3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 
 ## Milestone status
 
