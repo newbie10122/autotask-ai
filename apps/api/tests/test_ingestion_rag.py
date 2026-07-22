@@ -1417,6 +1417,176 @@ def test_sla_lineage_report_applies_authorized_company_scope(monkeypatch):
     assert captured_queries[1][1] == ([123],)
 
 
+def test_response_lineage_report_applies_authorized_company_scope_and_omits_note_text(monkeypatch):
+    captured_queries = []
+
+    class FakeResult:
+        def __init__(self, row=None, rows=None):
+            self.row = row or {}
+            self.rows = rows or []
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            captured_queries.append((sql, params))
+            if "AS latest_customer_response_at" in sql:
+                return FakeResult(
+                    {
+                        "tickets": 5,
+                        "open_tickets": 3,
+                        "notes": 8,
+                        "timestamped_notes": 7,
+                        "normalized_timestamped_notes": 0,
+                        "raw_timestamped_notes": 7,
+                        "customer_response_notes": 3,
+                        "timestamped_customer_response_notes": 3,
+                        "technician_response_notes": 4,
+                        "timestamped_technician_response_notes": 3,
+                        "ambiguous_customer_and_technician_notes": 1,
+                        "unattributed_notes": 1,
+                        "notes_with_contact_author": 3,
+                        "notes_with_normalized_resource_author": 2,
+                        "notes_with_creator_resource_author": 3,
+                        "tickets_with_customer_responses": 2,
+                        "tickets_with_technician_responses": 3,
+                        "open_tickets_with_customer_responses": 2,
+                        "open_tickets_with_technician_responses": 2,
+                        "latest_customer_response_at": datetime(2026, 7, 22, 10, 0, tzinfo=UTC),
+                        "latest_technician_response_at": datetime(2026, 7, 22, 11, 0, tzinfo=UTC),
+                    }
+                )
+            return FakeResult(
+                rows=[
+                    {
+                        "note_type": "Task",
+                        "row_count": 8,
+                        "rows_with_timestamp": 7,
+                        "customer_response_rows": 3,
+                        "technician_response_rows": 4,
+                    }
+                ]
+            )
+
+    monkeypatch.setattr(ticket_health_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_health_module, "db_connection", lambda: FakeConnection())
+
+    report = ticket_health_module.response_lineage_report(authorized_company_ids=[123])
+
+    assert report["authorized_company_scope_applied"] is True
+    assert report["summary"]["customer_response_notes"] == 3
+    assert report["summary"]["raw_timestamped_notes"] == 7
+    assert report["summary"]["technician_response_timestamp_coverage_percent"] == 75.0
+    assert report["author_lineage"]["customer"]["certification_status"] == "partial"
+    assert report["author_lineage"]["technician"]["certification_status"] == "partial"
+    assert report["policy"]["returns_raw_note_text"] is False
+    assert report["policy"]["uses_note_body_for_attribution"] is False
+    assert len(captured_queries) == 2
+    assert all("t.company_id = ANY(%s)" in sql for sql, _params in captured_queries)
+    assert all("body" not in sql.lower() for sql, _params in captured_queries)
+    assert any("createDateTime" in sql for sql, _params in captured_queries)
+    assert any("^[0-9]{4}-[0-9]{2}-[0-9]{2}" in sql for sql, _params in captured_queries)
+    assert captured_queries[0][1] == (list(ticket_health_module.CLOSED_STATUS_IDS), [123])
+    assert captured_queries[1][1] == ([123],)
+
+
+def test_ticket_note_sync_recognizes_autotask_create_date_time_key():
+    source = inspect.getsource(sync_module.sync_ticket_notes)
+    helper_source = inspect.getsource(sync_module._upsert_ticket_note)
+
+    assert '"createDateTime", "createdDateTime", "createDate"' in source
+    assert '"createDateTime", "createdDateTime", "createDate"' in helper_source
+
+
+def test_field_certification_includes_response_lineage_targets():
+    coverage = {
+        "ready_for_ticket_health": False,
+        "counts": {"tickets": 3},
+        "blockers": [],
+        "fields": [
+            {"key": "ticket_status", "status": "available", "source": "status"},
+            {"key": "ticket_status_history", "status": "available", "source": "history"},
+            {"key": "waiting_states", "status": "available", "source": "waiting"},
+            {"key": "time_entries", "status": "available", "source": "time entries"},
+            {"key": "labor_hours", "status": "available", "source": "hours"},
+            {"key": "sla_information", "status": "available", "source": "sla"},
+            {"key": "customer_responses", "status": "available", "source": "customer note authors"},
+            {"key": "technician_responses", "status": "available", "source": "technician note authors"},
+        ],
+    }
+    diagnostics = {
+        "source_capability": {"has_exact_status_transition_timestamp": True},
+        "open_ticket_history_context": {
+            "open_tickets": 3,
+            "open_tickets_with_history": 3,
+            "open_tickets_without_history": 0,
+        },
+        "status_sample_coverage": {"sampled_status_candidate_rows": 1},
+    }
+    transition_summary = {"parsed_status_transitions": 1, "timestamped_status_transitions": 1}
+    labor_coverage = {
+        "summary": {
+            "open_tickets": 3,
+            "open_tickets_checked_for_time_entries": 3,
+            "open_tickets_checked_empty_time_entries": 0,
+            "open_tickets_unchecked_time_entries": 0,
+        },
+        "warnings": [],
+    }
+    response_lineage = {
+        "certification_state": "partial_response_lineage",
+        "summary": {
+            "customer_response_notes": 2,
+            "timestamped_customer_response_notes": 2,
+            "customer_response_timestamp_coverage_percent": 100.0,
+            "technician_response_notes": 2,
+            "timestamped_technician_response_notes": 1,
+            "technician_response_timestamp_coverage_percent": 50.0,
+            "ambiguous_customer_and_technician_notes": 0,
+            "tickets_with_customer_responses": 2,
+            "tickets_with_technician_responses": 2,
+            "open_tickets_with_customer_responses": 2,
+            "open_tickets_with_technician_responses": 1,
+            "latest_customer_response_at": datetime(2026, 7, 22, 10, 0, tzinfo=UTC),
+            "latest_technician_response_at": datetime(2026, 7, 22, 11, 0, tzinfo=UTC),
+        },
+        "author_lineage": {
+            "customer": {"certification_status": "available"},
+            "technician": {"certification_status": "partial"},
+        },
+        "policy": {"aggregate_only": True, "returns_raw_note_text": False},
+        "warnings": ["Some technician-attributed ticket notes lack local Autotask create timestamps."],
+    }
+
+    report = ticket_health_module.field_certification_report(
+        coverage,
+        diagnostics,
+        transition_summary,
+        source_candidates={"policy": {"live_autotask_probe_ran": False}},
+        labor_coverage=labor_coverage,
+        sla_lineage={"summary": {"with_any_sla_fields": 0, "with_due_target_fields": 0}, "warnings": []},
+        response_lineage=response_lineage,
+    )
+    by_target = {target["key"]: target for target in report["targets"]}
+
+    assert by_target["customer_responses"]["certification_status"] == "certified"
+    assert by_target["customer_responses"]["available_count"] == 2
+    assert by_target["technician_responses"]["certification_status"] == "partial"
+    assert by_target["technician_responses"]["available_count"] == 1
+    assert "technician_responses" in report["predictive_policy"]["excluded_until_certified"]
+    assert report["source_reports"]["response_lineage"]["policy"]["returns_raw_note_text"] is False
+
+
 def test_status_duration_summary_does_not_use_proxy_timestamp_as_waiting_duration():
     summary = ticket_health_module.status_duration_summary(
         [],
