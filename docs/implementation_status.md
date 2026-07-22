@@ -57,6 +57,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Conversational UI branch `agent/ask-ticket-detail-modal` makes Ask Assistant ticket evidence inspectable by turning `Based on Tickets` entries into scoped ticket-detail modal links.
 - Conversational UI branch `agent/answer-ticket-links` makes ticket IDs inside rendered assistant answer text open the same scoped ticket-detail modal.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
+- Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 
 ## Verified gaps blocking production readiness
 
@@ -79,7 +80,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 | 4. Redis and CPU performance | not_started | Scoped cache design and benchmarks |
 | 5. Real-time technician updates | not_started | Authorized event architecture |
 | 6. Technician Performance Assistant | partial_foundation | Current RAG exists; guided/draft workflows not certified |
-| 7. Predictive Service Intelligence | not_started | Certified data and evaluation baseline |
+| 7. Predictive Service Intelligence | partial_foundation | Review-only statistical ticket ranking exists; holdout evaluation, bias review, and production certification remain open |
 | 8. Routing recommendations | not_started | Resource/workload data and evaluation |
 | 9. Customer Success Intelligence | not_started | Certified internal capabilities |
 | 10. Production certification/99% closeout | not_started | All target milestones and evidence |
@@ -88,7 +89,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 1. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence.
 2. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
-3. Build capability-specific Quality Streak receipts without marking milestones complete prematurely.
+3. Expand review-only predictive ranking with offline evaluation/baselines and bias checks after data certification improves.
+4. Build capability-specific Quality Streak receipts without marking milestones complete prematurely.
 
 Parallel-safe work after roadmap merge:
 
@@ -104,7 +106,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Operations automation visibility
+## Latest receipt — Predictive ticket review ranking
+
+- **Slice:** Add review-only statistical ticket ranking on branch `agent/predictive-ticket-review-ranking` from canonical `main` `844d0330ad703d1744fc4837ce042c13122b52e9`.
+- **State:** `partial_foundation`; ticket review ranking now includes Bayesian-smoothed local historical signals and abstention, but Milestone 7 still requires documented prediction targets, holdout evaluation, bias/concentration review, and production certification.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/app/main.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `ticket_health_review_queue()` now uses scoped completed-ticket history by queue/priority, applies Bayesian delay-rate smoothing, folds in local feedback calibration, emits `predictive_signal` with confidence/sample size/reason codes/limitations, and abstains when scoped sample size is too low. A new scoped read route `/api/ticket-health/review-queue` exposes the review queue and records success audit metadata.
+- **Validation:** focused container tests passed with `4 passed`: route authority matrix, scoped route propagation, low-sample abstention, and Bayesian history/feedback score movement.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added; predictions are local review guidance only and do not update Autotask tickets.
+- **Rollback:** Revert this branch commit; ticket-health summary/detail and existing review helpers return to deterministic heuristic behavior without the statistical predictive signal route.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Operations automation visibility
 
 - **Slice:** Make scheduled automation movement visible on branch `agent/operations-automation-visibility` from canonical `main` `96a3e9503b0195af8157324afb6824a04aeb03e0`.
 - **State:** `partial_foundation`; operators can now see whether TimeEntries/TicketHistory automation is running and moving data, but Milestone 2 still requires historical catch-up certification and source-lineage/field availability closure.

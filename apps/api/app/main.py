@@ -33,6 +33,7 @@ from .ticket_health import (
     store_ticket_health_risk_feedback,
     ticket_health_detail_by_number_scoped,
     ticket_health_detail_scoped,
+    ticket_health_review_queue,
     ticket_health_summary,
 )
 from .security import authenticate_user, create_session_token, verify_session_token
@@ -577,6 +578,43 @@ def api_ticket_health_detail_by_number(
         getattr(request.state, "user", None),
         audit_scope(authorized_company_ids),
         {"ticket_number": ticket_number},
+    )
+    return result
+
+
+@app.get("/api/ticket-health/review-queue")
+def api_ticket_health_review_queue(
+    request: Request,
+    limit: int = 25,
+    queue: str | None = None,
+    assigned_resource_id: int | None = None,
+    risk_bucket: str | None = None,
+    min_priority: int = 0,
+    needs_review_only: bool = False,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = ticket_health_review_queue(
+        limit=limit,
+        queue=queue,
+        assigned_resource_id=assigned_resource_id,
+        risk_bucket=risk_bucket,
+        min_priority=min_priority,
+        needs_review_only=needs_review_only,
+        authorized_company_ids=authorized_company_ids,
+    )
+    record_success_audit(
+        AuditAction.search,
+        "ticket_health.review_queue",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {
+            "limit": limit,
+            "queue": queue,
+            "assigned_resource_id": assigned_resource_id,
+            "risk_bucket": risk_bucket,
+            "min_priority": min_priority,
+            "needs_review_only": needs_review_only,
+        },
     )
     return result
 
