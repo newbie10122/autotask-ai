@@ -33,6 +33,7 @@ from .ticket_health import (
     field_certification_report,
     status_transition_source_candidates_report,
     store_ticket_health_risk_feedback,
+    ticket_history_content_certification_report,
     ticket_health_detail_by_number_scoped,
     ticket_health_detail_scoped,
     ticket_health_predictive_evaluation,
@@ -688,6 +689,22 @@ def api_ticket_health_status_transition_sources(
     record_success_audit(
         AuditAction.search,
         "ticket_health.status_transition_sources",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"authorized_company_scope_applied": authorized_company_ids is not None},
+    )
+    return result
+
+
+@app.get("/api/ticket-health/ticket-history-content-certification")
+def api_ticket_history_content_certification(
+    request: Request,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = ticket_history_content_certification_report(authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "ticket_health.ticket_history_content_certification",
         getattr(request.state, "user", None),
         audit_scope(authorized_company_ids),
         {"authorized_company_scope_applied": authorized_company_ids is not None},

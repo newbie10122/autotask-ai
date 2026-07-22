@@ -1531,6 +1531,73 @@ def test_status_transition_source_candidates_are_review_only_and_scoped():
     assert report["policy"]["live_autotask_probe_ran"] is False
 
 
+def test_ticket_history_content_certification_returns_aggregate_evidence(monkeypatch):
+    class FakeResult:
+        def __init__(self, rows=None, row=None):
+            self.rows = rows or []
+            self.row = row or {}
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __init__(self):
+            self.calls = 0
+
+        def execute(self, _sql, _params=()):
+            self.calls += 1
+            if self.calls == 1:
+                return FakeResult(
+                    row={
+                        "total_history": 10,
+                        "timestamped_history": 9,
+                        "status_like_rows": 1,
+                        "raw_field_rows": 0,
+                        "raw_old_value_rows": 0,
+                        "raw_new_value_rows": 0,
+                    }
+                )
+            if self.calls == 2:
+                return FakeResult(
+                    rows=[
+                        {
+                            "action": "Last Activity Date Changed",
+                            "row_count": 7,
+                            "rows_with_detail": 7,
+                            "rows_with_timestamp": 7,
+                        },
+                        {
+                            "action": "Checklist Item Changed",
+                            "row_count": 1,
+                            "rows_with_detail": 1,
+                            "rows_with_timestamp": 1,
+                        },
+                    ]
+                )
+            return FakeResult(rows=[{"raw_key": "action", "row_count": 10}, {"raw_key": "ticketID", "row_count": 10}])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(ticket_health_module, "db_connection", lambda: FakeConnection())
+
+    report = ticket_health_module.ticket_history_content_certification_report(authorized_company_ids=[123])
+
+    assert report["certification_state"] == "source_limited"
+    assert report["authorized_company_scope_applied"] is True
+    assert report["counts"]["status_like_rows"] == 1
+    assert report["top_actions"][0]["category"] == "date_timing"
+    assert report["raw_keys"] == [{"key": "action", "row_count": 10}, {"key": "ticketID", "row_count": 10}]
+    assert report["policy"]["returns_raw_ticket_text"] is False
+    assert report["policy"]["autotask_writes_allowed"] is False
+
+
 def test_ticket_predictive_target_policy_blocks_automatic_actions():
     policy = ticket_health_module._prediction_target_policy(7, 100)
 
