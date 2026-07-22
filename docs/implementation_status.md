@@ -11,7 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `be7cc143af44b21e2bf9929737d8071d4ff41920`, which merged PR `newbie10122/autotask-ai#51`.
+- Canonical `main` is `a98f99a9156548958ea370c7b6042e0e74f99ed9`, which merged PR `newbie10122/autotask-ai#66` (`Record Ask mode ready status evidence`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#66` run `29892106293`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local governed validation passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `134 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
+- Existing Second Brain projection PR `newbie10122/helix-second-brain#6` is updated through PR #66 on branch `agent/autotask-ai-governed-roadmap-projection` at head `8042a4b`; local `python3 tools/validate_knowledge.py` passed. It remains open and must not be marked merged until the PR is actually merged.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -108,10 +110,11 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Update the existing Second Brain projection with PRs #58 and #59 plus runtime content-certification evidence.
-2. Treat status-duration/waiting as source-limited unless parser-compatible status transitions are backfilled or another read-only Autotask source becomes available; proceed to the next Milestone 1 audit/scope closeout slice in parallel where safe.
-3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
-4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
+1. Treat status-duration/waiting as source-limited unless parser-compatible status transitions are backfilled or another read-only Autotask source becomes available.
+2. Continue the next safe Milestone 1 audit/scope closeout slice in parallel where file ownership is isolated.
+3. Continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work using existing local TimeEntries/TicketHistory coverage and bounded scheduled jobs.
+4. Continue production-auth deployment evidence only when explicitly approved for that protected action.
+5. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
 Parallel-safe work after roadmap merge:
 
@@ -127,7 +130,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Operations field-certification UI evidence
+## Latest receipt — PR66 Ask mode ready-status evidence
+
+- **Slice:** Record mode-specific Ask Assistant ready-status evidence on branch `agent/ask-mode-ready-status-docs` from canonical `main` `99f79d82b8803b7d12930228f95aa023ce647107`.
+- **State:** `partial`; the UI now distinguishes modes before a request is submitted, but live production-auth deployment evidence and broader capability certification remain open.
+- **Files changed:** Project status and certification documents only.
+- **Implemented evidence:** PR #65 made Ask Assistant ready text mode-specific: Ticket History Only says it uses retrieved ticket evidence without the local CPU model, General + Ticket History says it can take up to a minute on the local CPU model, and Deep Dive says it can spend longer waiting on the local CPU model. PR #66 recorded this evidence in canonical project documents.
+- **Validation:** Full governed validation passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `134 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`; PR #66 GitHub Actions run `29892106293` passed before merge.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, Autotask writes, model threshold changes, routing, escalation, notification, assignment, status, priority, or workflow changes were run or added.
+- **Rollback:** Revert PR #66 for docs evidence only; revert PR #65 to return Ask Assistant to the prior generic ready text.
+- **Second Brain state:** Existing projection PR #6 updated through PR #66 at head `8042a4b`; local knowledge validation passed.
+
+## Historical receipt — Operations field-certification UI evidence
 
 - **Slice:** Surface field-certification evidence in the Operations UI on branch `agent/operations-field-certification-ui` from canonical `main` `df85cae244e9f3d4aa1ec01b409088666c730835`.
 - **State:** `partial_foundation`; the UI now makes certification blockers visible, but underlying status-duration/waiting certification remains source-limited.
@@ -687,8 +701,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `8a7919e89b5f171a84d3be3913b4c54a971e6925` records Autotask AI PR #42, canonical commit `c688c6d622e60e866ee63302a1f577f498635741`, predictive threshold evidence, prior predictive evaluation/ranking/UI work, operations automation visibility, Ask Assistant ticket-detail links, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
+`pull-request-open` — branch `agent/autotask-ai-governed-roadmap-projection`, draft PR `newbie10122/helix-second-brain#6`, branch head `8042a4b` records Autotask AI progress through PR #66, canonical commit `a98f99a9156548958ea370c7b6042e0e74f99ed9`, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, prior predictive evaluation/ranking/UI work, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. Remote validation status remains separately tracked on PR #6. Do not mark `merged` until PR #6 is merged.
 
 ## Exact next action
 
-Complete the control-document reconciliation branch, validate it, open/merge the PR if CI passes, update the existing Second Brain projection, then begin the next safe predictive evaluation slice: target/label semantics, calibration/Brier/PR/ROC evidence, threshold confusion/coverage/abstention evidence, sanitized concentration analysis, human-review threshold policy, and local read-only shadow evaluation.
+Complete this PR #66 control-document reconciliation branch, validate it, open/merge the PR if CI passes, update the existing Second Brain projection, then continue the next safe Milestone 1 audit/scope closeout and Milestone 2 field/source-lineage certification work. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
