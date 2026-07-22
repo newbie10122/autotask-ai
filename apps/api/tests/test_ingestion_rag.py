@@ -1128,6 +1128,67 @@ def test_ticket_predictive_concentration_uses_sanitized_buckets():
     assert concentration["top_buckets"][0]["share"] == 0.667
 
 
+def test_ticket_predictive_stratified_metrics_are_sanitized_and_scored():
+    metrics = ticket_health_module._sanitized_stratified_metrics(
+        [
+            {
+                "company_id": 10,
+                "actual_delayed": True,
+                "baseline_predicted_delayed": True,
+                "statistical_predicted_delayed": False,
+                "statistical_abstained": False,
+                "bayesian_delay_rate": 0.2,
+            },
+            {
+                "company_id": 10,
+                "actual_delayed": False,
+                "baseline_predicted_delayed": False,
+                "statistical_predicted_delayed": False,
+                "statistical_abstained": False,
+                "bayesian_delay_rate": 0.1,
+            },
+            {
+                "company_id": 22,
+                "actual_delayed": True,
+                "baseline_predicted_delayed": False,
+                "statistical_predicted_delayed": True,
+                "statistical_abstained": False,
+                "bayesian_delay_rate": 0.8,
+            },
+        ],
+        "company_id",
+        "company_bucket",
+    )
+
+    assert metrics["sanitized"] is True
+    assert metrics["top_buckets"][0]["bucket"] == "company_bucket_1"
+    assert "10" not in metrics["top_buckets"][0].values()
+    assert metrics["top_buckets"][0]["baseline"]["recall"] == 1.0
+    assert metrics["top_buckets"][0]["statistical_brier_score"] == 0.325
+
+
+def test_ticket_predictive_model_comparison_keeps_human_review_policy():
+    comparison = ticket_health_module._model_comparison(
+        {"f1": 0.5, "recall": 0.5},
+        {"f1": 0.0, "recall": 0.0},
+        {"brier_score": 0.12, "secondary_metrics": {"roc_auc": 0.6, "pr_auc": 0.2}},
+    )
+
+    assert comparison["statistical_f1_delta"] == -0.5
+    assert comparison["current_finding"] == "statistical_signal_not_better_on_f1_or_recall"
+    assert "Do not select or deploy" in comparison["selection_policy"]
+    assert comparison["models"][1]["brier_score"] == 0.12
+
+
+def test_ticket_predictive_leakage_review_documents_temporal_split():
+    review = ticket_health_module._leakage_review("2026-01-01T00:00:00Z", 100, 12)
+
+    assert review["temporal_split"] == "training_completed_before_holdout_start"
+    assert review["training_rows_after_or_during_holdout_included"] == 0
+    assert review["label_available_only_after_completion"] is True
+    assert any("queue/priority-at-creation" in item for item in review["known_limitations"])
+
+
 def test_ticket_predictive_target_policy_blocks_automatic_actions():
     policy = ticket_health_module._prediction_target_policy(7, 100)
 

@@ -2026,6 +2026,94 @@ def _sanitized_concentration(rows: list[dict[str, Any]], key: str, label_prefix:
     }
 
 
+def _sanitized_stratified_metrics(rows: list[dict[str, Any]], key: str, label_prefix: str) -> dict[str, Any]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        value = row.get(key)
+        bucket_key = "unknown" if value in (None, "") else str(value)
+        grouped.setdefault(bucket_key, []).append(row)
+    total = len(rows)
+    buckets: list[dict[str, Any]] = []
+    for index, (_bucket_key, bucket_rows) in enumerate(
+        sorted(grouped.items(), key=lambda item: len(item[1]), reverse=True)[:5],
+        start=1,
+    ):
+        statistical_rows = [row for row in bucket_rows if not row.get("statistical_abstained")]
+        buckets.append(
+            {
+                "bucket": f"{label_prefix}_{index}",
+                "count": len(bucket_rows),
+                "share": round(len(bucket_rows) / total, 3) if total else None,
+                "actual_delayed_rate": (
+                    round(sum(1 for row in bucket_rows if row.get("actual_delayed")) / len(bucket_rows), 3)
+                    if bucket_rows
+                    else None
+                ),
+                "baseline": _binary_classification_metrics(bucket_rows, "baseline_predicted_delayed"),
+                "statistical": _binary_classification_metrics(statistical_rows, "statistical_predicted_delayed"),
+                "statistical_brier_score": _brier_score(statistical_rows),
+            }
+        )
+    return {
+        "dimension": label_prefix,
+        "sanitized": True,
+        "top_buckets": buckets,
+        "note": "Bucket labels are ordinal within this response and do not expose customer names or raw category labels.",
+    }
+
+
+def _model_comparison(
+    baseline_metrics: dict[str, Any],
+    statistical_metrics: dict[str, Any],
+    calibration: dict[str, Any],
+) -> dict[str, Any]:
+    baseline_f1 = baseline_metrics.get("f1") or 0
+    statistical_f1 = statistical_metrics.get("f1") or 0
+    baseline_recall = baseline_metrics.get("recall") or 0
+    statistical_recall = statistical_metrics.get("recall") or 0
+    return {
+        "models": [
+            {
+                "name": "simple_priority_baseline",
+                "type": "deterministic_rule",
+                "metrics": baseline_metrics,
+            },
+            {
+                "name": "bayesian_queue_priority_delay_signal",
+                "type": "lightweight_statistical",
+                "metrics": statistical_metrics,
+                "brier_score": calibration.get("brier_score"),
+                "roc_auc": (calibration.get("secondary_metrics") or {}).get("roc_auc"),
+                "pr_auc": (calibration.get("secondary_metrics") or {}).get("pr_auc"),
+            },
+        ],
+        "statistical_f1_delta": round(statistical_f1 - baseline_f1, 3),
+        "statistical_recall_delta": round(statistical_recall - baseline_recall, 3),
+        "current_finding": (
+            "statistical_signal_not_better_on_f1_or_recall"
+            if statistical_f1 <= baseline_f1 and statistical_recall <= baseline_recall
+            else "statistical_signal_has_some_metric_lift"
+        ),
+        "selection_policy": "Do not select or deploy a model from this comparison without human review and bias/leakage certification.",
+    }
+
+
+def _leakage_review(holdout_start: Any, row_limit: int, training_group_count: int) -> dict[str, Any]:
+    return {
+        "temporal_split": "training_completed_before_holdout_start",
+        "holdout_started_at": holdout_start,
+        "training_groups": training_group_count,
+        "holdout_limit": row_limit,
+        "training_rows_after_or_during_holdout_included": 0,
+        "label_available_only_after_completion": True,
+        "known_limitations": [
+            "The label uses completed-ticket duration, so open-ticket predictions remain shadow evidence until outcomes complete.",
+            "Queue and priority are current local ticket fields; historical queue/priority-at-creation lineage is not yet certified.",
+            "Broader leakage review must continue as more source-lineage fields are certified.",
+        ],
+    }
+
+
 def _prediction_target_policy(threshold_days: int, row_limit: int) -> dict[str, Any]:
     return {
         "target": "completed_ticket_resolution_duration",
@@ -2092,6 +2180,16 @@ def ticket_health_predictive_evaluation(
                     "company": _sanitized_concentration([], "company_id", "company_bucket"),
                     "category": _sanitized_concentration([], "category_key", "category_bucket"),
                 },
+                "stratified_metrics": {
+                    "company": _sanitized_stratified_metrics([], "company_id", "company_bucket"),
+                    "category": _sanitized_stratified_metrics([], "category_key", "category_bucket"),
+                },
+                "model_comparison": _model_comparison(
+                    _binary_classification_metrics([], "baseline_predicted_delayed"),
+                    _binary_classification_metrics([], "statistical_predicted_delayed"),
+                    {"brier_score": None, "secondary_metrics": _probability_auc([])},
+                ),
+                "leakage_review": _leakage_review(None, row_limit, 0),
                 "human_review_threshold_policy": {
                     "selection_mode": "human_review_required",
                     "automatic_changes_allowed": False,
@@ -2169,6 +2267,10 @@ def ticket_health_predictive_evaluation(
         "category": _sanitized_concentration(evaluated, "category_key", "category_bucket"),
         "note": "Buckets are sanitized and intended to reveal concentration risk without exposing customer names or ticket text.",
     }
+    stratified_metrics = {
+        "company": _sanitized_stratified_metrics(evaluated, "company_id", "company_bucket"),
+        "category": _sanitized_stratified_metrics(evaluated, "category_key", "category_bucket"),
+    }
     coverage = {
         "holdout_size": len(evaluated),
         "statistical_evaluated": len(statistical_rows),
@@ -2213,6 +2315,7 @@ def ticket_health_predictive_evaluation(
     best_threshold = threshold_sweep[0] if threshold_sweep else None
     if best_threshold and (best_threshold.get("precision") or 0) < 0.2:
         warnings.append("The best-F1 threshold has low precision in this holdout; human review must weigh false-positive burden.")
+    baseline_metrics = _binary_classification_metrics(evaluated, "baseline_predicted_delayed")
     return {
         "ok": True,
         "review_only": True,
@@ -2225,11 +2328,14 @@ def ticket_health_predictive_evaluation(
             "statistical_abstentions": abstentions,
             "holdout_started_at": holdout_start,
         },
-        "baseline": _binary_classification_metrics(evaluated, "baseline_predicted_delayed"),
+        "baseline": baseline_metrics,
         "statistical": statistical_metrics,
         "coverage": coverage,
         "calibration": calibration,
         "concentration": concentration,
+        "stratified_metrics": stratified_metrics,
+        "model_comparison": _model_comparison(baseline_metrics, statistical_metrics, calibration),
+        "leakage_review": _leakage_review(holdout_start, row_limit, len(training_stats)),
         "threshold_sweep": threshold_sweep,
         "best_threshold_by_f1": best_threshold,
         "human_review_threshold_policy": policy,
