@@ -137,6 +137,7 @@ CALIBRATION_MIN_FEEDBACK = 10
 CALIBRATION_MIN_REVIEWED_ENTITIES = 5
 PREDICTION_PRIOR_SAMPLE_SIZE = 5
 PREDICTION_MIN_SAMPLE_SIZE = 5
+PREDICTIVE_REVIEW_MODEL_VERSION = "bayesian_queue_priority_feedback_v1_review_only"
 
 
 def invalidate_ticket_health_summary_cache() -> int:
@@ -2341,7 +2342,10 @@ def _ticket_predictive_review_signal(
             "confidence": "low",
             "sample_size": sample_size,
             "minimum_sample_size": PREDICTION_MIN_SAMPLE_SIZE,
+            "model_version": PREDICTIVE_REVIEW_MODEL_VERSION,
             "bayesian_delay_rate": smoothed_delay_rate,
+            "calibrated_delay_probability": None,
+            "calibrated_rank_contribution": None,
             "statistical_review_score": None,
             "reason_codes": ["insufficient_local_history"],
             "limitations": [
@@ -2352,24 +2356,35 @@ def _ticket_predictive_review_signal(
 
     score = int(ticket.get("health_score") or 0)
     reason_codes = [f"bayesian_delay_rate={smoothed_delay_rate}"]
+    calibration_adjustments: list[dict[str, Any]] = []
     avg_resolution_days = _num(stats.get("avg_resolution_days"), 0.0)
     avg_labor_hours = _num(stats.get("avg_labor_hours"), 0.0)
     if avg_resolution_days > 0 and _num(ticket.get("age_days")) > avg_resolution_days * 1.25:
         score += 12
         reason_codes.append("open_age_exceeds_similar_resolution_average")
+        calibration_adjustments.append({"reason": "open_age_exceeds_similar_resolution_average", "adjustment": 0.08})
     if avg_labor_hours > 0 and _num(ticket.get("labor_hours")) > avg_labor_hours * 1.5:
         score += 10
         reason_codes.append("labor_exceeds_similar_average")
+        calibration_adjustments.append({"reason": "labor_exceeds_similar_average", "adjustment": 0.06})
     if feedback.get("needs_review"):
         score += 8
         reason_codes.append("local_needs_review_feedback")
+        calibration_adjustments.append({"reason": "local_needs_review_feedback", "adjustment": 0.04})
     if feedback.get("too_low"):
         score += 6
         reason_codes.append("local_feedback_score_too_low")
+        calibration_adjustments.append({"reason": "local_feedback_score_too_low", "adjustment": 0.03})
     if feedback.get("too_high"):
         score -= 6
         reason_codes.append("local_feedback_score_too_high")
-    score += round(smoothed_delay_rate * 12)
+        calibration_adjustments.append({"reason": "local_feedback_score_too_high", "adjustment": -0.04})
+    calibrated_delay_probability = round(
+        max(0.01, min(0.99, smoothed_delay_rate + sum(item["adjustment"] for item in calibration_adjustments))),
+        3,
+    )
+    calibrated_rank_contribution = round(calibrated_delay_probability * 12)
+    score += calibrated_rank_contribution
     confidence = "strong" if sample_size >= 25 else "moderate"
     return {
         "review_only": True,
@@ -2377,7 +2392,11 @@ def _ticket_predictive_review_signal(
         "confidence": confidence,
         "sample_size": sample_size,
         "minimum_sample_size": PREDICTION_MIN_SAMPLE_SIZE,
+        "model_version": PREDICTIVE_REVIEW_MODEL_VERSION,
         "bayesian_delay_rate": smoothed_delay_rate,
+        "calibrated_delay_probability": calibrated_delay_probability,
+        "calibration_adjustments": calibration_adjustments,
+        "calibrated_rank_contribution": calibrated_rank_contribution,
         "average_resolution_days": stats.get("avg_resolution_days"),
         "average_labor_hours": stats.get("avg_labor_hours"),
         "statistical_review_score": max(0, min(score, 100)),

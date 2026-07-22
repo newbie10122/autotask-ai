@@ -65,6 +65,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 2 related-data catch-up cadence branch `agent/m2-related-data-catchup-cadence` increases bounded estate TimeEntries/TicketHistory gap batch defaults to `100` and exposes estimated bounded runs remaining in the Operations related-data work plan.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
+- Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
 - Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
 - Predictive evaluation branch `agent/predictive-evaluation-baseline` adds a scoped holdout report comparing a simple priority baseline against the Bayesian statistical delay signal.
 - Predictive threshold sweep branch `agent/predictive-threshold-sweep` adds read-only threshold sweep and F1 evidence to the predictive holdout report.
@@ -132,7 +133,17 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 2 related-data catch-up cadence
+## Latest receipt — Predictive calibrated review-ranking signal
+
+- **Slice:** Expose calibrated review-only predictive ranking signal on branch `agent/predictive-ranking-calibrated-score` from canonical `main` `5469e3949fb2c750fceb91059342ec078ae27c31`.
+- **State:** `partial_foundation`; predictive ranking remains review-only and no threshold/model/workflow change is authorized.
+- **Implemented:** Predictive review signals now include model version `bayesian_queue_priority_feedback_v1_review_only`, calibrated delay probability, transparent calibration adjustments, and calibrated rank contribution. Ticket Health UI displays calibrated probability/contribution in the existing Reasons cell while keeping low-sample abstention.
+- **Validation:** focused container validation passed for predictive review signal contracts with `2 passed`; focused Ticket Health Playwright validation passed with `1 passed`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, Autotask writes, model threshold changes, routing, escalation, notification, assignment, status, priority, or workflow changes were run or added.
+- **Rollback:** Revert this branch commit; predictive review queue returns to raw Bayesian delay-rate scoring without calibrated probability fields.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Historical receipt — Milestone 2 related-data catch-up cadence
 
 - **Slice:** Improve bounded related-data estate catch-up cadence and visibility on branch `agent/m2-related-data-catchup-cadence` from canonical `main` `d831d8b0a2a173605fba927327a79330667546f9`.
 - **State:** `partial_foundation`; scheduled TimeEntries/TicketHistory catch-up remains bounded and read-only, but estate-wide coverage is not complete.

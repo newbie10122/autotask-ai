@@ -751,13 +751,20 @@
           title.textContent = item.title || "";
           ticketCell.appendChild(title);
           tr.appendChild(ticketCell);
+          const signalReasons = [...(signal.reason_codes || item.reasons || [])];
+          if (signal.calibrated_delay_probability != null) {
+            signalReasons.push(`calibrated_delay_probability=${signal.calibrated_delay_probability}`);
+          }
+          if (signal.calibrated_rank_contribution != null) {
+            signalReasons.push(`calibrated_rank_contribution=${signal.calibrated_rank_contribution}`);
+          }
           [
             item.risk_bucket,
             item.review_priority,
             item.predictive_review_priority,
             signal.abstained ? "Abstained" : signal.confidence,
             signal.sample_size,
-            (signal.reason_codes || item.reasons || []).join(", "),
+            signalReasons.join(", "),
           ].forEach((value) => {
             const td = document.createElement("td");
             td.textContent = value == null ? "" : value;

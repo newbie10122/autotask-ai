@@ -1260,6 +1260,8 @@ def test_ticket_predictive_review_signal_abstains_with_low_sample_size():
     assert signal["abstained"] is True
     assert signal["confidence"] == "low"
     assert signal["statistical_review_score"] is None
+    assert signal["model_version"] == "bayesian_queue_priority_feedback_v1_review_only"
+    assert signal["calibrated_delay_probability"] is None
     assert "insufficient_local_history" in signal["reason_codes"]
     assert signal["review_only"] is True
 
@@ -1274,6 +1276,16 @@ def test_ticket_predictive_review_signal_uses_bayesian_history_and_feedback():
     assert signal["abstained"] is False
     assert signal["confidence"] == "moderate"
     assert signal["sample_size"] == 20
+    assert signal["model_version"] == "bayesian_queue_priority_feedback_v1_review_only"
+    assert signal["bayesian_delay_rate"] == 0.42
+    assert signal["calibrated_delay_probability"] == 0.63
+    assert signal["calibrated_rank_contribution"] == 8
+    assert {item["reason"] for item in signal["calibration_adjustments"]} >= {
+        "open_age_exceeds_similar_resolution_average",
+        "labor_exceeds_similar_average",
+        "local_needs_review_feedback",
+        "local_feedback_score_too_low",
+    }
     assert signal["statistical_review_score"] > 55
     assert "open_age_exceeds_similar_resolution_average" in signal["reason_codes"]
     assert "labor_exceeds_similar_average" in signal["reason_codes"]
