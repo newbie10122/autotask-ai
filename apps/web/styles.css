@@ -231,6 +231,46 @@ button:disabled {
   border-radius: 6px;
   padding: 12px;
 }
+.automation-panel {
+  margin-top: 18px;
+}
+.automation-panel h3 {
+  margin-top: 0;
+}
+.job-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.job-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #ffffff;
+}
+.job-card > strong {
+  display: block;
+  color: var(--accent-dark);
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.job-card div {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid #eef2f7;
+}
+.job-card div:first-of-type {
+  border-top: 0;
+}
+.job-card span {
+  color: var(--muted);
+}
+.job-card strong {
+  overflow-wrap: anywhere;
+}
 .answer-text {
   margin-top: 16px;
   display: grid;
@@ -365,7 +405,9 @@ th, td {
   .status-pills { justify-content: flex-start; }
   .section-row { align-items: stretch; flex-direction: column; }
   .section-row select { max-width: none; }
+  .job-card-grid { grid-template-columns: 1fr; }
   .ticket-detail-grid { grid-template-columns: 1fr; }
+  .job-card div,
   .detail-card div { grid-template-columns: 1fr; }
   main { padding: 16px; }
 }

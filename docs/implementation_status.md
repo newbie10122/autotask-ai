@@ -1,6 +1,6 @@
 # Autotask AI Implementation Status
 
-**Updated:** 2026-07-21  
+**Updated:** 2026-07-22
 **Management target:** 99% verified roadmap completion  
 **Current state:** `partial`  
 **Active milestone:** Milestone 1 — Security, identity, isolation, and answer trust
@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `14a545e356fff7dca6ba1a946f0cc5837e025f1d`, which merged PR `newbie10122/autotask-ai#28`.
+- Canonical `main` is `96a3e9503b0195af8157324afb6824a04aeb03e0`, which merged PR `newbie10122/autotask-ai#37`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -56,6 +56,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 security/isolation Quality Streak branch `agent/m1-security-isolation-quality-streak` adds a repeatable three-run harness for auth, route RBAC, audit, scope, scoped-cache, realtime, feedback, and verifier evidence.
 - Conversational UI branch `agent/ask-ticket-detail-modal` makes Ask Assistant ticket evidence inspectable by turning `Based on Tickets` entries into scoped ticket-detail modal links.
 - Conversational UI branch `agent/answer-ticket-links` makes ticket IDs inside rendered assistant answer text open the same scoped ticket-detail modal.
+- Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 
 ## Verified gaps blocking production readiness
 
@@ -65,7 +66,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
 - Answer-safety and security/isolation have candidate three-run local Quality Streak harnesses and local 3/3 evidence, but live production-auth deployment evidence remains open; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
-- Ticket-health related-data synchronization is automated but not fully caught up across the historical estate; TimeEntries and TicketHistory coverage still require continued bounded scheduled sweeps and certification.
+- Ticket-health related-data synchronization is automated and now visibly inspectable in the Operations UI, but historical estate coverage still requires continued bounded scheduled sweeps and field/source-lineage certification.
 
 ## Milestone table
 
@@ -73,7 +74,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 |---|---|---|
 | 0. Governance and continuous validation | partial | Certification matrix added and validation-harness streak recorded; capability Quality Streaks remain open |
 | 1. Security, identity, isolation, answer trust | active | Complete durable audit, full route/UI RBAC, company scope wiring, verifier breadth, and three-run evidence |
-| 2. Complete operational Autotask data | partial_foundation | TimeEntries/TicketHistory jobs restored; continue bounded catch-up and field certification |
+| 2. Complete operational Autotask data | partial_foundation | TimeEntries/TicketHistory jobs restored and visible; continue bounded catch-up and field certification |
 | 3. Ticket Health Analytics | not_started | Deterministic APIs/UI with evidence |
 | 4. Redis and CPU performance | not_started | Scoped cache design and benchmarks |
 | 5. Real-time technician updates | not_started | Authorized event architecture |
@@ -103,7 +104,19 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Ask Assistant answer ticket links
+## Latest receipt — Operations automation visibility
+
+- **Slice:** Make scheduled automation movement visible on branch `agent/operations-automation-visibility` from canonical `main` `96a3e9503b0195af8157324afb6824a04aeb03e0`.
+- **State:** `partial_foundation`; operators can now see whether TimeEntries/TicketHistory automation is running and moving data, but Milestone 2 still requires historical catch-up certification and source-lineage/field availability closure.
+- **Files changed:** `apps/web/index.html`, `apps/web/styles.css`, `apps/web/tests/helpers.js`, `apps/web/tests/operations-automation.spec.js`, and project status docs.
+- **Implemented:** Operations now displays local TimeEntries and TicketHistory totals, scheduler health, scheduler heartbeat age, next due job, and recent related-data automation cards for open-ticket/estate TicketHistory, TimeEntries, recent sync, classification, document, and embedding jobs.
+- **Runtime evidence:** Read-only local checks on 2026-07-22 showed `scheduler.state=healthy`, `global_pause=false`, heartbeat age about 18 seconds, counts `tickets=67726`, `ticket_notes=675531`, `time_entries=49054`, `ticket_history=29340`, and recent successful related-data runs including `open_ticket_history_gaps` pulled `685` with `2` inserted and `683` updated, `ticket_history_gaps` pulled `566` with `200` inserted and `366` updated, and `ticket_time_entry_gaps` pulled/inserted `40`.
+- **Validation:** `npm run test:web -- operations-automation.spec.js` passed with `1 passed`; `npm run test:web` passed with `10 passed`; full `./scripts/validate-ci.sh && git diff --check` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `112 passed`, static web JavaScript syntax validation, Playwright browser smoke `10 passed`, and whitespace checks.
+- **Read-only evidence:** No sync jobs were manually triggered, no production deployment or live credential changes were made, and no Autotask write capability was run or added; the UI renders existing local operations/status/job-run evidence only.
+- **Rollback:** Revert this branch commit; scheduled jobs keep running, but the Operations page returns to the previous generic counts/tables without the automation-health summary.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Ask Assistant answer ticket links
 
 - **Slice:** Make ticket IDs inside assistant answer text clickable on branch `agent/answer-ticket-links` from canonical `main` `65a42bbdc4fa6689ad2fb67fea00d3aa0a375783`.
 - **State:** `partial`; answer evidence is easier to inspect in the UI, but live production-auth deployment evidence remains open.
