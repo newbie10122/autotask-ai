@@ -197,6 +197,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused container validation passed for field-certification/source-candidate/parser tests with `3 passed`, scoped route authority/scope propagation tests with `2 passed`, and full governed validation passed with `127` API tests plus `11` Playwright browser tests.
 - Current branch evidence on `agent/status-history-entity-probe`: `POST /api/autotask/probe/status-transition-sources` gives Admin users a manual bounded read-only availability probe for candidate status-history entities with `MaxRecords=1` per entity, per-entity error isolation, safe audit metadata, and explicit policy flags blocking Autotask writes, automatic sync-path changes, and automatic model/workflow changes.
 - Current branch validation: focused container validation passed for bounded probe/client and company-sync compatibility tests with `3 passed`; focused admin route matrix, route authority, and success-audit tests passed with `3 passed`.
+- Current branch evidence on `agent/status-probe-error-isolation`: repeated unavailable candidate entities no longer trip the read-only client's consecutive-error breaker across candidates; every candidate is attempted independently and reported with per-entity status.
+- Current branch validation: focused container validation passed for bounded probe/error-isolation tests with `2 passed`.
 
 ## Milestone 8
 
