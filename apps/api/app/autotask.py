@@ -12,6 +12,12 @@ from .db import db_connection
 
 
 TRANSIENT_STATUS_CODES = {408, 429, 500, 502, 503, 504}
+STATUS_TRANSITION_CANDIDATE_ENTITIES: tuple[str, ...] = (
+    "TicketStatusHistory",
+    "TicketStatusHistories",
+    "TicketHistory",
+    "TicketChangeHistory",
+)
 
 
 @dataclass(frozen=True)
@@ -152,14 +158,67 @@ class AutotaskReadOnlyClient:
         entity: str,
         filters: list[dict[str, Any]] | None = None,
         include_fields: list[str] | None = None,
+        max_records: int | None = None,
     ) -> dict[str, Any]:
+        record_limit = min(max(max_records or self.page_size, 1), 500)
         query: dict[str, Any] = {
-            "MaxRecords": self.page_size,
+            "MaxRecords": record_limit,
             "filter": filters or [{"op": "gte", "field": "id", "value": 0}],
         }
         if include_fields:
             query["IncludeFields"] = include_fields
         return self._request("POST", f"/V1.0/{entity}/query", json=query)
+
+    def probe_status_transition_sources(
+        self,
+        entities: tuple[str, ...] = STATUS_TRANSITION_CANDIDATE_ENTITIES,
+    ) -> dict[str, Any]:
+        results: list[dict[str, Any]] = []
+        for entity in entities:
+            try:
+                payload = self.query_entity(
+                    entity,
+                    filters=[{"op": "gte", "field": "id", "value": 0}],
+                    max_records=1,
+                )
+                items = payload.get("items") or payload.get("records") or payload.get("value") or []
+                results.append(
+                    {
+                        "entity": entity,
+                        "availability": "available",
+                        "sample_count": len(items[:1]),
+                        "has_next_page": bool(
+                            payload.get("pageDetails", {}).get("nextPageUrl") or payload.get("nextPageUrl")
+                        ),
+                        "error": None,
+                    }
+                )
+            except Exception as exc:
+                results.append(
+                    {
+                        "entity": entity,
+                        "availability": "unavailable",
+                        "sample_count": 0,
+                        "has_next_page": False,
+                        "error": f"{exc.__class__.__name__}: {str(exc)[:240]}",
+                    }
+                )
+        return {
+            "ok": True,
+            "probe": "status_transition_source_candidates",
+            "live_autotask_probe_ran": True,
+            "autotask_writes_allowed": False,
+            "max_records_per_entity": 1,
+            "candidate_entities": list(entities),
+            "results": results,
+            "available_entities": [item["entity"] for item in results if item["availability"] == "available"],
+            "policy": {
+                "read_only": True,
+                "manual_admin_only": True,
+                "automatic_sync_path_changes_allowed": False,
+                "automatic_model_or_workflow_changes_allowed": False,
+            },
+        }
 
     def follow_next_page(self, next_page_url: str) -> dict[str, Any]:
         method = "POST" if "/query/next" in next_page_url else "GET"

@@ -1639,7 +1639,7 @@ def status_transition_source_candidates_report(
                 "TicketHistory",
                 "TicketChangeHistory",
             ],
-            "next_step": "Run a bounded read-only entity availability probe before adding any new sync path.",
+            "next_step": "Use the Admin-only bounded read-only status-transition source probe before adding any new sync path.",
         },
     ]
     blockers = [

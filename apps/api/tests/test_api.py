@@ -231,6 +231,7 @@ def test_admin_route_matrix_denies_readonly_and_audits_each_denial(monkeypatch):
         ("POST", "/api/autotask/test/companies", None),
         ("POST", "/api/autotask/test/tickets", None),
         ("POST", "/api/autotask/test/ticket-notes", None),
+        ("POST", "/api/autotask/probe/status-transition-sources", None),
         ("POST", "/autotask/test-connection", None),
         ("POST", "/api/sync/companies/start", {}),
         ("POST", "/api/sync/tickets/start", {}),
@@ -318,6 +319,7 @@ def test_api_route_authority_matrix_classifies_every_route():
         ("POST", "/api/autotask/test/companies"),
         ("POST", "/api/autotask/test/tickets"),
         ("POST", "/api/autotask/test/ticket-notes"),
+        ("POST", "/api/autotask/probe/status-transition-sources"),
         ("POST", "/autotask/test-connection"),
         ("POST", "/api/sync/companies/start"),
         ("POST", "/api/sync/tickets/start"),
@@ -365,14 +367,32 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
     monkeypatch.setattr("app.main.run_embedding_batch", lambda limit=None: {"ok": True, "limit": limit})
 
     class FakeAutotaskClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
         def threshold_information(self):
             return {"remaining": 100}
 
-    monkeypatch.setattr("app.main.AutotaskReadOnlyClient", lambda: FakeAutotaskClient())
+        def probe_status_transition_sources(self):
+            return {
+                "ok": True,
+                "candidate_entities": ["TicketStatusHistory"],
+                "available_entities": ["TicketStatusHistory"],
+                "max_records_per_entity": 1,
+                "autotask_writes_allowed": False,
+            }
+
+    monkeypatch.setattr("app.main.AutotaskReadOnlyClient", FakeAutotaskClient)
     token = create_session_token("admin", [Role.admin.value])["token"]
     headers = {"Authorization": f"Bearer {token}"}
     routes = [
         ("GET", "/api/autotask/threshold", None, "autotask.threshold"),
+        (
+            "POST",
+            "/api/autotask/probe/status-transition-sources",
+            None,
+            "autotask.probe.status_transition_sources",
+        ),
         ("POST", "/api/sync/reference-data/start", None, "sync.reference_data.start"),
         ("POST", "/api/documents/build", {"limit": 5}, "documents.build"),
         ("POST", "/api/embeddings/run", {"limit": 5}, "embeddings.run"),
