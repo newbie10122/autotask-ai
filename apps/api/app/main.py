@@ -33,6 +33,7 @@ from .ticket_health import (
     store_ticket_health_risk_feedback,
     ticket_health_detail_by_number_scoped,
     ticket_health_detail_scoped,
+    ticket_health_predictive_evaluation,
     ticket_health_review_queue,
     ticket_health_summary,
 )
@@ -615,6 +616,28 @@ def api_ticket_health_review_queue(
             "min_priority": min_priority,
             "needs_review_only": needs_review_only,
         },
+    )
+    return result
+
+
+@app.get("/api/ticket-health/predictive-evaluation")
+def api_ticket_health_predictive_evaluation(
+    request: Request,
+    limit: int = 500,
+    delayed_days_threshold: int = 7,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = ticket_health_predictive_evaluation(
+        limit=limit,
+        delayed_days_threshold=delayed_days_threshold,
+        authorized_company_ids=authorized_company_ids,
+    )
+    record_success_audit(
+        AuditAction.search,
+        "ticket_health.predictive_evaluation",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"limit": limit, "delayed_days_threshold": delayed_days_threshold},
     )
     return result
 

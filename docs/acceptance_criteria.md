@@ -171,6 +171,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused container tests passed with `4 passed` for route authority, scoped route propagation, predictive abstention, and Bayesian history/feedback score movement. This is predictive foundation evidence only; holdout evaluation, leakage controls, bias/concentration review, and production certification remain required.
 - Current branch evidence on `agent/predictive-review-ui`: the Ticket Health web section displays predictive review queue counts, abstentions, confidence, sample size, reason codes, review-only guidance, and ticket-detail drilldown.
 - Current branch validation: `npm run test:web -- ticket-health.spec.js` passed with `1 passed`; `npm run test:web` passed with `11 passed`. This is browser visibility evidence only; predictive evaluation and certification remain required.
+- Current branch evidence on `agent/predictive-evaluation-baseline`: `/api/ticket-health/predictive-evaluation` reports holdout accuracy, precision, and recall for a simple priority baseline versus the Bayesian queue/priority delay signal, using older completed tickets for training and recent completed tickets for holdout.
+- Current branch validation: focused container tests passed with `3 passed` for route authority, scoped route propagation, and binary metric calculations. This is initial evaluation evidence only; target/label documentation, leakage review, bias/concentration review, and production certification remain required.
 
 ## Milestone 8
 
