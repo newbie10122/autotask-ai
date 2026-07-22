@@ -18,6 +18,9 @@ STATUS_TRANSITION_CANDIDATE_ENTITIES: tuple[str, ...] = (
     "TicketHistory",
     "TicketChangeHistory",
 )
+STATUS_TRANSITION_PROBE_FILTERS: dict[str, list[dict[str, Any]]] = {
+    "TicketHistory": [{"op": "gte", "field": "ticketID", "value": 0}],
+}
 
 
 @dataclass(frozen=True)
@@ -176,10 +179,11 @@ class AutotaskReadOnlyClient:
         results: list[dict[str, Any]] = []
         for entity in entities:
             self._consecutive_errors = 0
+            filters = STATUS_TRANSITION_PROBE_FILTERS.get(entity) or [{"op": "gte", "field": "id", "value": 0}]
             try:
                 payload = self.query_entity(
                     entity,
-                    filters=[{"op": "gte", "field": "id", "value": 0}],
+                    filters=filters,
                     max_records=1,
                 )
                 items = payload.get("items") or payload.get("records") or payload.get("value") or []
@@ -188,6 +192,7 @@ class AutotaskReadOnlyClient:
                         "entity": entity,
                         "availability": "available",
                         "sample_count": len(items[:1]),
+                        "probe_filter": filters,
                         "has_next_page": bool(
                             payload.get("pageDetails", {}).get("nextPageUrl") or payload.get("nextPageUrl")
                         ),
@@ -201,6 +206,7 @@ class AutotaskReadOnlyClient:
                         "entity": entity,
                         "availability": "unavailable",
                         "sample_count": 0,
+                        "probe_filter": filters,
                         "has_next_page": False,
                         "error": f"{exc.__class__.__name__}: {str(exc)[:240]}",
                     }
