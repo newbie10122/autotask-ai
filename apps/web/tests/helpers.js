@@ -128,6 +128,46 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
         })
       });
     }
+    if (pathname === "/api/ticket-health/field-certification") {
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          certification_state: "partial_field_certification",
+          blockers: ["ticket_status_history", "status_duration", "waiting_states"],
+          source_reports: {
+            transition_parser: {
+              parsed_status_transitions: 0,
+              timestamped_status_transitions: 0,
+              source_limited: true
+            }
+          },
+          targets: [
+            {
+              key: "ticket_status_history",
+              label: "TicketHistory coverage",
+              certification_status: "partial",
+              coverage_percent: 48.4,
+              prediction_use: "excluded_until_complete"
+            },
+            {
+              key: "status_duration",
+              label: "Status-duration and waiting-time lineage",
+              certification_status: "source_limited",
+              coverage_percent: 100,
+              prediction_use: "excluded_until_certified"
+            },
+            {
+              key: "time_entries",
+              label: "TimeEntries and labor-hour lineage",
+              certification_status: "certified",
+              coverage_percent: 100,
+              prediction_use: "excluded_until_certified_for_model_training"
+            }
+          ]
+        })
+      });
+    }
     if (pathname === "/api/ticket-health/review-queue") {
       return route.fulfill({
         contentType: "application/json",

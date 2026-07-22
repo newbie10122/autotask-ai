@@ -15,6 +15,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Current active branch validation: `agent/m2-field-certification` passed focused validation for field-certification/predictive-source-lineage tests with `2 passed`, scoped route authority/scope propagation tests with `2 passed`, runtime local Postgres report execution, and full governed validation with `124` API tests, `11` Playwright browser tests, and clean `git diff --check`. Runtime field certification returned `partial_field_certification`, summary `certified=2`, `partial=1`, `source_limited=2`, and blockers `ticket_status_history`, `status_duration`, and `waiting_states`.
 - Current active branch validation: `agent/predictive-model-variants` has focused variant/model-comparison tests passing with `3 passed`, runtime local Postgres evaluation passing for 50-ticket and 100-ticket samples, and full governed validation passing with `125` API tests, `11` Playwright browser tests, and clean `git diff --check`. The 100-ticket holdout showed all variants retain default recall `0.0`; queue+priority has ROC AUC `0.613` and PR AUC `0.115`.
 - Current active branch validation: `agent/status-transition-certification` has focused field-certification/parser tests passing with `2 passed`, runtime local Postgres field-certification smoke passing, and full governed validation passing with `126` API tests, `11` Playwright browser tests, and clean `git diff --check`. Runtime parser evidence returned `parsed_status_transitions=0`, `timestamped_status_transitions=0`, and `source_limited=true`.
+- Current active branch validation: `agent/operations-field-certification-ui` has focused Playwright Operations validation passing with `1 passed`, static web JavaScript syntax validation passing, and full governed validation passing with `126` API tests, `11` Playwright browser tests, and clean `git diff --check`.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -30,7 +31,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Validate and merge `agent/status-transition-certification` if full governed validation and exact-head CI pass.
+1. Validate and merge `agent/operations-field-certification-ui` if full governed validation and exact-head CI pass.
 2. Continue bounded TicketHistory/status-duration/waiting certification and investigate another read-only source for timestamped status changes.
 3. Update the existing Second Brain projection PR after this material slice merges.
 

@@ -78,6 +78,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 2 field-certification branch `agent/m2-field-certification` adds scoped field-certification evidence to the API and predictive evaluation. Local runtime evidence returned `certification_state=partial_field_certification`, summary `certified=2`, `partial=1`, `source_limited=2`, and blockers `ticket_status_history`, `status_duration`, and `waiting_states`; no sync job, Autotask write, model threshold change, or workflow change was run or added.
 - Predictive model-variants branch `agent/predictive-model-variants` broadens the read-only holdout report with global-prior, queue-only, priority-only, and queue+priority Bayesian variants alongside the simple priority baseline. Local runtime evidence on the 100-ticket holdout showed all variants still have default recall `0.0`; queue+priority remains the strongest secondary signal by ROC AUC `0.613` and PR AUC `0.115`, but no model selection or threshold/workflow change is authorized.
 - Status-transition certification branch `agent/status-transition-certification` adds a scoped parser summary for local TicketHistory action/detail rows and feeds it into field certification. Local runtime evidence found `0` parsed status transitions and `0` timestamped status transitions in the inspected local TicketHistory sample, so status-duration and waiting-state analytics remain source-limited until a usable read-only status-transition source is found or backfilled.
+- Operations field-certification UI branch `agent/operations-field-certification-ui` surfaces `/api/ticket-health/field-certification` in the Operations screen with certification state, blockers, parser counts, and target cards so operators can see why status-duration/waiting are not yet fully certified.
 
 ## Milestone table
 
@@ -97,7 +98,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge `agent/status-transition-certification`, then update the existing Second Brain projection.
+1. Validate and merge `agent/operations-field-certification-ui`, then update the existing Second Brain projection.
 2. Continue bounded TicketHistory estate catch-up certification and investigate whether another read-only Autotask source exposes status-transition timestamps.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
@@ -116,7 +117,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Status-transition parser certification evidence
+## Latest receipt — Operations field-certification UI evidence
+
+- **Slice:** Surface field-certification evidence in the Operations UI on branch `agent/operations-field-certification-ui` from canonical `main` `df85cae244e9f3d4aa1ec01b409088666c730835`.
+- **State:** `partial_foundation`; the UI now makes certification blockers visible, but underlying status-duration/waiting certification remains source-limited.
+- **Files changed:** `apps/web/index.html`, `apps/web/tests/helpers.js`, `apps/web/tests/operations-automation.spec.js`, and project status docs.
+- **Implemented:** Operations now loads `/api/ticket-health/field-certification` alongside automation status and renders field-certification state, blockers, parsed/timestamped status-transition counts, and target cards for certification status, coverage, and predictive-use policy.
+- **Validation:** focused browser validation passed for `apps/web/tests/operations-automation.spec.js` with `1 passed`, static web JavaScript syntax validation passed, and full governed validation passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `126 passed`, static web JavaScript syntax validation, Playwright browser smoke `11 passed`, and clean `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, Autotask writes, model threshold changes, routing, escalation, notification, assignment, status, priority, or workflow changes were run or added.
+- **Rollback:** Revert this branch commit; Operations UI falls back to PR #50 without the field-certification panel.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Status-transition parser certification evidence
 
 - **Slice:** Add scoped TicketHistory transition parser certification on branch `agent/status-transition-certification` from canonical `main` `10e3b35517c5bec87f22461fbd3a0a7d0b769b5f`.
 - **State:** `partial_foundation`; field certification now includes parser evidence, but status-duration and waiting-state certification remain source-limited because local TicketHistory rows do not currently parse into status transitions.
