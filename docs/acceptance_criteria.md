@@ -199,6 +199,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused container validation passed for bounded probe/client and company-sync compatibility tests with `3 passed`; focused admin route matrix, route authority, and success-audit tests passed with `3 passed`.
 - Current branch evidence on `agent/status-probe-error-isolation`: repeated unavailable candidate entities no longer trip the read-only client's consecutive-error breaker across candidates; every candidate is attempted independently and reported with per-entity status.
 - Current branch validation: focused container validation passed for bounded probe/error-isolation tests with `2 passed`.
+- Current branch evidence on `agent/status-probe-entity-filters`: the bounded status-transition probe now uses per-entity read-only filters and reports the filter used; `TicketHistory` is probed by `ticketID` instead of generic `id`, matching the existing read-only sync contract.
+- Current branch validation: focused container validation passed for bounded probe filter/error-isolation tests with `3 passed`.
 
 ## Milestone 8
 

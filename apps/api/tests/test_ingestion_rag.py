@@ -61,6 +61,24 @@ def test_status_transition_source_probe_is_bounded_read_only(monkeypatch):
     assert report["results"][1]["availability"] == "unavailable"
     assert all(call[0] == "POST" for call in calls)
     assert all(call[2]["MaxRecords"] == 1 for call in calls)
+    assert all(call[2]["filter"] == [{"op": "gte", "field": "id", "value": 0}] for call in calls)
+
+
+def test_status_transition_source_probe_uses_ticket_history_filter(monkeypatch):
+    calls = []
+
+    def fake_request(_self, method, endpoint, json=None):
+        calls.append((method, endpoint, json))
+        return {"items": [{"id": 1}]}
+
+    monkeypatch.setattr(AutotaskReadOnlyClient, "_request", fake_request)
+
+    report = AutotaskReadOnlyClient(delay_seconds=0).probe_status_transition_sources(("TicketHistory",))
+
+    assert report["available_entities"] == ["TicketHistory"]
+    assert calls[0][2]["MaxRecords"] == 1
+    assert calls[0][2]["filter"] == [{"op": "gte", "field": "ticketID", "value": 0}]
+    assert report["results"][0]["probe_filter"] == [{"op": "gte", "field": "ticketID", "value": 0}]
 
 
 def test_status_transition_source_probe_isolates_repeated_unavailable_entities(monkeypatch):
