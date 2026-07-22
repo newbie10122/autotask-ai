@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `c9a8accf4d5a7a4a8e8e8e1c9fc807fd77b75df4`
-- Latest merged PR: `newbie10122/autotask-ai#77`, `Scope labor lineage certification`
-- Latest PR #77 CI: GitHub Actions run `29937143017`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed-equivalent validation on PR #77 evidence passed with API/worker Python compilation, full pytest `141 passed`, static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check`; the local full script path remained blocked only at `npx playwright install --with-deps chromium` by unreachable Ubuntu mirrors, while exact-head GitHub Actions CI passed the full harness before merge.
+- Canonical `main`: `b2b9faa65963f1dad280195150bb5128cc0d855c`
+- Latest merged PR: `newbie10122/autotask-ai#78`, `Record scoped labor lineage merge`
+- Latest PR #78 CI: GitHub Actions run `29937551176`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation on active PR #79 candidate passed with focused field-certification/SLA lineage tests `77 passed`, API/worker Python compilation, full pytest `143 passed`, static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check`.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -40,6 +40,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge Milestone 2 evidence on canonical `main` `b03f4f35b2d032af58e7447444be6550136f9410`: PR #75 carries open-ticket TimeEntries checked, checked-empty, and unchecked gap-check context into field certification so unchecked labor gaps keep certification partial while confirmed zero-result reads are distinguished from missing sync evidence.
 - Post-merge documentation evidence on canonical `main` `f2212e93ad80259b6b5bba5eb121071d15c6fd5c`: PR #76 records the PR #75 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
 - Post-merge Milestone 2 evidence on canonical `main` `c9a8accf4d5a7a4a8e8e8e1c9fc807fd77b75df4`: PR #77 makes `labor_coverage_report()` accept authorized company scope, applies that scope to summary/status/target labor coverage queries, and makes field certification fetch scoped labor context.
+- Post-merge documentation evidence on canonical `main` `b2b9faa65963f1dad280195150bb5128cc0d855c`: PR #78 records the PR #77 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
+- Current active branch validation: `agent/m2-sla-lineage-certification` passes focused field-certification/SLA lineage validation with `77 passed`, full API compile/pytest validation with `143 passed`, static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check`. The branch adds scoped SLA lineage evidence for SLA IDs, met flags, due/first-response/resolution targets, pause context, status buckets, and field-certification partial gating when target timestamps are incomplete.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -55,8 +57,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record the PR #77 merge and updated Second Brain projection state in canonical project docs.
-2. Continue Milestone 2 field/source-lineage certification for SLA, status-duration, waiting state, and TicketHistory content shape.
+1. Finish, validate, open, and merge `agent/m2-sla-lineage-certification` if exact-head CI passes.
+2. Continue Milestone 2 field/source-lineage certification for status-duration, waiting state, and TicketHistory content shape.
 
 ## Milestone status
 
