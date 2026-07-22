@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `7c5db4a`
-- Latest merged PR: `newbie10122/autotask-ai#110`, `Record runtime probe projection evidence`
-- Latest PR #110 CI: GitHub Actions run `29959637237`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local validation for PR #110 passed `git diff --check` and full repository validation with `161` API tests plus `13` Playwright tests.
+- Canonical `main`: `526f7c6`
+- Latest merged PR: `newbie10122/autotask-ai#111`, `Sync TicketCategories reference metadata`
+- Latest PR #111 CI: GitHub Actions run `29960006320`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation for PR #111 passed focused reference-data/probe/contract validation with `5 passed`, `git diff --check`, and full repository validation with `162` API tests plus `13` Playwright tests.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -67,7 +67,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `9e17d22`: PR #108 records the PR #107 merge evidence and Second Brain projection head `6797b80`.
 - Post-merge runtime evidence on canonical `main` `9e17d22`: local `/ready` returned `HTTP 200`, and the bounded Admin-only read-only reference metadata probe returned `live_autotask_probe_ran=true`, `autotask_writes_allowed=false`, `MaxRecords=1` per candidate entity, available entity `TicketCategories`, and unavailable candidates `TicketPriorities`, `Priorities`, `TicketIssueTypes`, `TicketSubIssueTypes`, `Queues`, `TicketQueues`, and `TicketStatuses`. This is availability evidence only and does not authorize automatic reference sync, model/workflow changes, or Autotask writes.
 - Post-merge documentation evidence on canonical `main` `98188c4`: PR #109 records the runtime probe evidence and Second Brain projection PR #13 head `2f86a7b`.
-- Current branch validation: `agent/m2-ticket-category-metadata-sync` focused reference-data/probe/contract validation passed with `5` tests, Python compile passed for the changed module/test, and `git diff --check` passed. The branch adds read-only `TicketCategories` metadata ingestion into `autotask_reference_values` with `source='autotask_metadata'`, but does not run the live sync or authorize Autotask writes.
+- Post-merge Milestone 2 evidence on canonical `main` `526f7c6`: PR #111 adds read-only `TicketCategories` metadata ingestion into `autotask_reference_values` with `source='autotask_metadata'`. Runtime after local API rebuild returned `/ready` `HTTP 200`; `POST /api/sync/reference-data/start` processed/upserted `14` `TicketCategories` metadata rows with no metadata-sync errors and `autotask_writes_allowed=false`. Field certification still returned `partial_field_certification`; category reference lineage is now `100.0%` authoritative, but issue/subissue, priority, queue, status-duration, and waiting blockers remain.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -83,7 +83,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge the `TicketCategories` authoritative metadata sync foundation.
+1. Record the `TicketCategories` authoritative metadata sync runtime evidence and update the open Second Brain projection.
 2. Continue the next safe Milestone 2 source-lineage slice for priority, queue, issue/subissue, status-duration, and waiting blockers without Autotask writes, production deployment, or model workflow changes.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 
