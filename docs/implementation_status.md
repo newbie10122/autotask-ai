@@ -11,9 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `92d21ff`, which merged PR `newbie10122/autotask-ai#114` (`Sync ticket picklist reference metadata`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#114` run `29961689594`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #114 passed focused reference-data/probe/contract validation with `6 passed`, `git diff --check`, and full repository validation with `163` API tests plus `13` Playwright tests.
-- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `e367155` after recording Autotask AI progress through PR #112 and the TicketCategories metadata sync runtime evidence; local `python3 tools/validate_knowledge.py` passed with `112` Markdown files, `112` unique IDs, and `248` internal links.
+- Canonical `main` is `17b90fe`, which merged PR `newbie10122/autotask-ai#115` (`Record ticket picklist metadata runtime evidence`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#115` run `29961993981`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #114 passed focused reference-data/probe/contract validation with `6 passed`, `git diff --check`, and full repository validation with `163` API tests plus `13` Playwright tests; PR #115 records the post-merge runtime evidence.
+- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `d46a520` after recording Autotask AI progress through PR #115 and the ticket picklist metadata sync runtime evidence; local `python3 tools/validate_knowledge.py` passed with `113` Markdown files, `113` unique IDs, and `254` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -141,10 +141,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record ticket picklist metadata runtime evidence and update the open Second Brain projection.
-2. Continue status-duration, waiting, TicketHistory coverage, and queue-at-creation/history blockers.
-3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
-4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+1. Continue status-duration, waiting, TicketHistory coverage, and queue-at-creation/history blockers.
+2. Continue production-auth deployment evidence only when explicitly approved for that protected action.
+3. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
 ## Current receipt — Milestone 2 ticket picklist metadata sync runtime evidence
 
@@ -154,10 +153,10 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - **Implemented by PR #114:** `AutotaskReadOnlyClient.ticket_entity_fields()` reads `/V1.0/Tickets/entityInformation/fields`. `sync_autotask_reference_metadata()` maps supported ticket picklist fields into local reference fields and upserts picklist `value`/`label` pairs as `source='autotask_metadata'`, with raw metadata scoped to the field/picklist item. The `metadata_sync` report includes `ticket_picklist_fields` and `ticket_picklist_upserted`.
 - **Runtime evidence:** Local API rebuild returned `/ready` `HTTP 200`. `POST /api/sync/reference-data/start` returned `ok=true`, total `upserted=470`, `metadata_sync.ok=true`, `attempted_entities=['TicketCategories']`, `available_entities=['TicketCategories']`, `ticket_picklist_fields=['issueType','priority','queueID','status','subIssueType','ticketCategory']`, `ticket_picklist_upserted=231`, `metadata_sync.processed=245`, no metadata-sync errors, `read_only=true`, and `autotask_writes_allowed=false`.
 - **Field-certification evidence:** `/api/ticket-health/field-certification` remained `partial_field_certification`, with summary `certified=6`, `partial=2`, `source_limited=2`; blockers are `ticket_status_history`, `status_duration`, `waiting_states`, and `queue`. Reference lineage summary is `certified=3`, metadata contract `fields_requiring_metadata_source=0`, and priority/category/issue_type/subissue_type/queue/status each report `100.0%` authoritative label coverage. Queue remains partial because queue-at-creation/history lineage is not certified, not because labels are missing.
-- **Validation:** PR #114 CI run `29961689594` passed; focused reference-data/probe/contract validation passed with `6 passed`; full validation passed with `163` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only runtime-evidence branch requires docs whitespace validation and CI before merge.
+- **Validation:** PR #114 CI run `29961689594` passed; PR #115 CI run `29961993981` passed; focused reference-data/probe/contract validation passed with `6 passed`; full validation passed with `163` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only projection-reconciliation branch requires docs whitespace validation and CI before merge.
 - **Read-only/authority evidence:** The runtime sync used read-only Autotask metadata endpoints and did not write to Autotask, change model threshold/workflow behavior, change routing/assignment, or deploy production code.
 - **Rollback:** Revert the docs-only runtime evidence commit to remove the receipt. To remove local picklist metadata rows, a separately reviewed local database cleanup would be required; do not perform that cleanup as part of documentation rollback.
-- **Second Brain state:** `pull-request-open`; projection PR `newbie10122/helix-second-brain#13` remains open at head `e367155` and records PR #112 TicketCategories metadata sync runtime evidence with local knowledge validation passing.
+- **Second Brain state:** `pull-request-open`; projection PR `newbie10122/helix-second-brain#13` remains open at head `d46a520` and records PR #115 ticket picklist metadata sync runtime evidence with local knowledge validation passing: `113` Markdown files, `113` unique IDs, and `254` internal links.
 
 ## Historical receipt — Milestone 2 reference metadata source-contract merge evidence
 
@@ -1028,8 +1027,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `e367155`. It records Autotask AI progress through PR #112, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, PR #99 reference-label provenance evidence, PR #101 reference-lineage source-authority evidence, PR #103 reference-label source-candidate evidence, PR #105 reference metadata source-contract evidence, PR #107 reference metadata source-probe evidence, PR #109 reference metadata runtime-probe evidence, and PR #112 TicketCategories metadata sync runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `112` Markdown files, `112` unique IDs, and `248` internal links.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `d46a520`. It records Autotask AI progress through PR #115, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, PR #99 reference-label provenance evidence, PR #101 reference-lineage source-authority evidence, PR #103 reference-label source-candidate evidence, PR #105 reference metadata source-contract evidence, PR #107 reference metadata source-probe evidence, PR #109 reference metadata runtime-probe evidence, PR #112 TicketCategories metadata sync runtime evidence, and PR #115 ticket picklist metadata sync runtime evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `113` Markdown files, `113` unique IDs, and `254` internal links.
 
 ## Exact next action
 
-Commit and merge this reference metadata runtime-probe evidence, update the open Second Brain projection, then continue the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
+Commit and merge this docs-only projection reconciliation, then continue the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
