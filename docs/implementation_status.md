@@ -60,6 +60,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
 - Predictive evaluation branch `agent/predictive-evaluation-baseline` adds a scoped holdout report comparing a simple priority baseline against the Bayesian statistical delay signal.
+- Predictive threshold sweep branch `agent/predictive-threshold-sweep` adds read-only threshold sweep and F1 evidence to the predictive holdout report.
 
 ## Verified gaps blocking production readiness
 
@@ -108,7 +109,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Predictive evaluation baseline
+## Latest receipt — Predictive threshold sweep
+
+- **Slice:** Add predictive evaluation threshold-sweep evidence on branch `agent/predictive-threshold-sweep` from canonical `main` `42729ef339fac1eff582eb45dead9c065e86021f`.
+- **State:** `partial_foundation`; the evaluation report can now compare candidate Bayesian delay thresholds by precision, recall, and F1, but no threshold changes are applied automatically and Milestone 7 still requires bias/concentration review and production certification.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** Predictive evaluation metrics now include F1, and `/api/ticket-health/predictive-evaluation` returns `threshold_sweep` plus `best_threshold_by_f1` as advisory evidence. The sweep is explicitly review-only and does not tune weights or alter ranking behavior.
+- **Validation:** focused container tests passed with `2 passed`: binary metric F1 and threshold sweep ordering.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; predictive evaluation remains available without F1/threshold-sweep evidence.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Predictive evaluation baseline
 
 - **Slice:** Add a read-only predictive holdout evaluation report on branch `agent/predictive-evaluation-baseline` from canonical `main` `0e2f122db69d6ce367e82f792de4ff5c6ad97fe1`.
 - **State:** `partial_foundation`; predictive ranking now has initial local holdout metrics, but Milestone 7 still requires broader target/label documentation, bias/concentration review, leakage review, and production certification.
