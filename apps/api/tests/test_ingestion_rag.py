@@ -928,6 +928,38 @@ def test_archive_stale_orphaned_run_requires_safe_local_metadata_guards(monkeypa
     assert "last_checkpoint" not in result["run"]
 
 
+def test_set_global_pause_records_local_provenance_without_running_jobs(monkeypatch):
+    captured = {}
+
+    def fake_update(changes):
+        captured["changes"] = changes
+        return {**operations_module.default_operations_settings(), **changes}
+
+    monkeypatch.setattr(operations_module, "update_operations_settings", fake_update)
+
+    result = operations_module.set_global_pause(True, actor="admin", reason="  maintenance window  ")
+
+    assert result["ok"] is True
+    assert result["settings"]["global_pause"] is True
+    assert captured["changes"]["global_pause"] is True
+    assert captured["changes"]["global_pause_changed_by"] == "admin"
+    assert captured["changes"]["global_pause_reason"] == "maintenance window"
+    assert captured["changes"]["global_pause_action"] == "pause"
+    assert captured["changes"]["global_pause_changed_at"]
+    assert result["pause_provenance"] == {
+        "paused": True,
+        "action": "pause",
+        "actor": "admin",
+        "reason": "maintenance window",
+        "changed_at": captured["changes"]["global_pause_changed_at"],
+        "policy": {
+            "local_metadata_only": True,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+        },
+    }
+
+
 def test_scheduler_preflight_global_pause_disk_and_threshold_guards(monkeypatch):
     settings = operations_module.default_operations_settings()
     settings["global_pause"] = True

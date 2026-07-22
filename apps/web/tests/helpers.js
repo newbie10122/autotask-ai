@@ -19,7 +19,7 @@ async function stopStaticServer(server) {
   await new Promise((resolve) => server.close(resolve));
 }
 
-async function stubApi(page, { routeAuthRequired = true, user = null, askHandler = null, ticketDetailHandler = null } = {}) {
+async function stubApi(page, { routeAuthRequired = true, user = null, askHandler = null, ticketDetailHandler = null, operationsRequestLog = null } = {}) {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     const pathname = url.pathname;
@@ -74,6 +74,18 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
           autotask_threshold_remaining: 100,
           disk_free_gb: 10,
           global_pause: false,
+          pause_provenance: {
+            paused: false,
+            action: "resume",
+            actor: "admin",
+            reason: "manual_ui_resume",
+            changed_at: "2026-07-22T00:25:00Z",
+            policy: {
+              local_metadata_only: true,
+              runs_jobs: false,
+              autotask_writes_allowed: false
+            }
+          },
           scheduler: {
             state: "healthy",
             heartbeat_age_seconds: 12,
@@ -146,6 +158,29 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
                 reason: "Expands TicketHistory coverage with bounded per-ticket reads; status-duration remains source-limited until status-change events appear."
               }
             ]
+          }
+        })
+      });
+    }
+    if (pathname === "/api/operations/pause" || pathname === "/api/operations/resume") {
+      const body = route.request().postDataJSON();
+      if (operationsRequestLog) operationsRequestLog.push({ pathname, body });
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          settings: { global_pause: pathname.endsWith("/pause") },
+          pause_provenance: {
+            paused: pathname.endsWith("/pause"),
+            action: pathname.endsWith("/pause") ? "pause" : "resume",
+            actor: "admin",
+            reason: body.reason,
+            changed_at: "2026-07-22T00:26:00Z",
+            policy: {
+              local_metadata_only: true,
+              runs_jobs: false,
+              autotask_writes_allowed: false
+            }
           }
         })
       });

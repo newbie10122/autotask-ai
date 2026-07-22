@@ -79,6 +79,10 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "autotask_threshold_min_remaining": 500,
     "min_free_disk_gb": 50,
     "global_pause": False,
+    "global_pause_changed_at": None,
+    "global_pause_changed_by": None,
+    "global_pause_reason": None,
+    "global_pause_action": None,
 }
 
 SETTING_LIMITS: dict[str, tuple[int, int]] = {
@@ -517,6 +521,39 @@ def update_operations_settings(changes: dict[str, Any]) -> dict[str, Any]:
     _sync_job_enabled_from_settings()
     invalidate_operations_status_cache()
     return operations_settings()
+
+
+def _pause_reason(reason: str | None, paused: bool) -> str:
+    default_reason = "manual_pause" if paused else "manual_resume"
+    cleaned = " ".join(str(reason or default_reason).strip().split())
+    return (cleaned or default_reason)[:200]
+
+
+def set_global_pause(paused: bool, *, actor: str = "system", reason: str | None = None) -> dict[str, Any]:
+    changed_at = datetime.now(UTC).isoformat()
+    action = "pause" if paused else "resume"
+    provenance = {
+        "paused": paused,
+        "action": action,
+        "actor": str(actor or "system")[:120],
+        "reason": _pause_reason(reason, paused),
+        "changed_at": changed_at,
+        "policy": {
+            "local_metadata_only": True,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+        },
+    }
+    settings = update_operations_settings(
+        {
+            "global_pause": paused,
+            "global_pause_changed_at": changed_at,
+            "global_pause_changed_by": provenance["actor"],
+            "global_pause_reason": provenance["reason"],
+            "global_pause_action": action,
+        }
+    )
+    return {"ok": True, "settings": settings, "pause_provenance": provenance}
 
 
 def _sync_job_enabled_from_settings() -> None:
@@ -1792,6 +1829,18 @@ def operations_status(cache_context: dict[str, Any] | None = None) -> dict[str, 
         "autotask_threshold_error": threshold_error,
         "disk_free_gb": round(disk_free_gb("/"), 2),
         "global_pause": settings["global_pause"],
+        "pause_provenance": {
+            "paused": bool(settings["global_pause"]),
+            "action": settings.get("global_pause_action"),
+            "actor": settings.get("global_pause_changed_by"),
+            "reason": settings.get("global_pause_reason"),
+            "changed_at": settings.get("global_pause_changed_at"),
+            "policy": {
+                "local_metadata_only": True,
+                "runs_jobs": False,
+                "autotask_writes_allowed": False,
+            },
+        },
         "counts": {**dict(counts), "eligible_missing_embeddings": noise.get("eligible_missing_embeddings", 0)},
         "coverage": _operations_coverage(dict(coverage)),
         "estate": estate_coverage,

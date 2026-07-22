@@ -148,6 +148,7 @@
           <div><span>Autotask Threshold</span><strong id="opsThreshold">Loading</strong></div>
           <div><span>Disk Free</span><strong id="opsDisk">Loading</strong></div>
           <div><span>Global Pause</span><strong id="opsPause">Loading</strong></div>
+          <div><span>Pause Provenance</span><strong id="opsPauseProvenance">Loading</strong></div>
           <div><span>Tickets</span><strong id="opsTickets">Loading</strong></div>
           <div><span>Ticket Notes</span><strong id="opsNotes">Loading</strong></div>
           <div><span>Time Entries</span><strong id="opsTimeEntries">Loading</strong></div>
@@ -804,6 +805,10 @@
         document.getElementById("opsThreshold").textContent = status.autotask_threshold_remaining ?? status.autotask_threshold_error ?? "Unknown";
         document.getElementById("opsDisk").textContent = `${status.disk_free_gb} GB`;
         document.getElementById("opsPause").textContent = status.global_pause ? "Paused" : "Running";
+        const pauseProvenance = status.pause_provenance || {};
+        document.getElementById("opsPauseProvenance").textContent = pauseProvenance.changed_at
+          ? `${pauseProvenance.action || "change"} by ${pauseProvenance.actor || "unknown"}`
+          : "None";
         document.getElementById("opsTickets").textContent = status.counts.tickets || 0;
         document.getElementById("opsNotes").textContent = status.counts.ticket_notes || 0;
         document.getElementById("opsTimeEntries").textContent = status.counts.time_entries || 0;
@@ -1111,11 +1116,17 @@
       });
 
       document.getElementById("pauseOperations").addEventListener("click", async () => {
-        await api("/api/operations/pause", { method: "POST" });
+        await api("/api/operations/pause", {
+          method: "POST",
+          body: JSON.stringify({ reason: "manual_ui_pause" })
+        });
         await loadOperations();
       });
       document.getElementById("resumeOperations").addEventListener("click", async () => {
-        await api("/api/operations/resume", { method: "POST" });
+        await api("/api/operations/resume", {
+          method: "POST",
+          body: JSON.stringify({ reason: "manual_ui_resume" })
+        });
         await loadOperations();
       });
       document.getElementById("refreshSync").addEventListener("click", loadSync);

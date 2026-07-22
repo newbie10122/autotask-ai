@@ -208,7 +208,7 @@ def test_operations_status_passes_scoped_cache_context_when_route_auth_enabled(m
 
 def test_admin_route_requires_admin_role_when_route_auth_enabled(monkeypatch):
     monkeypatch.setattr(settings, "app_route_auth_required", True)
-    monkeypatch.setattr("app.main.update_operations_settings", lambda payload: payload)
+    monkeypatch.setattr("app.main.set_global_pause", lambda paused, actor, reason=None: {"ok": True, "settings": {"global_pause": paused}})
     readonly_token = create_session_token("reader", [Role.readonly.value])["token"]
     admin_token = create_session_token("admin", [Role.admin.value])["token"]
 
@@ -363,6 +363,22 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
     monkeypatch.setattr(settings, "app_route_auth_required", True)
     monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
     monkeypatch.setattr("app.main.update_operations_settings", lambda payload: payload)
+    monkeypatch.setattr(
+        "app.main.set_global_pause",
+        lambda paused, actor, reason=None: {
+            "ok": True,
+            "settings": {"global_pause": paused},
+            "pause_provenance": {
+                "paused": paused,
+                "reason": reason or ("manual_pause" if paused else "manual_resume"),
+                "policy": {
+                    "local_metadata_only": True,
+                    "runs_jobs": False,
+                    "autotask_writes_allowed": False,
+                },
+            },
+        },
+    )
     monkeypatch.setattr("app.main.run_job", lambda job_name, triggered_by, force: {"ok": True, "job_name": job_name})
     monkeypatch.setattr("app.main.archive_stale_orphaned_run", lambda run_id: {"ok": True, "archived": True, "run": {"id": run_id}})
     monkeypatch.setattr("app.main.classify_tickets", lambda limit=None: {"ok": True, "limit": limit})
@@ -406,7 +422,8 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
         ("POST", "/api/operations/settings", {"settings": {"global_pause": True}}, "operations.settings.update"),
         ("POST", "/api/operations/jobs/recent_sync/run", None, "operations.job.run"),
         ("POST", "/api/operations/jobs/1/archive-stale", None, "operations.job.archive_stale"),
-        ("POST", "/api/operations/pause", None, "operations.pause"),
+        ("POST", "/api/operations/pause", {"reason": "maintenance"}, "operations.pause"),
+        ("POST", "/api/operations/resume", {"reason": "maintenance complete"}, "operations.resume"),
         ("GET", "/api/admin/curated-memory", None, "curated_memory.pending.read"),
     ]
 
@@ -423,6 +440,15 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
         assert event.metadata["roles"] == [Role.admin.value]
     curated_read = next(event for event in success_events if event.target == "curated_memory.pending.read")
     assert curated_read.metadata["item_count"] == 1
+    pause_event = next(event for event in success_events if event.target == "operations.pause")
+    assert pause_event.metadata["paused"] is True
+    assert pause_event.metadata["reason"] == "maintenance"
+    assert pause_event.metadata["local_metadata_only"] is True
+    assert pause_event.metadata["runs_jobs"] is False
+    assert pause_event.metadata["autotask_writes_allowed"] is False
+    resume_event = next(event for event in success_events if event.target == "operations.resume")
+    assert resume_event.metadata["paused"] is False
+    assert resume_event.metadata["reason"] == "maintenance complete"
 
 
 def test_audit_log_supports_bounded_admin_filters_and_audits_read(monkeypatch):
