@@ -84,6 +84,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Status-probe error-isolation branch `agent/status-probe-error-isolation` fixes the manual status-history probe so repeated unavailable entities do not trip the read-only client's consecutive-error breaker across candidates; every candidate is attempted independently and reported.
 - Status-probe entity-filters branch `agent/status-probe-entity-filters` makes the manual probe use per-entity read-only filters and report each filter used. `TicketHistory` now probes by `ticketID`, matching the existing read-only sync path, while candidate status-history entities still probe by `id`.
 - Status-probe sample-ticket branch `agent/status-probe-ticket-history-sample` makes the `TicketHistory` availability probe use one real local `autotask_tickets.autotask_id` with `ticketID eq <local ticket>` and `MaxRecords=1`, falling back to `ticketID >= 0` only when no local ticket exists.
+- Post-merge bounded read-only runtime probe on canonical `main` `9cc33aaf6ed3987d45a43e96713a7c39609bdcfc` found `TicketStatusHistory`, `TicketStatusHistories`, and `TicketChangeHistory` unavailable by those entity names, while `TicketHistory` was reachable with a sampled row and next page using `ticketID eq <local ticket>`. The status-duration/waiting blocker is now confirmed as TicketHistory row content/parser shape, not basic TicketHistory reachability.
 
 ## Milestone table
 
@@ -103,8 +104,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge `agent/status-probe-ticket-history-sample`, then update the existing Second Brain projection.
-2. Rerun the bounded read-only status-transition source probe. If an entity is available, design a review-only sync candidate; otherwise proceed to the next Milestone 1 audit/scope closeout slice.
+1. Validate and merge `agent/status-probe-runtime-evidence`, then update the existing Second Brain projection.
+2. Continue Milestone 2 parser/content certification against reachable `TicketHistory` rows, or proceed to the next Milestone 1 audit/scope closeout slice if no parser-safe work remains.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
 

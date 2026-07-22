@@ -203,6 +203,7 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused container validation passed for bounded probe filter/error-isolation tests with `3 passed`.
 - Current branch evidence on `agent/status-probe-ticket-history-sample`: the bounded `TicketHistory` availability probe now prefers a real local `autotask_tickets.autotask_id` and queries `ticketID eq <local ticket>` with `MaxRecords=1`; if no local ticket exists it falls back to `ticketID >= 0`.
 - Current branch validation: focused container validation passed for bounded probe sample-ticket/filter/error-isolation tests with `4 passed`.
+- Post-merge runtime evidence on canonical `main` `9cc33aaf6ed3987d45a43e96713a7c39609bdcfc`: the bounded read-only probe returned 404 for `TicketStatusHistory`, `TicketStatusHistories`, and `TicketChangeHistory`; `TicketHistory` was available with one sampled row using `ticketID eq <local ticket>` and reported a next page. This confirms the current reachable read-only history source is still `TicketHistory`; status-duration/waiting certification remains blocked by row content/parser shape, not by lack of basic `TicketHistory` reachability.
 
 ## Milestone 8
 
