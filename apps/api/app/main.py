@@ -428,6 +428,25 @@ def autotask_probe_status_transition_sources(_user: dict | None = Depends(requir
     return result
 
 
+@app.post("/api/autotask/probe/reference-metadata-sources")
+def autotask_probe_reference_metadata_sources(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
+    result = AutotaskReadOnlyClient(delay_seconds=0).probe_reference_metadata_sources()
+    record_success_audit(
+        AuditAction.admin_action,
+        "autotask.probe.reference_metadata_sources",
+        _user,
+        audit_scope(),
+        {
+            "candidate_entities": result.get("candidate_entities") or [],
+            "available_entities": result.get("available_entities") or [],
+            "max_records_per_entity": result.get("max_records_per_entity"),
+            "autotask_writes_allowed": False,
+            "automatic_reference_sync_allowed": False,
+        },
+    )
+    return result
+
+
 @app.post("/autotask/test-connection")
 def autotask_test_connection(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     payload = AutotaskReadOnlyClient().test_connection()

@@ -323,6 +323,7 @@ def test_api_route_authority_matrix_classifies_every_route():
         ("POST", "/api/autotask/test/tickets"),
         ("POST", "/api/autotask/test/ticket-notes"),
         ("POST", "/api/autotask/probe/status-transition-sources"),
+        ("POST", "/api/autotask/probe/reference-metadata-sources"),
         ("POST", "/autotask/test-connection"),
         ("POST", "/api/sync/companies/start"),
         ("POST", "/api/sync/tickets/start"),
@@ -404,6 +405,15 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
                 "autotask_writes_allowed": False,
             }
 
+        def probe_reference_metadata_sources(self):
+            return {
+                "ok": True,
+                "candidate_entities": ["TicketPriorities"],
+                "available_entities": ["TicketPriorities"],
+                "max_records_per_entity": 1,
+                "autotask_writes_allowed": False,
+            }
+
     monkeypatch.setattr("app.main.AutotaskReadOnlyClient", FakeAutotaskClient)
     token = create_session_token("admin", [Role.admin.value])["token"]
     headers = {"Authorization": f"Bearer {token}"}
@@ -415,6 +425,12 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
             "/api/autotask/probe/status-transition-sources",
             None,
             "autotask.probe.status_transition_sources",
+        ),
+        (
+            "POST",
+            "/api/autotask/probe/reference-metadata-sources",
+            None,
+            "autotask.probe.reference_metadata_sources",
         ),
         ("POST", "/api/sync/reference-data/start", None, "sync.reference_data.start"),
         ("POST", "/api/documents/build", {"limit": 5}, "documents.build"),
