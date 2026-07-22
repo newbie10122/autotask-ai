@@ -998,28 +998,49 @@ def _score_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[
     return tickets, buckets
 
 
-def field_coverage_report() -> dict[str, Any]:
+def field_coverage_report(authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
     started = time.monotonic()
     init_schema()
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
     with db_connection() as conn:
         counts = conn.execute(
-            """
+            f"""
             SELECT
-              (SELECT count(*) FROM autotask_tickets) AS tickets,
-              (SELECT count(*) FROM autotask_ticket_notes) AS ticket_notes,
-              (SELECT count(*) FROM autotask_time_entries) AS time_entries,
-              (SELECT count(*) FROM autotask_ticket_history) AS ticket_history,
+              (SELECT count(*) FROM autotask_tickets t WHERE true {company_scope_sql}) AS tickets,
               (
                 SELECT count(*)
-                FROM autotask_ticket_history
-                WHERE lower(COALESCE(action, '')) LIKE '%status%'
-                   OR lower(COALESCE(detail, '')) LIKE '%status%'
-                   OR lower(COALESCE(detail, '')) LIKE '%waiting%'
-                   OR lower(COALESCE(detail, '')) LIKE '%hold%'
-                   OR lower(COALESCE(detail, '')) LIKE '%vendor%'
-                   OR lower(COALESCE(detail, '')) LIKE '%technician%'
+                FROM autotask_ticket_notes n
+                JOIN autotask_tickets t ON t.id=n.ticket_id
+                WHERE true {company_scope_sql}
+              ) AS ticket_notes,
+              (
+                SELECT count(*)
+                FROM autotask_time_entries e
+                JOIN autotask_tickets t ON t.id=e.ticket_id
+                WHERE true {company_scope_sql}
+              ) AS time_entries,
+              (
+                SELECT count(*)
+                FROM autotask_ticket_history h
+                JOIN autotask_tickets t ON t.id=h.ticket_id
+                WHERE true {company_scope_sql}
+              ) AS ticket_history,
+              (
+                SELECT count(*)
+                FROM autotask_ticket_history h
+                JOIN autotask_tickets t ON t.id=h.ticket_id
+                WHERE true {company_scope_sql}
+                  AND (
+                    lower(COALESCE(action, '')) LIKE '%%status%%'
+                    OR lower(COALESCE(detail, '')) LIKE '%%status%%'
+                    OR lower(COALESCE(detail, '')) LIKE '%%waiting%%'
+                    OR lower(COALESCE(detail, '')) LIKE '%%hold%%'
+                    OR lower(COALESCE(detail, '')) LIKE '%%vendor%%'
+                    OR lower(COALESCE(detail, '')) LIKE '%%technician%%'
+                  )
               ) AS ticket_history_status_candidates
-            """
+            """,
+            (*company_scope_params, *company_scope_params, *company_scope_params, *company_scope_params, *company_scope_params),
         ).fetchone()
         ticket_total = int(counts["tickets"] or 0)
         note_total = int(counts["ticket_notes"] or 0)
@@ -1038,16 +1059,60 @@ def field_coverage_report() -> dict[str, Any]:
 
         if ticket_specs:
             select_list = ", ".join(f"{spec['sql']} AS {spec['key']}" for spec in ticket_specs)
-            ticket_counts = dict(conn.execute(f"SELECT {select_list} FROM autotask_tickets").fetchone())
+            ticket_counts = dict(
+                conn.execute(
+                    f"SELECT {select_list} FROM (SELECT t.* FROM autotask_tickets t WHERE true {company_scope_sql}) scoped_tickets",
+                    tuple(company_scope_params),
+                ).fetchone()
+            )
         if note_specs:
             select_list = ", ".join(f"{spec['note_sql']} AS {spec['key']}" for spec in note_specs)
-            note_counts = dict(conn.execute(f"SELECT {select_list} FROM autotask_ticket_notes").fetchone())
+            note_counts = dict(
+                conn.execute(
+                    f"""
+                    SELECT {select_list}
+                    FROM (
+                        SELECT n.*
+                        FROM autotask_ticket_notes n
+                        JOIN autotask_tickets t ON t.id=n.ticket_id
+                        WHERE true {company_scope_sql}
+                    ) scoped_notes
+                    """,
+                    tuple(company_scope_params),
+                ).fetchone()
+            )
         if time_specs:
             select_list = ", ".join(f"{spec['table_sql']} AS {spec['key']}" for spec in time_specs)
-            time_counts = dict(conn.execute(f"SELECT {select_list} FROM autotask_time_entries").fetchone())
+            time_counts = dict(
+                conn.execute(
+                    f"""
+                    SELECT {select_list}
+                    FROM (
+                        SELECT e.*
+                        FROM autotask_time_entries e
+                        JOIN autotask_tickets t ON t.id=e.ticket_id
+                        WHERE true {company_scope_sql}
+                    ) scoped_time_entries
+                    """,
+                    tuple(company_scope_params),
+                ).fetchone()
+            )
         if history_specs:
             select_list = ", ".join(f"{spec['history_sql']} AS {spec['key']}" for spec in history_specs)
-            history_counts = dict(conn.execute(f"SELECT {select_list} FROM autotask_ticket_history").fetchone())
+            history_counts = dict(
+                conn.execute(
+                    f"""
+                    SELECT {select_list}
+                    FROM (
+                        SELECT h.*
+                        FROM autotask_ticket_history h
+                        JOIN autotask_tickets t ON t.id=h.ticket_id
+                        WHERE true {company_scope_sql}
+                    ) scoped_ticket_history
+                    """,
+                    tuple(company_scope_params),
+                ).fetchone()
+            )
 
         rows: list[dict[str, Any]] = []
         for spec in REQUIRED_FIELDS:
@@ -1137,52 +1202,64 @@ def field_coverage_report() -> dict[str, Any]:
     }
 
 
-def ticket_status_source_diagnostics() -> dict[str, Any]:
+def ticket_status_source_diagnostics(authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
     started = time.monotonic()
     init_schema()
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
     with db_connection() as conn:
         counts = conn.execute(
-            """
+            f"""
             SELECT
               count(*) AS tickets,
               count(*) FILTER (WHERE NULLIF(status, '') IS NOT NULL OR NULLIF(raw->>'status', '') IS NOT NULL)
                 AS tickets_with_current_status,
               count(*) FILTER (WHERE updated_at_autotask IS NOT NULL) AS tickets_with_autotask_updated_at
             FROM autotask_tickets
-            """
+            t
+            WHERE true {company_scope_sql}
+            """,
+            tuple(company_scope_params),
         ).fetchone()
         status_field_rows = list(
             conn.execute(
-                """
+                f"""
                 SELECT key, count(*) AS ticket_count
                 FROM autotask_tickets
+                t
                 CROSS JOIN LATERAL jsonb_object_keys(raw) AS key
-                WHERE lower(key) LIKE '%status%'
+                WHERE lower(key) LIKE '%%status%%'
+                  {company_scope_sql}
                 GROUP BY key
                 ORDER BY key
-                """
+                """,
+                tuple(company_scope_params),
             ).fetchall()
         )
         timestamp_field_rows = list(
             conn.execute(
-                """
+                f"""
                 SELECT key, count(*) AS ticket_count
                 FROM autotask_tickets
+                t
                 CROSS JOIN LATERAL jsonb_object_keys(raw) AS key
-                WHERE lower(key) LIKE '%date%'
-                   OR lower(key) LIKE '%time%'
-                   OR lower(key) LIKE '%activity%'
-                   OR lower(key) LIKE '%response%'
-                   OR lower(key) LIKE '%resolved%'
-                   OR lower(key) LIKE '%completed%'
+                WHERE (
+                    lower(key) LIKE '%%date%%'
+                    OR lower(key) LIKE '%%time%%'
+                    OR lower(key) LIKE '%%activity%%'
+                    OR lower(key) LIKE '%%response%%'
+                    OR lower(key) LIKE '%%resolved%%'
+                    OR lower(key) LIKE '%%completed%%'
+                )
+                  {company_scope_sql}
                 GROUP BY key
                 ORDER BY key
-                """
+                """,
+                tuple(company_scope_params),
             ).fetchall()
         )
         distribution_rows = list(
             conn.execute(
-                """
+                f"""
                 SELECT
                     COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]') AS status_label,
                     NULLIF(t.status, '') AS status,
@@ -1192,15 +1269,17 @@ def ticket_status_source_diagnostics() -> dict[str, Any]:
                 FROM autotask_tickets t
                 LEFT JOIN autotask_reference_values ref
                   ON ref.field_name='status' AND ref.value=t.status
+                WHERE true {company_scope_sql}
                 GROUP BY COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]'), NULLIF(t.status, '')
                 ORDER BY count(*) DESC, status_label
                 LIMIT 20
-                """
+                """,
+                tuple(company_scope_params),
             ).fetchall()
         )
         status_sample_rows = list(
             conn.execute(
-                """
+                f"""
                 WITH history_probe AS (
                     SELECT
                         ticket_id,
@@ -1252,19 +1331,21 @@ def ticket_status_source_diagnostics() -> dict[str, Any]:
                 LEFT JOIN history_probe ON history_probe.ticket_id=t.id
                 WHERE t.completed_at_autotask IS NULL
                   AND COALESCE(t.status, '') <> ALL(%s)
+                  {company_scope_sql}
                 GROUP BY COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]'), NULLIF(t.status, '')
                 ORDER BY count(sample_check.ticket_id) ASC, count(*) DESC, status_label
                 """,
-                (["5", "16", "20"],),
+                (["5", "16", "20"], *company_scope_params),
             ).fetchall()
         )
         open_history_context = conn.execute(
-            """
+            f"""
             WITH open_tickets AS (
                 SELECT t.id
                 FROM autotask_tickets t
                 WHERE t.completed_at_autotask IS NULL
                   AND COALESCE(t.status, '') <> ALL(%s)
+                  {company_scope_sql}
             ),
             history AS (
                 SELECT ticket_id, count(*) AS history_count
@@ -1291,7 +1372,7 @@ def ticket_status_source_diagnostics() -> dict[str, Any]:
             LEFT JOIN ticket_gap_sync_checks gap_check
               ON gap_check.ticket_id=open_tickets.id AND gap_check.sync_type='open_ticket_history_gaps'
             """,
-            (list(CLOSED_STATUS_IDS),),
+            (list(CLOSED_STATUS_IDS), *company_scope_params),
         ).fetchone()
 
     status_fields = [dict(row) for row in status_field_rows]
@@ -1417,6 +1498,165 @@ def ticket_status_source_diagnostics() -> dict[str, Any]:
             ),
         },
         "warnings": [] if exact_status_transition_fields else [warning for warning in warnings if warning],
+    }
+
+
+def _field_row_status(coverage_report: dict[str, Any], key: str) -> dict[str, Any]:
+    for row in coverage_report.get("fields") or []:
+        if row.get("key") == key:
+            return row
+    return {"key": key, "status": "missing", "available_count": 0, "total_count": 0, "coverage_percent": 0.0}
+
+
+def _certification_status(*statuses: str, source_limited: bool = False) -> str:
+    if source_limited:
+        return "source_limited"
+    if not statuses or any(status == "missing" for status in statuses):
+        return "missing"
+    if all(status == "available" for status in statuses):
+        return "certified"
+    return "partial"
+
+
+def field_certification_report(
+    coverage_report: dict[str, Any] | None = None,
+    status_diagnostics: dict[str, Any] | None = None,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    started = time.monotonic()
+    coverage = coverage_report or field_coverage_report(authorized_company_ids=authorized_company_ids)
+    status_diag = status_diagnostics or ticket_status_source_diagnostics(authorized_company_ids=authorized_company_ids)
+    source_capability = status_diag.get("source_capability") or {}
+    open_history = status_diag.get("open_ticket_history_context") or {}
+    status_sample = status_diag.get("status_sample_coverage") or {}
+    exact_status_transition = bool(source_capability.get("has_exact_status_transition_timestamp"))
+    open_history_complete = (
+        int(open_history.get("open_tickets") or 0) > 0 and int(open_history.get("open_tickets_without_history") or 0) == 0
+    )
+    sampled_status_candidates = int(status_sample.get("sampled_status_candidate_rows") or 0)
+    status_duration_source_limited = not exact_status_transition or not open_history_complete or sampled_status_candidates == 0
+
+    ticket_history = _field_row_status(coverage, "ticket_status_history")
+    time_entries = _field_row_status(coverage, "time_entries")
+    labor_hours = _field_row_status(coverage, "labor_hours")
+    sla_information = _field_row_status(coverage, "sla_information")
+    waiting_states = _field_row_status(coverage, "waiting_states")
+    ticket_status = _field_row_status(coverage, "ticket_status")
+
+    targets = [
+        {
+            "key": "ticket_status_history",
+            "label": "TicketHistory coverage",
+            "certification_status": _certification_status(str(ticket_history.get("status") or "missing")),
+            "source": ticket_history.get("source"),
+            "coverage_percent": ticket_history.get("coverage_percent"),
+            "available_count": ticket_history.get("available_count"),
+            "total_count": ticket_history.get("total_count"),
+            "prediction_use": "excluded_until_complete",
+            "note": ticket_history.get("note") or "TicketHistory remains read-only local evidence.",
+        },
+        {
+            "key": "status_duration",
+            "label": "Status-duration and waiting-time lineage",
+            "certification_status": _certification_status(
+                str(ticket_status.get("status") or "missing"),
+                str(ticket_history.get("status") or "missing"),
+                str(waiting_states.get("status") or "missing"),
+                source_limited=status_duration_source_limited,
+            ),
+            "source": "current ticket status plus TicketHistory transition candidates",
+            "coverage_percent": open_history.get("coverage_percent"),
+            "available_count": open_history.get("open_tickets_with_history"),
+            "total_count": open_history.get("open_tickets"),
+            "prediction_use": "excluded_until_certified",
+            "note": (
+                "Status-duration analytics remain source-limited until exact transition timestamps, open-ticket history coverage, and parsed status candidates are certified."
+                if status_duration_source_limited
+                else "Status-duration local evidence is structurally available for deterministic review."
+            ),
+        },
+        {
+            "key": "time_entries",
+            "label": "TimeEntries and labor-hour lineage",
+            "certification_status": _certification_status(
+                str(time_entries.get("status") or "missing"), str(labor_hours.get("status") or "missing")
+            ),
+            "source": "autotask_time_entries and normalized labor hours",
+            "coverage_percent": labor_hours.get("coverage_percent"),
+            "available_count": labor_hours.get("available_count"),
+            "total_count": labor_hours.get("total_count"),
+            "prediction_use": "excluded_until_certified_for_model_training",
+            "note": labor_hours.get("note") or "Labor evidence is local and read-only; model use still requires outcome/leakage review.",
+        },
+        {
+            "key": "sla_information",
+            "label": "SLA target/due/response/resolution lineage",
+            "certification_status": _certification_status(str(sla_information.get("status") or "missing")),
+            "source": sla_information.get("source"),
+            "coverage_percent": sla_information.get("coverage_percent"),
+            "available_count": sla_information.get("available_count"),
+            "total_count": sla_information.get("total_count"),
+            "prediction_use": "excluded_until_certified_for_model_training",
+            "note": sla_information.get("note") or "SLA fields are read-only local evidence; unmapped/blank records keep certification partial.",
+        },
+        {
+            "key": "waiting_states",
+            "label": "Waiting state/reason lineage",
+            "certification_status": _certification_status(
+                str(waiting_states.get("status") or "missing"), source_limited=status_duration_source_limited
+            ),
+            "source": waiting_states.get("source"),
+            "coverage_percent": waiting_states.get("coverage_percent"),
+            "available_count": waiting_states.get("available_count"),
+            "total_count": waiting_states.get("total_count"),
+            "prediction_use": "excluded_until_status_duration_certified",
+            "note": waiting_states.get("note")
+            or "Waiting-state precision depends on current status labels and parsed TicketHistory transitions.",
+        },
+    ]
+    summary = Counter(target["certification_status"] for target in targets)
+    certification_state = (
+        "certified"
+        if targets and all(target["certification_status"] == "certified" for target in targets)
+        else "partial_field_certification"
+    )
+    blockers = [
+        target["key"]
+        for target in targets
+        if target["certification_status"] in {"missing", "partial", "source_limited"}
+    ]
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "certification_state": certification_state,
+        "summary": dict(summary),
+        "targets": targets,
+        "blockers": blockers,
+        "source_reports": {
+            "field_coverage": {
+                "ready_for_ticket_health": coverage.get("ready_for_ticket_health"),
+                "counts": coverage.get("counts"),
+                "blockers": coverage.get("blockers") or [],
+            },
+            "status_source": {
+                "source_capability": source_capability,
+                "open_ticket_history_context": open_history,
+                "status_sample_coverage": {
+                    key: value for key, value in status_sample.items() if key != "by_status"
+                },
+            },
+        },
+        "predictive_policy": {
+            "review_only": True,
+            "authorized_company_scope_applied": authorized_company_ids is not None,
+            "certified_inputs_allowed": ["created_at_autotask", "completed_at_autotask", "authorized_company_scope"],
+            "excluded_until_certified": blockers,
+            "automatic_model_or_workflow_changes_allowed": False,
+        },
+        "warnings": [
+            "Field certification is local read-only evidence and does not trigger Autotask writes or synchronization.",
+            "Predictive models must not consume source-limited or partial operational fields until Milestone 2 certification advances.",
+        ],
     }
 
 
@@ -2114,9 +2354,11 @@ def _leakage_review(holdout_start: Any, row_limit: int, training_group_count: in
     }
 
 
-def _predictive_source_lineage() -> dict[str, Any]:
+def _predictive_source_lineage(field_certification: dict[str, Any] | None = None) -> dict[str, Any]:
+    field_policy = (field_certification or {}).get("predictive_policy") or {}
     return {
         "certification_state": "partial_source_lineage",
+        "milestone_2_field_certification_state": (field_certification or {}).get("certification_state"),
         "fields": [
             {
                 "field": "created_at_autotask",
@@ -2167,6 +2409,13 @@ def _predictive_source_lineage() -> dict[str, Any]:
             "SLA fields",
             "technician workload",
             "routing outcomes",
+        ],
+        "milestone_2_excluded_until_certified": field_policy.get("excluded_until_certified") or [
+            "ticket_status_history",
+            "status_duration",
+            "time_entries",
+            "sla_information",
+            "waiting_states",
         ],
         "limitations": [
             "Current predictive grouping uses current local queue/priority values, not certified queue/priority-at-ticket-creation history.",
@@ -2230,6 +2479,7 @@ def ticket_health_predictive_evaluation(
             ).fetchall()
         ]
         if not holdout_rows:
+            field_certification = field_certification_report(authorized_company_ids=authorized_company_ids)
             return {
                 "ok": True,
                 "review_only": True,
@@ -2252,7 +2502,8 @@ def ticket_health_predictive_evaluation(
                     {"brier_score": None, "secondary_metrics": _probability_auc([])},
                 ),
                 "leakage_review": _leakage_review(None, row_limit, 0),
-                "source_lineage": _predictive_source_lineage(),
+                "field_certification": field_certification,
+                "source_lineage": _predictive_source_lineage(field_certification),
                 "human_review_threshold_policy": {
                     "selection_mode": "human_review_required",
                     "automatic_changes_allowed": False,
@@ -2366,6 +2617,7 @@ def ticket_health_predictive_evaluation(
         "sends_notifications": False,
         "changes_thresholds_or_workflows": False,
     }
+    field_certification = field_certification_report(authorized_company_ids=authorized_company_ids)
     warnings = [
         "This is offline local evaluation evidence only; it does not tune weights automatically.",
         "Threshold sweep is advisory evidence only; review before changing scoring or alert thresholds.",
@@ -2399,7 +2651,8 @@ def ticket_health_predictive_evaluation(
         "stratified_metrics": stratified_metrics,
         "model_comparison": _model_comparison(baseline_metrics, statistical_metrics, calibration),
         "leakage_review": _leakage_review(holdout_start, row_limit, len(training_stats)),
-        "source_lineage": _predictive_source_lineage(),
+        "field_certification": field_certification,
+        "source_lineage": _predictive_source_lineage(field_certification),
         "threshold_sweep": threshold_sweep,
         "best_threshold_by_f1": best_threshold,
         "human_review_threshold_policy": policy,

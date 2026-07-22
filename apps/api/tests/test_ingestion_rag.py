@@ -1190,16 +1190,116 @@ def test_ticket_predictive_leakage_review_documents_temporal_split():
 
 
 def test_ticket_predictive_source_lineage_marks_current_field_proxies():
-    lineage = ticket_health_module._predictive_source_lineage()
+    field_certification = {
+        "certification_state": "partial_field_certification",
+        "predictive_policy": {
+            "excluded_until_certified": ["status_duration", "time_entries", "sla_information"],
+        },
+    }
+    lineage = ticket_health_module._predictive_source_lineage(field_certification)
     by_field = {item["field"]: item for item in lineage["fields"]}
 
     assert lineage["certification_state"] == "partial_source_lineage"
+    assert lineage["milestone_2_field_certification_state"] == "partial_field_certification"
     assert by_field["created_at_autotask"]["certified_for_prediction"] is True
     assert by_field["completed_at_autotask"]["certified_for_prediction"] is True
     assert by_field["queue"]["certified_for_prediction"] is False
     assert "queue-at-creation" in by_field["queue"]["lineage_status"]
     assert "ticket_status_history" in lineage["not_used_for_current_model"]
+    assert "status_duration" in lineage["milestone_2_excluded_until_certified"]
     assert any("does not authorize" in item for item in lineage["limitations"])
+
+
+def test_ticket_field_certification_marks_source_limited_operational_inputs():
+    coverage = {
+        "ready_for_ticket_health": False,
+        "counts": {"tickets": 10, "ticket_history": 4, "time_entries": 3},
+        "blockers": ["Continue TicketHistory backfill before precise waiting-state duration analytics."],
+        "fields": [
+            {
+                "key": "ticket_status",
+                "status": "available",
+                "available_count": 10,
+                "total_count": 10,
+                "coverage_percent": 100.0,
+                "source": "autotask_tickets.status",
+                "note": "",
+            },
+            {
+                "key": "ticket_status_history",
+                "status": "partial",
+                "available_count": 4,
+                "total_count": 10,
+                "coverage_percent": 40.0,
+                "source": "autotask_ticket_history",
+                "note": "partial backfill",
+            },
+            {
+                "key": "waiting_states",
+                "status": "partial",
+                "available_count": 10,
+                "total_count": 10,
+                "coverage_percent": 100.0,
+                "source": "current status plus TicketHistory",
+                "note": "needs transitions",
+            },
+            {
+                "key": "time_entries",
+                "status": "available",
+                "available_count": 3,
+                "total_count": 3,
+                "coverage_percent": 100.0,
+                "source": "autotask_time_entries",
+                "note": "",
+            },
+            {
+                "key": "labor_hours",
+                "status": "available",
+                "available_count": 3,
+                "total_count": 3,
+                "coverage_percent": 100.0,
+                "source": "autotask_time_entries.hours",
+                "note": "",
+            },
+            {
+                "key": "sla_information",
+                "status": "missing",
+                "available_count": 0,
+                "total_count": 10,
+                "coverage_percent": 0.0,
+                "source": "SLA raw fields",
+                "note": "",
+            },
+        ],
+    }
+    diagnostics = {
+        "source_capability": {
+            "has_exact_status_transition_timestamp": False,
+            "proxy_timestamp_fields": ["lastActivityDate"],
+        },
+        "open_ticket_history_context": {
+            "open_tickets": 10,
+            "open_tickets_with_history": 4,
+            "open_tickets_without_history": 6,
+            "coverage_percent": 40.0,
+        },
+        "status_sample_coverage": {
+            "sampled_status_candidate_rows": 0,
+            "coverage_percent": 100.0,
+            "by_status": [{"status": "1"}],
+        },
+    }
+
+    report = ticket_health_module.field_certification_report(coverage, diagnostics)
+    by_target = {target["key"]: target for target in report["targets"]}
+
+    assert report["certification_state"] == "partial_field_certification"
+    assert by_target["status_duration"]["certification_status"] == "source_limited"
+    assert by_target["time_entries"]["certification_status"] == "certified"
+    assert by_target["sla_information"]["certification_status"] == "missing"
+    assert "status_duration" in report["predictive_policy"]["excluded_until_certified"]
+    assert "by_status" not in report["source_reports"]["status_source"]["status_sample_coverage"]
+    assert report["predictive_policy"]["automatic_model_or_workflow_changes_allowed"] is False
 
 
 def test_ticket_predictive_target_policy_blocks_automatic_actions():

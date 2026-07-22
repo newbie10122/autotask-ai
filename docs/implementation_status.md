@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `c688c6d622e60e866ee63302a1f577f498635741`, which merged PR `newbie10122/autotask-ai#42`.
+- Canonical `main` is `99937d5113b0cc78270bf9a718f1cb4692ba2b28`, which merged PR `newbie10122/autotask-ai#47`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -70,11 +70,12 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Prompt-injection scanning and deterministic answer verification have tests for citations, scope, secrets, injection, required sections, guidance labels, verifier-failure audit, unsupported ticket-history resolution claims, and first non-resolution ticket-history source sufficiency checks; broader adversarial verifier evidence remains open.
 - Answer-safety and security/isolation have candidate three-run local Quality Streak harnesses and local 3/3 evidence, but live production-auth deployment evidence remains open; the validation harness has three browser-enabled clean evidence points recorded in `docs/CI_VALIDATION.md`.
 - Governed memory approval/version/rollback workflow is incomplete.
-- Ticket-health related-data synchronization is automated and now visibly inspectable in the Operations UI. Runtime evidence on 2026-07-22 showed the scheduler healthy, recent scheduled jobs completing, and local counts at `tickets=67726`, `time_entries=49636`, and `ticket_history=29582`; historical estate coverage still requires continued bounded scheduled sweeps and field/source-lineage certification.
+- Ticket-health related-data synchronization is automated and now visibly inspectable in the Operations UI. Runtime evidence on 2026-07-22 showed the scheduler healthy, recent scheduled jobs completing, and local counts at `tickets=67726`, `time_entries=49950`, and `ticket_history=29760`; historical estate coverage still requires continued bounded scheduled sweeps and field/source-lineage certification.
 - Predictive evaluation currently shows that the default Bayesian delay signal has high aggregate accuracy but zero delayed-ticket recall on the local 100-ticket holdout: `accuracy=0.94`, `recall=0.0`, `f1=0.0`. The advisory best-F1 threshold in that same report is `0.05`, with `precision=0.068`, `recall=0.833`, and `f1=0.125`; this is evidence for human review only and does not authorize automatic threshold, model, routing, escalation, or workflow changes.
 - Predictive calibration branch `agent/predictive-calibration-policy` extends the same read-only evaluation report with target/label semantics, Brier score, calibration bands, PR/ROC secondary metrics, threshold coverage/abstention, sanitized client/category concentration, a human-review threshold policy, and a local read-only shadow-evaluation contract.
 - Predictive leakage/bias branch `agent/predictive-leakage-bias-review` extends the evaluation report with explicit temporal leakage review, model comparison, and sanitized stratified metrics for company/category buckets.
 - Predictive source-lineage branch `agent/predictive-source-lineage` adds a `source_lineage` section to the evaluation report that marks created/completed timestamps and company scope as locally available while explicitly treating queue/priority current fields and category labels as not fully certified for prediction.
+- Milestone 2 field-certification branch `agent/m2-field-certification` adds scoped field-certification evidence to the API and predictive evaluation. Local runtime evidence returned `certification_state=partial_field_certification`, summary `certified=2`, `partial=1`, `source_limited=2`, and blockers `ticket_status_history`, `status_duration`, and `waiting_states`; no sync job, Autotask write, model threshold change, or workflow change was run or added.
 
 ## Milestone table
 
@@ -94,9 +95,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge `agent/predictive-source-lineage`, then update the existing Second Brain projection.
-2. Continue predictive work with broader model evaluation and Milestone 2 field certification without changing thresholds automatically.
-3. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
+1. Validate and merge `agent/m2-field-certification`, then update the existing Second Brain projection.
+2. Continue predictive work with broader model evaluation without changing thresholds automatically.
+3. Continue bounded TicketHistory estate catch-up certification and status-duration/waiting source-lineage work.
 4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
 Parallel-safe work after roadmap merge:
@@ -113,7 +114,19 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Predictive source-lineage evidence
+## Latest receipt — Milestone 2 field-certification evidence
+
+- **Slice:** Add scoped Milestone 2 field-certification evidence on branch `agent/m2-field-certification` from canonical `main` `99937d5113b0cc78270bf9a718f1cb4692ba2b28`.
+- **State:** `partial_foundation`; the app now exposes scoped certification status for TicketHistory, status-duration, TimeEntries/labor, SLA, and waiting-state lineage, but Milestone 2 is not complete because TicketHistory/status-duration/waiting evidence remains partial or source-limited.
+- **Files changed:** `apps/api/app/main.py`, `apps/api/app/ticket_health.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `/api/ticket-health/field-certification` returns scoped local field-certification targets, blockers, summarized source reports, and a predictive-use policy. `/api/ticket-health/predictive-evaluation` now includes `field_certification` and carries Milestone 2 excluded fields into `source_lineage` without changing model thresholds, rankings, workflows, or Autotask data.
+- **Validation:** focused container validation passed for field-certification/predictive-source-lineage tests with `2 passed`, scoped route authority/scope propagation tests with `2 passed`, runtime local Postgres report execution succeeded, and full governed validation passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `124 passed`, static web JavaScript syntax validation, Playwright browser smoke `11 passed`, and clean `git diff --check`.
+- **Runtime evidence:** Local read-only report returned `certification_state=partial_field_certification`, summary `certified=2`, `partial=1`, `source_limited=2`, blockers `ticket_status_history`, `status_duration`, and `waiting_states`; predictive evaluation returned the same field-certification state and excluded blockers in source lineage.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, Autotask writes, model threshold changes, routing, escalation, notification, assignment, status, priority, or workflow changes were run or added.
+- **Rollback:** Revert this branch commit; predictive evaluation falls back to PR #47 behavior with source-lineage evidence but no field-certification rollup.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Predictive source-lineage evidence
 
 - **Slice:** Add predictive source-lineage evidence on branch `agent/predictive-source-lineage` from canonical `main` `a2a2a3c98245307438d8d26005aecd6403fce0f6`.
 - **State:** `partial_foundation`; the evaluation report now identifies which local fields are certified enough for the current evaluation and which remain current-field proxies, but no threshold/model/routing/workflow behavior is changed and Milestone 7 still requires broader model evaluation, Milestone 2 field certification, and production certification.
