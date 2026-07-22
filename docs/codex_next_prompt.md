@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `0516706387056409668a2e9e266c7cee0211f4c8`
-- Latest merged PR: `newbie10122/autotask-ai#70`, `Expose calibrated predictive ranking signal`
-- Latest PR #70 CI: GitHub Actions run `29893774960`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed validation on canonical PR #70 evidence passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `135 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`
+- Canonical `main`: `ffd53e9dbe26bcbf20f7c8669d8c895a6381f6bd`
+- Latest merged PR: `newbie10122/autotask-ai#71`, `Record Second Brain projection merge`
+- Latest PR #71 CI: GitHub Actions run `29923309671`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local governed validation on canonical PR #71 evidence passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `135 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -34,6 +34,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Current active branch validation: `agent/m2-related-data-catchup-cadence` has focused scheduler/default/work-plan tests passing with `3 passed` and focused Operations Playwright validation passing with `1 passed`; local Operations status showed scheduler `healthy`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`.
 - Post-merge related-data evidence on canonical `main` `5469e3949fb2c750fceb91059342ec078ae27c31`: PR #69 raises bounded estate TimeEntries/TicketHistory gap defaults to `100`, upgrades only persisted old-default `25` values, exposes estimated bounded catch-up runs in Operations, and local runtime after rebuild showed `/ready` ready, UI HTTP `200`, `time_entries=50868`, `ticket_history=30359`, and `recommended_limit=100` for estate labor/history work-plan items.
 - Post-merge predictive evidence on canonical `main` `0516706387056409668a2e9e266c7cee0211f4c8`: PR #70 exposes review-only calibrated delay probability, calibration adjustments, model version, and calibrated rank contribution without authorizing threshold/model/workflow changes; local runtime after rebuild showed `/ready` ready, UI HTTP `200`, and review-queue responses with calibrated predictive fields.
+- Post-merge documentation evidence on canonical `main` `ffd53e9dbe26bcbf20f7c8669d8c895a6381f6bd`: PR #71 recorded the Second Brain PR #6 merge state in Autotask AI control documents.
+- Current active branch validation: `agent/audit-log-filtering` has focused API route/audit validation passing with `34 passed` after rerunning with the governed `/workspace` mount pattern, and full governed validation passing with full pytest `138 passed`, Playwright browser smoke `13 passed`, and clean `git diff --check`. The branch adds bounded Admin-only audit-log filters and success audit events for Operations inspection reads, with safe count/state metadata and no Autotask writes, sync jobs, production deployment, or model workflow changes.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -49,9 +51,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Finish, validate, open, and merge `agent/record-second-brain-merge` if CI passes.
-2. Continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work using existing local TimeEntries/TicketHistory coverage and bounded scheduled jobs.
-3. Continue the next safe Milestone 1 audit/scope closeout slice in parallel only where file ownership is isolated.
+1. Finish full validation, open, and merge `agent/audit-log-filtering` if exact-head CI passes.
+2. Create a new governed Second Brain projection branch/PR for the material audit inspection update.
+3. Continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work using existing local TimeEntries/TicketHistory coverage and bounded scheduled jobs.
 
 ## Milestone status
 
@@ -73,4 +75,4 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Projection PR `newbie10122/helix-second-brain#6` is merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`. Projection branch head `4306bcc` recorded Autotask AI progress through PR #70, including calibrated predictive ranking evidence, related-data catch-up visibility, admin inspection read audit coverage, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, PR #66 control-document reconciliation, current validation counts, prior predictive evidence, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py` before merge.
 
-Create a new governed projection branch/PR after the next material Autotask AI slice.
+Create a new governed projection branch/PR after `agent/audit-log-filtering` merges.
