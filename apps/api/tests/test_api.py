@@ -300,6 +300,7 @@ def test_api_route_authority_matrix_classifies_every_route():
         ("GET", "/api/ticket-health/review-queue"),
         ("GET", "/api/ticket-health/predictive-evaluation"),
         ("GET", "/api/ticket-health/field-certification"),
+        ("GET", "/api/ticket-health/status-transition-sources"),
         ("GET", "/api/customer-success/summary"),
         ("GET", "/api/customer-success/companies/{company_id}"),
         ("GET", "/api/routing/technician-skill-profiles"),
@@ -514,12 +515,20 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
         captured["field_certification_report"] = authorized_company_ids
         return {"ok": True}
 
+    def fake_status_transition_source_candidates_report(authorized_company_ids):
+        captured["status_transition_source_candidates_report"] = authorized_company_ids
+        return {"ok": True}
+
     monkeypatch.setattr("app.main.customer_success_detail", fake_customer_success_detail)
     monkeypatch.setattr("app.main.ticket_routing_recommendation", fake_ticket_routing_recommendation)
     monkeypatch.setattr("app.main.recent_realtime_events", fake_recent_realtime_events)
     monkeypatch.setattr("app.main.ticket_health_review_queue", fake_ticket_health_review_queue)
     monkeypatch.setattr("app.main.ticket_health_predictive_evaluation", fake_ticket_health_predictive_evaluation)
     monkeypatch.setattr("app.main.field_certification_report", fake_field_certification_report)
+    monkeypatch.setattr(
+        "app.main.status_transition_source_candidates_report",
+        fake_status_transition_source_candidates_report,
+    )
     token = create_session_token("tech", [Role.technician.value])["token"]
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -535,6 +544,7 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
     )
     assert client.get("/api/ticket-health/predictive-evaluation?limit=120&delayed_days_threshold=10", headers=headers).status_code == 200
     assert client.get("/api/ticket-health/field-certification", headers=headers).status_code == 200
+    assert client.get("/api/ticket-health/status-transition-sources", headers=headers).status_code == 200
 
     assert captured["customer_success_detail"] == (77, 14, [123])
     assert captured["ticket_routing_recommendation"] == (88, 4, [123])
@@ -542,6 +552,7 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
     assert captured["ticket_health_review_queue"] == (7, "Support", 44, "high", 20, True, [123])
     assert captured["ticket_health_predictive_evaluation"] == (120, 10, [123])
     assert captured["field_certification_report"] == [123]
+    assert captured["status_transition_source_candidates_report"] == [123]
 
 
 def test_local_feedback_routes_pass_scope_and_deny_readonly(monkeypatch):

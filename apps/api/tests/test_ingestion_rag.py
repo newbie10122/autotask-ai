@@ -1343,6 +1343,7 @@ def test_ticket_field_certification_marks_source_limited_operational_inputs():
     assert "status_duration" in report["predictive_policy"]["excluded_until_certified"]
     assert "by_status" not in report["source_reports"]["status_source"]["status_sample_coverage"]
     assert report["predictive_policy"]["automatic_model_or_workflow_changes_allowed"] is False
+    assert report["source_reports"]["status_transition_source_candidates"]["policy"]["live_autotask_probe_ran"] is False
 
 
 def test_ticket_history_transition_parse_summary_counts_status_transitions(monkeypatch):
@@ -1379,6 +1380,43 @@ def test_ticket_history_transition_parse_summary_counts_status_transitions(monke
     assert summary["source_limited"] is False
     assert summary["authorized_company_scope_applied"] is True
     assert any(item["category"] == "status" for item in summary["parsed_transition_categories"])
+
+
+def test_status_transition_source_candidates_are_review_only_and_scoped():
+    diagnostics = {
+        "source_capability": {
+            "current_status_field_available": True,
+            "exact_status_transition_timestamp_fields": [],
+            "proxy_timestamp_fields": ["lastActivityDate"],
+        },
+        "open_ticket_history_context": {
+            "open_tickets": 12,
+            "open_tickets_with_history": 12,
+            "open_tickets_without_history": 0,
+        },
+        "status_sample_coverage": {"sampled_status_candidate_rows": 0},
+    }
+    transition_summary = {
+        "parsed_status_transitions": 0,
+        "timestamped_status_transitions": 0,
+    }
+
+    report = ticket_health_module.status_transition_source_candidates_report(
+        diagnostics,
+        transition_summary,
+        authorized_company_ids=[123],
+    )
+    by_candidate = {candidate["key"]: candidate for candidate in report["candidates"]}
+
+    assert report["certification_state"] == "source_candidates_partial"
+    assert report["authorized_company_scope_applied"] is True
+    assert by_candidate["local_ticket_history"]["certification_status"] == "source_limited"
+    assert by_candidate["ticket_current_status"]["certification_status"] == "current_state_only"
+    assert by_candidate["ticket_proxy_timestamps"]["certification_status"] == "proxy_only"
+    assert by_candidate["candidate_status_history_entities"]["certification_status"] == "not_certified"
+    assert by_candidate["candidate_status_history_entities"]["access"] == "not_queried_by_this_report"
+    assert report["policy"]["autotask_writes_allowed"] is False
+    assert report["policy"]["live_autotask_probe_ran"] is False
 
 
 def test_ticket_predictive_target_policy_blocks_automatic_actions():

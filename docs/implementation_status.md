@@ -11,7 +11,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `99937d5113b0cc78270bf9a718f1cb4692ba2b28`, which merged PR `newbie10122/autotask-ai#47`.
+- Canonical `main` is `be7cc143af44b21e2bf9929737d8071d4ff41920`, which merged PR `newbie10122/autotask-ai#51`.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -79,6 +79,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Predictive model-variants branch `agent/predictive-model-variants` broadens the read-only holdout report with global-prior, queue-only, priority-only, and queue+priority Bayesian variants alongside the simple priority baseline. Local runtime evidence on the 100-ticket holdout showed all variants still have default recall `0.0`; queue+priority remains the strongest secondary signal by ROC AUC `0.613` and PR AUC `0.115`, but no model selection or threshold/workflow change is authorized.
 - Status-transition certification branch `agent/status-transition-certification` adds a scoped parser summary for local TicketHistory action/detail rows and feeds it into field certification. Local runtime evidence found `0` parsed status transitions and `0` timestamped status transitions in the inspected local TicketHistory sample, so status-duration and waiting-state analytics remain source-limited until a usable read-only status-transition source is found or backfilled.
 - Operations field-certification UI branch `agent/operations-field-certification-ui` surfaces `/api/ticket-health/field-certification` in the Operations screen with certification state, blockers, parser counts, and target cards so operators can see why status-duration/waiting are not yet fully certified.
+- Status-transition source-candidates branch `agent/status-transition-source-candidates` adds a scoped, read-only `/api/ticket-health/status-transition-sources` report and embeds the same source-candidate contract in field certification. It classifies local TicketHistory, current status, proxy timestamps, and unprobed candidate Autotask status-history entities without running a live Autotask probe or authorizing any sync/write/model workflow change.
 
 ## Milestone table
 
@@ -98,8 +99,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge `agent/operations-field-certification-ui`, then update the existing Second Brain projection.
-2. Continue bounded TicketHistory estate catch-up certification and investigate whether another read-only Autotask source exposes status-transition timestamps.
+1. Validate and merge `agent/status-transition-source-candidates`, then update the existing Second Brain projection.
+2. Continue with a bounded read-only entity-availability probe design for status-transition timestamps, or proceed to the next Milestone 1 audit/scope closeout slice if live probing is not needed.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
