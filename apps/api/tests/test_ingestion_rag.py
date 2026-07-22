@@ -1325,7 +1325,15 @@ def test_ticket_field_certification_marks_source_limited_operational_inputs():
         },
     }
 
-    report = ticket_health_module.field_certification_report(coverage, diagnostics)
+    transition_summary = {
+        "inspected_history": 10,
+        "parsed_transitions": 2,
+        "parsed_status_transitions": 0,
+        "timestamped_status_transitions": 0,
+        "source_limited": True,
+    }
+
+    report = ticket_health_module.field_certification_report(coverage, diagnostics, transition_summary)
     by_target = {target["key"]: target for target in report["targets"]}
 
     assert report["certification_state"] == "partial_field_certification"
@@ -1335,6 +1343,42 @@ def test_ticket_field_certification_marks_source_limited_operational_inputs():
     assert "status_duration" in report["predictive_policy"]["excluded_until_certified"]
     assert "by_status" not in report["source_reports"]["status_source"]["status_sample_coverage"]
     assert report["predictive_policy"]["automatic_model_or_workflow_changes_allowed"] is False
+
+
+def test_ticket_history_transition_parse_summary_counts_status_transitions(monkeypatch):
+    class FakeResult:
+        def fetchall(self):
+            return [
+                {
+                    "action": "Status Changed",
+                    "detail": "Status changed from New to Waiting Customer",
+                    "happened_at": object(),
+                },
+                {"action": "Queue Changed", "detail": "Queue changed from A to B", "happened_at": object()},
+                {"action": "Note Added", "detail": "Technician updated the ticket", "happened_at": None},
+            ]
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, _sql, _params):
+            return FakeResult()
+
+    monkeypatch.setattr(ticket_health_module, "db_connection", lambda: FakeConnection())
+
+    summary = ticket_health_module.ticket_history_transition_parse_summary(authorized_company_ids=[123])
+
+    assert summary["inspected_history"] == 3
+    assert summary["parsed_transitions"] == 2
+    assert summary["parsed_status_transitions"] == 1
+    assert summary["timestamped_status_transitions"] == 1
+    assert summary["source_limited"] is False
+    assert summary["authorized_company_scope_applied"] is True
+    assert any(item["category"] == "status" for item in summary["parsed_transition_categories"])
 
 
 def test_ticket_predictive_target_policy_blocks_automatic_actions():
