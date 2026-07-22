@@ -2032,6 +2032,17 @@ def test_reference_field_lineage_report_applies_scope_and_avoids_raw_labels(monk
             captured_queries.append((sql, params))
             if "count(*) AS tickets" in sql:
                 return FakeResult({"tickets": 4})
+            if "raw_value_rows" in sql and "GROUP BY" not in sql:
+                return FakeResult(
+                        {
+                            "inspected_tickets": 4,
+                            "raw_value_rows": 4,
+                        "candidate_0_rows": 0,
+                        "candidate_1_rows": 2 if params and "priorityName" in params else 0,
+                        "candidate_2_rows": 0,
+                        "candidate_3_rows": 0,
+                    }
+                )
             field_name = params[1]
             if field_name == "priority":
                 return FakeResult(
@@ -2073,6 +2084,15 @@ def test_reference_field_lineage_report_applies_scope_and_avoids_raw_labels(monk
     assert priority["top_values"][0]["value_bucket"] == "priority_value_1"
     assert priority["top_values"][0]["reference_source_authority"] == "bootstrap"
     assert "reference_label" not in priority["top_values"][0]
+    candidates = report["source_candidates"]
+    assert candidates["summary"]["fields_with_candidate_labels"] == 1
+    priority_candidates = next(field for field in candidates["fields"] if field["key"] == "priority")
+    assert priority_candidates["raw_value_key"] == "priority"
+    assert priority_candidates["raw_value_rows"] == 4
+    assert priority_candidates["candidate_label_rows"] == 2
+    assert priority_candidates["candidate_label_keys"][1]["raw_key"] == "priorityName"
+    category_candidates = next(field for field in candidates["fields"] if field["key"] == "category")
+    assert category_candidates["raw_value_key"] == "ticketCategory"
     priority_target = next(target for target in report["targets"] if target["key"] == "priority")
     assert priority_target["certification_status"] == "partial"
     assert priority_target["authoritative_label_rows"] == 0
@@ -2081,7 +2101,7 @@ def test_reference_field_lineage_report_applies_scope_and_avoids_raw_labels(monk
     assert any("bootstrap labels" in warning for warning in report["warnings"])
     assert report["policy"]["returns_raw_ticket_text"] is False
     assert any("t.company_id = ANY(%s)" in sql for sql, _params in captured_queries)
-    assert captured_queries[1][1] == ("priority", "priority", [123])
+    assert any(params == ("priority", "priority", [123]) for _sql, params in captured_queries)
 
 
 def test_field_certification_includes_response_lineage_targets():
