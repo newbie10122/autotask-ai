@@ -149,6 +149,39 @@ REFERENCE_LABEL_SOURCE_CANDIDATE_KEYS: dict[str, tuple[str, ...]] = {
     "status": ("statusLabel", "statusName", "statusDisplayName"),
 }
 
+REFERENCE_METADATA_SOURCE_CONTRACTS: dict[str, dict[str, Any]] = {
+    "priority": {
+        "authoritative_source_needed": "ticket priority reference metadata",
+        "candidate_entity_names_unverified": ("TicketPriorities", "Priorities"),
+        "local_value_source": "autotask_tickets.priority / raw.priority",
+    },
+    "category": {
+        "authoritative_source_needed": "ticket category reference metadata",
+        "candidate_entity_names_unverified": ("TicketCategories",),
+        "local_value_source": "autotask_tickets.category / raw.ticketCategory",
+    },
+    "issue_type": {
+        "authoritative_source_needed": "ticket issue-type reference metadata",
+        "candidate_entity_names_unverified": ("TicketCategories", "TicketIssueTypes"),
+        "local_value_source": "autotask_tickets.issue_type / raw.issueType",
+    },
+    "subissue_type": {
+        "authoritative_source_needed": "ticket subissue-type reference metadata",
+        "candidate_entity_names_unverified": ("TicketCategories", "TicketSubIssueTypes"),
+        "local_value_source": "autotask_tickets.subissue_type / raw.subIssueType",
+    },
+    "queue": {
+        "authoritative_source_needed": "ticket queue reference metadata",
+        "candidate_entity_names_unverified": ("Queues", "TicketQueues"),
+        "local_value_source": "autotask_tickets.queue / raw.queueID",
+    },
+    "status": {
+        "authoritative_source_needed": "ticket status reference metadata",
+        "candidate_entity_names_unverified": ("TicketStatuses",),
+        "local_value_source": "autotask_tickets.status / raw.status",
+    },
+}
+
 REFERENCE_LINEAGE_TARGETS: tuple[dict[str, Any], ...] = (
     {"key": "priority", "label": "Priority reference lineage", "fields": ("priority",)},
     {"key": "category", "label": "Category/issue reference lineage", "fields": ("category", "issue_type", "subissue_type")},
@@ -1993,6 +2026,98 @@ def _reference_label_source_candidates(
     }
 
 
+def reference_metadata_source_contract_report(
+    authorized_company_ids: list[int] | None = None,
+    reference_lineage: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    started = time.monotonic()
+    lineage = reference_lineage or reference_field_lineage_report(authorized_company_ids=authorized_company_ids)
+    fields_by_key = {str(field.get("key")): field for field in lineage.get("fields") or []}
+    source_candidates_by_key = {
+        str(field.get("key")): field
+        for field in ((lineage.get("source_candidates") or {}).get("fields") or [])
+    }
+    fields: list[dict[str, Any]] = []
+    for spec in REFERENCE_LINEAGE_FIELDS:
+        key = spec["key"]
+        field = fields_by_key.get(key) or {}
+        candidate_field = source_candidates_by_key.get(key) or {}
+        present_rows = int(field.get("present_rows") or 0)
+        authoritative_rows = int(field.get("authoritative_label_rows") or 0)
+        missing_authoritative_rows = max(present_rows - authoritative_rows, 0)
+        contract = REFERENCE_METADATA_SOURCE_CONTRACTS.get(key, {})
+        certification_status = (
+            "not_applicable"
+            if present_rows == 0
+            else "certified"
+            if missing_authoritative_rows == 0
+            else "metadata_source_required"
+        )
+        fields.append(
+            {
+                "key": key,
+                "label": spec["label"],
+                "certification_status": certification_status,
+                "present_rows": present_rows,
+                "authoritative_label_rows": authoritative_rows,
+                "missing_authoritative_label_rows": missing_authoritative_rows,
+                "authoritative_label_coverage_percent": field.get("authoritative_label_coverage_percent"),
+                "current_local_sources": field.get("reference_source_authority_counts") or {},
+                "raw_value_key": spec["raw_key"],
+                "candidate_raw_label_keys_checked": [
+                    candidate.get("raw_key") for candidate in candidate_field.get("candidate_label_keys") or []
+                ],
+                "candidate_raw_label_rows": int(candidate_field.get("candidate_label_rows") or 0),
+                "candidate_raw_labels_available": bool(candidate_field.get("candidate_labels_available")),
+                "authoritative_source_needed": contract.get("authoritative_source_needed"),
+                "candidate_entity_names_unverified": list(contract.get("candidate_entity_names_unverified") or []),
+                "required_local_reference_source": "autotask or autotask_metadata",
+                "local_value_source": contract.get("local_value_source")
+                or f"autotask_tickets.{spec['column']} / raw.{spec['raw_key']}",
+                "not_sufficient_sources": ["inferred", "bootstrap", "missing", "other"],
+                "next_safe_step": (
+                    "Add a separate bounded read-only metadata availability probe or sync design for this reference source before certifying labels."
+                    if missing_authoritative_rows
+                    else "Keep authoritative-label coverage under regression tests."
+                ),
+            }
+        )
+    needs_metadata = [field for field in fields if field["certification_status"] == "metadata_source_required"]
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "certification_state": (
+            "authoritative_reference_metadata_available"
+            if fields and not needs_metadata
+            else "authoritative_reference_metadata_required"
+        ),
+        "summary": {
+            "fields": len(fields),
+            "fields_requiring_metadata_source": len(needs_metadata),
+            "fields_with_candidate_raw_labels": sum(1 for field in fields if field["candidate_raw_labels_available"]),
+        },
+        "fields": fields,
+        "policy": {
+            "aggregate_only": True,
+            "returns_raw_ticket_text": False,
+            "returns_raw_label_values": False,
+            "live_autotask_probe_ran": False,
+            "autotask_writes_allowed": False,
+            "automatic_reference_sync_allowed": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+        },
+        "warnings": (
+            [
+                "Authoritative reference labels still require a validated read-only metadata source; local ticket raw payloads and inferred labels are not sufficient."
+            ]
+            if needs_metadata
+            else []
+        ),
+        "interpretation": "This contract identifies the authoritative metadata source still needed to convert local reference values into certified labels; it does not probe Autotask or authorize synchronization.",
+    }
+
+
 def reference_field_lineage_report(authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
     started = time.monotonic()
     init_schema()
@@ -2162,7 +2287,7 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
     if any(int(target["missing_reference_rows"] or 0) > 0 for target in targets):
         warnings.append("Some ticket reference values have no local reference-value row.")
 
-    return {
+    report = {
         "ok": True,
         "generated_at_ms": int((time.monotonic() - started) * 1000),
         "authorized_company_scope_applied": authorized_company_ids is not None,
@@ -2185,6 +2310,11 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
         "warnings": warnings,
         "interpretation": "Reference lineage separates current ticket field availability, meaningful local labels, and authoritative Autotask-sourced reference labels; bootstrap and inferred labels remain partial evidence.",
     }
+    report["metadata_source_contract"] = reference_metadata_source_contract_report(
+        authorized_company_ids=authorized_company_ids,
+        reference_lineage=report,
+    )
+    return report
 
 
 def _summary_where(queue: str | None, assigned_resource_id: int | None) -> tuple[str, list[Any]]:
@@ -3302,6 +3432,7 @@ def field_certification_report(
                 "targets": reference_lineage_context.get("targets") or [],
                 "fields": reference_lineage_context.get("fields") or [],
                 "source_candidates": reference_lineage_context.get("source_candidates") or {},
+                "metadata_source_contract": reference_lineage_context.get("metadata_source_contract") or {},
                 "policy": reference_lineage_context.get("policy"),
                 "warnings": reference_lineage_context.get("warnings") or [],
                 "interpretation": reference_lineage_context.get("interpretation"),
