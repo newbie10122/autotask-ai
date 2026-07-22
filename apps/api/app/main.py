@@ -338,6 +338,7 @@ def get_settings() -> dict:
 
 @app.get("/audit-log")
 def audit_log(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
+    record_success_audit(AuditAction.admin_action, "audit_log.read", _user, audit_scope())
     return {"entries": [entry.model_dump(mode="json") for entry in audit_sink.list_recent()]}
 
 
@@ -1007,4 +1008,6 @@ def assistant_feedback(
 
 @app.get("/api/admin/curated-memory")
 def admin_curated_memory(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    return {"items": pending_memory()}
+    items = pending_memory()
+    record_success_audit(AuditAction.admin_action, "curated_memory.pending.read", _user, audit_scope(), {"item_count": len(items)})
+    return {"items": items}

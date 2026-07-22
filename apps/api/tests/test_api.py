@@ -366,6 +366,7 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
     monkeypatch.setattr("app.main.sync_reference_data", lambda: {"ok": True})
     monkeypatch.setattr("app.main.create_documents_from_tickets", lambda limit=None: {"ok": True, "limit": limit})
     monkeypatch.setattr("app.main.run_embedding_batch", lambda limit=None: {"ok": True, "limit": limit})
+    monkeypatch.setattr("app.main.pending_memory", lambda: [{"id": 1, "title": "Pending fix"}])
 
     class FakeAutotaskClient:
         def __init__(self, *args, **kwargs):
@@ -387,6 +388,7 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
     token = create_session_token("admin", [Role.admin.value])["token"]
     headers = {"Authorization": f"Bearer {token}"}
     routes = [
+        ("GET", "/audit-log", None, "audit_log.read"),
         ("GET", "/api/autotask/threshold", None, "autotask.threshold"),
         (
             "POST",
@@ -401,6 +403,7 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
         ("POST", "/api/operations/settings", {"settings": {"global_pause": True}}, "operations.settings.update"),
         ("POST", "/api/operations/jobs/recent_sync/run", None, "operations.job.run"),
         ("POST", "/api/operations/pause", None, "operations.pause"),
+        ("GET", "/api/admin/curated-memory", None, "curated_memory.pending.read"),
     ]
 
     for method, path, payload, _target in routes:
@@ -414,6 +417,8 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
         assert event.outcome == "success"
         assert event.scope == {"global": True}
         assert event.metadata["roles"] == [Role.admin.value]
+    curated_read = next(event for event in success_events if event.target == "curated_memory.pending.read")
+    assert curated_read.metadata["item_count"] == 1
 
 
 def test_assistant_ask_denies_authenticated_user_without_company_scope(monkeypatch):

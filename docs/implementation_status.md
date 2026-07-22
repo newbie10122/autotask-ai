@@ -61,6 +61,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Conversational UI branch `agent/ask-progress-phases` makes Ask Assistant request state explicit with visible phases for scoped ticket search, evidence preparation, local CPU model waiting, and answer rendering, plus terminal text that distinguishes active requests from timeout/error/done states.
 - Conversational behavior branch `agent/ticket-history-only-no-llm` makes Ticket History Only deterministic and local-evidence-only; it skips the local chat model while keeping generated prose explicit to General + Ticket History and Deep Dive.
 - Conversational UI branch `agent/ask-mode-ready-status` makes Ask Assistant ready text mode-specific so Ticket History Only no longer advertises local CPU model wait time.
+- Milestone 1 admin-read audit branch `agent/m1-audit-scope-closeout` records durable success audit events for admin reads of the audit log and pending curated-memory queue, including actor, roles, global scope, and safe count metadata.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
@@ -130,7 +131,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — PR66 Ask mode ready-status evidence
+## Latest receipt — Milestone 1 admin-read audit closeout
+
+- **Slice:** Record admin inspection read success audits on branch `agent/m1-audit-scope-closeout` from canonical `main` `725621de2356cd1337a8e17f68e7f02ff9616040`.
+- **State:** `partial`; admin read audit coverage improved, but full durable-audit certification and production-auth deployment evidence remain open.
+- **Files changed:** `apps/api/app/main.py`, `apps/api/tests/test_api.py`, and project status docs.
+- **Implemented:** `GET /audit-log` now records a durable success audit event for `audit_log.read`, and `GET /api/admin/curated-memory` records `curated_memory.pending.read` with safe `item_count` metadata. Existing admin route authority remains unchanged.
+- **Validation:** focused container validation passed for admin route matrix and admin success-audit coverage with `2 passed`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, Autotask writes, model threshold changes, routing, escalation, notification, assignment, status, priority, or workflow changes were run or added.
+- **Rollback:** Revert this branch commit; admin read routes return to prior success-audit coverage.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Historical receipt — PR66 Ask mode ready-status evidence
 
 - **Slice:** Record mode-specific Ask Assistant ready-status evidence on branch `agent/ask-mode-ready-status-docs` from canonical `main` `99f79d82b8803b7d12930228f95aa023ce647107`.
 - **State:** `partial`; the UI now distinguishes modes before a request is submitted, but live production-auth deployment evidence and broader capability certification remain open.
