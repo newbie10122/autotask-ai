@@ -31,6 +31,10 @@ test("operations view surfaces scheduler and related-data automation movement", 
   const automationPanel = page.locator("#relatedDataAutomation");
   await expect(automationPanel).toContainText("open_ticket_history_gaps");
   await expect(automationPanel).toContainText("ticket_time_entry_gaps");
+  await expect(automationPanel).toContainText("Limit");
+  await expect(automationPanel).toContainText("100");
+  await expect(automationPanel).toContainText("Runs");
+  await expect(automationPanel).toContainText("641");
   await expect(automationPanel).toContainText("685");
   await expect(automationPanel).toContainText("40");
   await expect(automationPanel).toContainText("None");

@@ -86,6 +86,35 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
             time_entries: 49054,
             ticket_history: 29340,
             eligible_missing_embeddings: 0
+          },
+          related_data_work_plan: {
+            recommendation: "ticket_time_entry_gaps",
+            summary: "Run Estate labor gaps next with limit 100.",
+            blocked_reasons: [],
+            items: [
+              {
+                job_name: "ticket_time_entry_gaps",
+                label: "Estate labor gaps",
+                recommended_limit: 100,
+                estimated_runs_to_check: 311,
+                backlog_tickets: 32082,
+                unchecked: 31089,
+                coverage_percent: 52.63,
+                ready: true,
+                reason: "Expands labor coverage with bounded per-ticket TimeEntries reads."
+              },
+              {
+                job_name: "ticket_history_gaps",
+                label: "Estate history gaps",
+                recommended_limit: 100,
+                estimated_runs_to_check: 641,
+                backlog_tickets: 64047,
+                unchecked: 64047,
+                coverage_percent: 5.43,
+                ready: true,
+                reason: "Expands TicketHistory coverage with bounded per-ticket reads; status-duration remains source-limited until status-change events appear."
+              }
+            ]
           }
         })
       });

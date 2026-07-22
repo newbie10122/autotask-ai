@@ -859,6 +859,21 @@
         historyBody.innerHTML = "";
         const relatedDataTarget = document.getElementById("relatedDataAutomation");
         relatedDataTarget.innerHTML = "";
+        const workPlan = status.related_data_work_plan || {};
+        (workPlan.items || []).forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "job-card";
+          const title = document.createElement("strong");
+          title.textContent = item.job_name || item.label || "related_data_job";
+          card.appendChild(title);
+          renderKeyValue(card, "Ready", item.ready ? "Yes" : "No");
+          renderKeyValue(card, "Backlog", item.backlog_tickets);
+          renderKeyValue(card, "Unchecked", item.unchecked);
+          renderKeyValue(card, "Limit", item.recommended_limit);
+          renderKeyValue(card, "Runs", item.estimated_runs_to_check);
+          renderKeyValue(card, "Reason", item.reason || "");
+          relatedDataTarget.appendChild(card);
+        });
         const relatedJobNames = new Set([
           "open_ticket_history_gaps",
           "open_ticket_time_entry_gaps",
@@ -882,7 +897,7 @@
             latestRelatedRuns.push(run);
           }
         });
-        if (!latestRelatedRuns.length) {
+        if (!latestRelatedRuns.length && !(workPlan.items || []).length) {
           relatedDataTarget.textContent = "No recent automation runs reported.";
         }
         latestRelatedRuns.forEach((run) => {
