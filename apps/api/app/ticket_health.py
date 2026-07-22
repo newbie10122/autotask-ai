@@ -1870,7 +1870,28 @@ def _binary_classification_metrics(rows: list[dict[str, Any]], prediction_key: s
         "accuracy": round((true_positive + true_negative) / total, 3) if total else None,
         "precision": round(true_positive / predicted_positive, 3) if predicted_positive else None,
         "recall": round(true_positive / actual_positive, 3) if actual_positive else None,
+        "f1": (
+            round((2 * true_positive) / ((2 * true_positive) + false_positive + false_negative), 3)
+            if true_positive or false_positive or false_negative
+            else None
+        ),
     }
+
+
+def _threshold_sweep(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    sweep: list[dict[str, Any]] = []
+    for threshold in (0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5):
+        threshold_rows = [
+            {
+                **row,
+                "threshold_predicted_delayed": _num(row.get("bayesian_delay_rate")) >= threshold,
+            }
+            for row in rows
+        ]
+        metrics = _binary_classification_metrics(threshold_rows, "threshold_predicted_delayed")
+        sweep.append({"threshold": threshold, **metrics})
+    sweep.sort(key=lambda item: (-(item["f1"] or 0), -(item["recall"] or 0), item["threshold"]))
+    return sweep
 
 
 def ticket_health_predictive_evaluation(
@@ -1970,6 +1991,7 @@ def ticket_health_predictive_evaluation(
             }
         )
     statistical_rows = [row for row in evaluated if not row["statistical_abstained"]]
+    threshold_sweep = _threshold_sweep(statistical_rows)
     return {
         "ok": True,
         "review_only": True,
@@ -1983,9 +2005,12 @@ def ticket_health_predictive_evaluation(
         },
         "baseline": _binary_classification_metrics(evaluated, "baseline_predicted_delayed"),
         "statistical": _binary_classification_metrics(statistical_rows, "statistical_predicted_delayed"),
+        "threshold_sweep": threshold_sweep,
+        "best_threshold_by_f1": threshold_sweep[0] if threshold_sweep else None,
         "sample": evaluated[:25],
         "warnings": [
             "This is offline local evaluation evidence only; it does not tune weights automatically.",
+            "Threshold sweep is advisory evidence only; review before changing scoring or alert thresholds.",
             "Training rows are limited to tickets completed before the holdout window to reduce leakage.",
             "No Autotask ticket, assignment, status, or priority is changed.",
             "Bias and client/category concentration review remains required before production trust.",

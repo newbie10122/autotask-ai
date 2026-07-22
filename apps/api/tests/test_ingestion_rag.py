@@ -1072,6 +1072,24 @@ def test_ticket_predictive_binary_metrics_report_precision_recall():
     assert metrics["accuracy"] == 0.5
     assert metrics["precision"] == 0.5
     assert metrics["recall"] == 0.5
+    assert metrics["f1"] == 0.5
+
+
+def test_ticket_predictive_threshold_sweep_prefers_f1_then_recall():
+    sweep = ticket_health_module._threshold_sweep(
+        [
+            {"actual_delayed": True, "bayesian_delay_rate": 0.31},
+            {"actual_delayed": True, "bayesian_delay_rate": 0.11},
+            {"actual_delayed": False, "bayesian_delay_rate": 0.06},
+            {"actual_delayed": False, "bayesian_delay_rate": 0.01},
+        ]
+    )
+
+    assert sweep[0]["threshold"] == 0.1
+    assert sweep[0]["true_positive"] == 2
+    assert sweep[0]["false_positive"] == 0
+    assert sweep[0]["recall"] == 1.0
+    assert sweep[0]["f1"] == 1.0
 
 
 def test_customer_success_data_paths_fail_closed_and_filter_company_scope():
