@@ -23,6 +23,6 @@ This matrix is a certification tracker, not a production-readiness claim. A capa
 - No milestone is `verified_complete`.
 - No Autotask write capability is implemented or approved.
 - Latest canonical evidence is PR #108 on `main` `9e17d22`; PR #108 CI run `29958828970` passed. Latest local validation for PR #107 passed with `161` API tests plus `13` Playwright tests, and the post-merge bounded runtime reference metadata probe found `TicketCategories` available with no Autotask writes.
-- Second Brain projection PR #13 is open at head `2f86a7b` after recording Autotask AI progress through PR #109 and the post-merge bounded runtime reference metadata probe; local knowledge validation passed with `111` Markdown files, `111` unique IDs, and `242` internal links.
+- Second Brain projection PR #13 is open at head `e367155` after recording Autotask AI progress through PR #112 and the TicketCategories metadata sync runtime evidence; local knowledge validation passed with `112` Markdown files, `112` unique IDs, and `248` internal links.
 - The validation harness is stronger and has three clean browser-enabled evidence points; answer-safety has a local 3/3 streak harness; security/isolation has a local 3/3 streak harness, but production capability certification remains incomplete.
 - Next work should target safe Milestone 1 audit/scope closeout, Milestone 2 field/source-lineage certification, live production-auth deployment evidence only when approved for that protected action, and capability-specific Quality Streaks.
