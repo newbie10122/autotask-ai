@@ -248,6 +248,7 @@ def test_admin_route_matrix_denies_readonly_and_audits_each_denial(monkeypatch):
         ("POST", "/api/operations/pause", None),
         ("POST", "/api/operations/resume", None),
         ("POST", "/api/operations/jobs/1/request-stop", None),
+        ("POST", "/api/operations/jobs/1/archive-stale", None),
         ("GET", "/api/admin/curated-memory", None),
     ]
 
@@ -337,6 +338,7 @@ def test_api_route_authority_matrix_classifies_every_route():
         ("POST", "/api/operations/pause"),
         ("POST", "/api/operations/resume"),
         ("POST", "/api/operations/jobs/{run_id}/request-stop"),
+        ("POST", "/api/operations/jobs/{run_id}/archive-stale"),
         ("GET", "/api/admin/curated-memory"),
     }
 
@@ -362,6 +364,7 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
     monkeypatch.setattr(audit_sink, "record", lambda entry: events.append(entry) or entry)
     monkeypatch.setattr("app.main.update_operations_settings", lambda payload: payload)
     monkeypatch.setattr("app.main.run_job", lambda job_name, triggered_by, force: {"ok": True, "job_name": job_name})
+    monkeypatch.setattr("app.main.archive_stale_orphaned_run", lambda run_id: {"ok": True, "archived": True, "run": {"id": run_id}})
     monkeypatch.setattr("app.main.classify_tickets", lambda limit=None: {"ok": True, "limit": limit})
     monkeypatch.setattr("app.main.sync_reference_data", lambda: {"ok": True})
     monkeypatch.setattr("app.main.create_documents_from_tickets", lambda limit=None: {"ok": True, "limit": limit})
@@ -402,6 +405,7 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
         ("POST", "/api/analytics/classify-tickets", {"limit": 5}, "analytics.classify_tickets"),
         ("POST", "/api/operations/settings", {"settings": {"global_pause": True}}, "operations.settings.update"),
         ("POST", "/api/operations/jobs/recent_sync/run", None, "operations.job.run"),
+        ("POST", "/api/operations/jobs/1/archive-stale", None, "operations.job.archive_stale"),
         ("POST", "/api/operations/pause", None, "operations.pause"),
         ("GET", "/api/admin/curated-memory", None, "curated_memory.pending.read"),
     ]

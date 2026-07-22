@@ -143,6 +143,16 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
     if (pathname === "/api/operations/jobs") {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ jobs: [], running: [] }) });
     }
+    if (pathname === "/api/operations/jobs/4143/archive-stale") {
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          archived: true,
+          run: { id: 4143, job_name: "classify_tickets", status: "stale_orphaned" }
+        })
+      });
+    }
     if (pathname === "/api/operations/jobs/runs") {
       return route.fulfill({
         contentType: "application/json",

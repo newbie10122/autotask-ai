@@ -832,6 +832,18 @@
           renderKeyValue(card, "Age", formatAgeSeconds(run.age_seconds));
           renderKeyValue(card, "Lock", run.has_active_lock ? "Present" : "None");
           renderKeyValue(card, "Newer Completed", run.newer_completed_run_id || "None");
+          if (run.stale_state === "orphaned_running_row_candidate" && run.run_id) {
+            const archive = document.createElement("button");
+            archive.type = "button";
+            archive.dataset.requiresRole = "Admin";
+            archive.textContent = "Archive";
+            archive.disabled = !hasRole("Admin");
+            archive.addEventListener("click", async () => {
+              await api(`/api/operations/jobs/${run.run_id}/archive-stale`, { method: "POST" });
+              await loadOperations();
+            });
+            card.appendChild(archive);
+          }
           staleTarget.appendChild(card);
         });
         if (!staleTarget.children.length && Number(automationSummary.stale_running_jobs || 0) > 0) {

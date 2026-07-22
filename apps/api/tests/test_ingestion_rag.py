@@ -765,6 +765,54 @@ def test_scheduler_automation_certification_reports_stale_run_provenance(monkeyp
     assert "last_checkpoint" not in provenance[0]
 
 
+def test_archive_stale_orphaned_run_requires_safe_local_metadata_guards(monkeypatch):
+    captured = []
+
+    class FakeResult:
+        def fetchone(self):
+            return {
+                "id": 42,
+                "job_name": "classify_tickets",
+                "status": "stale_orphaned",
+                "started_at": datetime.now(UTC) - timedelta(hours=2),
+                "finished_at": datetime.now(UTC),
+                "current_step": "archived_stale_orphaned",
+            }
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            captured.append((sql, params))
+            return FakeResult()
+
+    monkeypatch.setattr(operations_module, "ensure_operations_defaults", lambda: None)
+    monkeypatch.setattr(operations_module, "db_connection", lambda: FakeConnection())
+    monkeypatch.setattr(operations_module, "invalidate_operations_status_cache", lambda: None)
+
+    result = operations_module.archive_stale_orphaned_run(42)
+    sql, params = captured[0]
+
+    assert result["ok"] is True
+    assert result["archived"] is True
+    assert result["run"]["status"] == "stale_orphaned"
+    assert result["policy"]["local_metadata_only"] is True
+    assert result["policy"]["runs_jobs"] is False
+    assert result["policy"]["autotask_writes_allowed"] is False
+    assert params == (42,)
+    assert "jr.status='running'" in sql
+    assert "jr.started_at < now() - interval '30 minutes'" in sql
+    assert "NOT EXISTS" in sql and "job_locks" in sql
+    assert "newer.status='completed'" in sql
+    assert "last_error" not in result["run"]
+    assert "config_snapshot" not in result["run"]
+    assert "last_checkpoint" not in result["run"]
+
+
 def test_scheduler_preflight_global_pause_disk_and_threshold_guards(monkeypatch):
     settings = operations_module.default_operations_settings()
     settings["global_pause"] = True

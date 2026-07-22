@@ -72,6 +72,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #85 adds aggregate-only scoped reference-field lineage for current priority, category/issue/subissue, queue, and status fields and feeds priority/category/queue reference completeness into field certification.
 - PR #87 adds read-only scheduler automation certification to Operations status, including required-job recent scheduler-run evidence, stale running-run detection, and safe no-raw-error reporting.
 - PR #89 adds read-only stale running-run provenance to scheduler automation certification and the Operations UI without cleanup or raw error/config/checkpoint output.
+- Current branch `agent/m2-stale-run-cleanup` adds an Admin-only local archive action for stale orphaned scheduler run metadata. It only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -108,6 +109,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Post-merge PR #85 reference-lineage runtime evidence: local read-only reference lineage returned `partial_reference_lineage`, tickets `67726`, and three partial targets. Priority has `67726` present rows, queue has `67665` present rows, and category/issue/subissue has `187528` present rows across the three fields, but each has `0%` meaningful mapped-label coverage because current local reference labels are inferred placeholders. Field certification remains `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, `waiting_states`, `priority`, `category`, and `queue`.
 - Post-merge PR #87 scheduler automation runtime evidence: local read-only scheduler certification returned `partial_scheduler_automation_evidence`, scheduler `healthy`, `9` required jobs, `9` certified jobs, `0` partial jobs, `0` missing jobs, `2` running jobs, and blocker `stale_running_jobs` because one old running row is older than 30 minutes. Required scheduled jobs had recent scheduler-completed runs, including `recent_sync` (`86` scheduler runs/`86` completed in 24h), `open_ticket_history_gaps` (`86` runs/`85` completed), `open_ticket_time_entry_gaps` (`85`/`85`), `ticket_history_gaps` (`23`/`23`), `ticket_time_entry_gaps` (`23`/`23`), `sync_reference_data` (`4`/`4`), `classify_tickets` (`46` runs/`44` completed), `reclassify_chunks` (`24`/`24`), and `nightly_pipeline` (`1`/`1`).
 - Post-merge PR #89 stale-run provenance runtime evidence: local read-only scheduler certification returned `1` stale running row, `classify_tickets` run `4143`, no active lock, newer completed run `4391`, and stale state `orphaned_running_row_candidate`. This explains the blocker as likely stale local run metadata, not evidence that the scheduler is failing to run classification.
+- Current branch cleanup evidence: `archive_stale_orphaned_run()` is local metadata only and returns policy flags proving it does not run jobs or allow Autotask writes. The archive SQL requires `running`, older than 30 minutes, no active lock, and newer completed run evidence before updating a row to `stale_orphaned`.
 
 ## Milestone table
 
@@ -127,12 +129,23 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record the PR #89 merge evidence and updated Second Brain PR #13 head in canonical project control documents.
+1. Merge the stale-run cleanup branch after CI passes, then update Second Brain PR #13 with sanitized evidence.
 2. Continue the next independent Milestone 2 field/source-lineage or sync/recovery evidence slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 stale running-run provenance merge evidence
+## Current receipt — Milestone 2 stale scheduler-run cleanup
+
+- **Slice:** Add Admin-only local stale scheduler-run archive action on branch `agent/m2-stale-run-cleanup` from canonical `main` `c9a2e8b487246a896cb81d561e50306556c4c5e0`.
+- **State:** `partial_foundation`; the app can intentionally clear proven stale local scheduler metadata, but this branch does not run cleanup against the live database or mark sync/recovery certification complete.
+- **Files changed:** `apps/api/app/operations.py`, `apps/api/app/main.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_ingestion_rag.py`, `apps/web/index.html`, `apps/web/tests/helpers.js`, `apps/web/tests/operations-automation.spec.js`, and project status docs.
+- **Implemented:** `archive_stale_orphaned_run()` updates local `job_runs` rows to `stale_orphaned` only when the row is running, older than 30 minutes, has no active lock, and has a newer completed run for the same job. The Operations UI shows an Admin-only Archive action for `orphaned_running_row_candidate` cards.
+- **Validation:** Focused scheduler/archive tests passed with `3 passed`; focused route/audit tests passed with `4 passed`; focused Operations browser smoke passed with `1 passed`; full repository validation passed with `154 passed`; Playwright browser smoke passed with `13 passed`; `git diff --check` passed.
+- **Read-only/authority evidence:** No sync jobs, reference-data sync, live Autotask probe, production deployment, model workflow change, routing/assignment change, or Autotask write capability was run or added. The only mutation introduced is local scheduler metadata archival behind Admin route authority.
+- **Rollback:** Revert this branch commit; stale scheduler-run provenance remains visible but cannot be archived from the app.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+
+## Historical receipt — Milestone 2 stale running-run provenance merge evidence
 
 - **Slice:** Record stale running-run provenance merge evidence after PR #89 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; canonical docs now reflect PR #89 and Second Brain projection head `06dacfb4fee52ee48edf11ba39bd07f1059c9ec9`.
