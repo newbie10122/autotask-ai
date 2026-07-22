@@ -206,6 +206,7 @@ A milestone may be marked `verified_complete` only when:
 - Post-merge runtime evidence on canonical `main` `9cc33aaf6ed3987d45a43e96713a7c39609bdcfc`: the bounded read-only probe returned 404 for `TicketStatusHistory`, `TicketStatusHistories`, and `TicketChangeHistory`; `TicketHistory` was available with one sampled row using `ticketID eq <local ticket>` and reported a next page. This confirms the current reachable read-only history source is still `TicketHistory`; status-duration/waiting certification remains blocked by row content/parser shape, not by lack of basic `TicketHistory` reachability.
 - Current branch evidence on `agent/ticket-history-content-certification`: `/api/ticket-health/ticket-history-content-certification` returns scoped aggregate-only TicketHistory content evidence, including action counts, action categories, status-like row counts, timestamp coverage, and raw-key counts. It intentionally omits raw detail text and keeps parser/model/workflow changes disabled.
 - Current branch validation: focused container validation passed for content-certification and scoped route propagation tests with `2 passed`.
+- Current branch evidence on `agent/ticket-history-content-runtime-fix`: runtime validation found the content-certification query needed qualified `h.raw` references in joined SQL; the query now qualifies TicketHistory raw JSON fields and has regression coverage.
 
 ## Milestone 8
 

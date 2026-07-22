@@ -719,11 +719,11 @@ def ticket_history_content_certification_report(
                 count(*) FILTER (WHERE happened_at IS NOT NULL) AS timestamped_history,
                 count(*) FILTER (
                     WHERE lower(COALESCE(action, '') || ' ' || COALESCE(detail, '')) LIKE '%%status%%'
-                       OR raw::text ILIKE '%%status%%'
+                       OR h.raw::text ILIKE '%%status%%'
                 ) AS status_like_rows,
-                count(*) FILTER (WHERE raw ? 'field') AS raw_field_rows,
-                count(*) FILTER (WHERE raw ? 'oldValue') AS raw_old_value_rows,
-                count(*) FILTER (WHERE raw ? 'newValue') AS raw_new_value_rows
+                count(*) FILTER (WHERE h.raw ? 'field') AS raw_field_rows,
+                count(*) FILTER (WHERE h.raw ? 'oldValue') AS raw_old_value_rows,
+                count(*) FILTER (WHERE h.raw ? 'newValue') AS raw_new_value_rows
             FROM autotask_ticket_history h
             JOIN autotask_tickets t ON t.id=h.ticket_id
             WHERE true {company_scope_sql}
