@@ -131,6 +131,21 @@ REQUIRED_FIELDS: tuple[dict[str, Any], ...] = (
     },
 )
 
+REFERENCE_LINEAGE_FIELDS: tuple[dict[str, str], ...] = (
+    {"key": "priority", "label": "Priority", "column": "priority", "raw_key": "priority"},
+    {"key": "category", "label": "Category", "column": "category", "raw_key": "category"},
+    {"key": "issue_type", "label": "Issue type", "column": "issue_type", "raw_key": "issueType"},
+    {"key": "subissue_type", "label": "Subissue type", "column": "subissue_type", "raw_key": "subIssueType"},
+    {"key": "queue", "label": "Queue", "column": "queue", "raw_key": "queueID"},
+    {"key": "status", "label": "Status", "column": "status", "raw_key": "status"},
+)
+
+REFERENCE_LINEAGE_TARGETS: tuple[dict[str, Any], ...] = (
+    {"key": "priority", "label": "Priority reference lineage", "fields": ("priority",)},
+    {"key": "category", "label": "Category/issue reference lineage", "fields": ("category", "issue_type", "subissue_type")},
+    {"key": "queue", "label": "Queue reference lineage", "fields": ("queue",)},
+)
+
 CLOSED_STATUS_IDS = {"5", "16", "20"}
 TICKET_HEALTH_FEEDBACK_OUTCOMES = {"accurate", "too_high", "too_low", "needs_review"}
 CALIBRATION_MIN_FEEDBACK = 10
@@ -1851,6 +1866,172 @@ def response_lineage_report(authorized_company_ids: list[int] | None = None) -> 
     }
 
 
+def _reference_label_quality(field_name: str, value: Any, label: Any, source: Any) -> str:
+    clean_value = str(value or "").strip()
+    clean_label = str(label or "").strip()
+    clean_source = str(source or "").strip().lower()
+    if not clean_value:
+        return "missing_value"
+    if not clean_label:
+        return "missing_reference"
+    fallback_label = f"{field_name.replace('_', ' ').title()} {clean_value}"
+    if clean_source == "inferred" or clean_label == clean_value or clean_label == fallback_label:
+        return "generic_or_inferred"
+    return "mapped"
+
+
+def reference_field_lineage_report(authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
+    started = time.monotonic()
+    init_schema()
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    fields: list[dict[str, Any]] = []
+    by_key: dict[str, dict[str, Any]] = {}
+    with db_connection() as conn:
+        total_row = conn.execute(
+            f"SELECT count(*) AS tickets FROM autotask_tickets t WHERE true {company_scope_sql}",
+            tuple(company_scope_params),
+        ).fetchone()
+        ticket_total = int(total_row["tickets"] or 0)
+        for spec in REFERENCE_LINEAGE_FIELDS:
+            key = spec["key"]
+            column = spec["column"]
+            raw_key = spec["raw_key"]
+            rows = conn.execute(
+                f"""
+                SELECT
+                  t.{column} AS value,
+                  count(*) AS row_count,
+                  count(*) FILTER (WHERE NULLIF(t.raw->>%s, '') IS NOT NULL) AS raw_value_rows,
+                  ref.label AS reference_label,
+                  ref.source AS reference_source
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values ref
+                  ON ref.field_name=%s AND ref.value=t.{column}
+                WHERE true {company_scope_sql}
+                  AND NULLIF(t.{column}, '') IS NOT NULL
+                GROUP BY t.{column}, ref.label, ref.source
+                ORDER BY count(*) DESC, t.{column}
+                """,
+                (raw_key, key, *company_scope_params),
+            ).fetchall()
+
+            present_rows = 0
+            raw_value_rows = 0
+            distinct_values = len(rows)
+            referenced_rows = 0
+            mapped_rows = 0
+            generic_or_inferred_rows = 0
+            missing_reference_rows = 0
+            source_counts: Counter[str] = Counter()
+            top_values: list[dict[str, Any]] = []
+            for index, row in enumerate(rows, start=1):
+                row_count = int(row["row_count"] or 0)
+                raw_rows = int(row["raw_value_rows"] or 0)
+                quality = _reference_label_quality(
+                    key, row["value"], row["reference_label"], row["reference_source"]
+                )
+                source = str(row["reference_source"] or "missing")
+                present_rows += row_count
+                raw_value_rows += raw_rows
+                if quality != "missing_reference":
+                    referenced_rows += row_count
+                    source_counts[source] += row_count
+                if quality == "mapped":
+                    mapped_rows += row_count
+                elif quality == "generic_or_inferred":
+                    generic_or_inferred_rows += row_count
+                else:
+                    missing_reference_rows += row_count
+                if index <= 10:
+                    top_values.append(
+                        {
+                            "value_bucket": f"{key}_value_{index}",
+                            "row_count": row_count,
+                            "reference_present": quality != "missing_reference",
+                            "reference_source": source,
+                            "label_quality": quality,
+                        }
+                    )
+
+            status = "missing" if present_rows == 0 else "available" if mapped_rows == present_rows else "partial"
+            field_report = {
+                "key": key,
+                "label": spec["label"],
+                "source": f"autotask_tickets.{column} / raw.{raw_key} joined to autotask_reference_values.{key}",
+                "tickets": ticket_total,
+                "present_rows": present_rows,
+                "field_coverage_percent": _percent(present_rows, ticket_total),
+                "raw_value_rows": raw_value_rows,
+                "raw_value_coverage_percent": _percent(raw_value_rows, present_rows),
+                "distinct_values": distinct_values,
+                "referenced_rows": referenced_rows,
+                "reference_coverage_percent": _percent(referenced_rows, present_rows),
+                "mapped_rows": mapped_rows,
+                "meaningful_label_coverage_percent": _percent(mapped_rows, present_rows),
+                "generic_or_inferred_rows": generic_or_inferred_rows,
+                "missing_reference_rows": missing_reference_rows,
+                "certification_status": status,
+                "reference_source_counts": dict(source_counts),
+                "top_values": top_values,
+            }
+            fields.append(field_report)
+            by_key[key] = field_report
+
+    targets: list[dict[str, Any]] = []
+    for target_spec in REFERENCE_LINEAGE_TARGETS:
+        target_fields = [by_key[field_key] for field_key in target_spec["fields"] if field_key in by_key]
+        statuses = [str(field.get("certification_status") or "missing") for field in target_fields]
+        present_rows = sum(int(field.get("present_rows") or 0) for field in target_fields)
+        mapped_rows = sum(int(field.get("mapped_rows") or 0) for field in target_fields)
+        generic_rows = sum(int(field.get("generic_or_inferred_rows") or 0) for field in target_fields)
+        missing_reference_rows = sum(int(field.get("missing_reference_rows") or 0) for field in target_fields)
+        targets.append(
+            {
+                "key": target_spec["key"],
+                "label": target_spec["label"],
+                "certification_status": _certification_status(*statuses),
+                "fields": [field["key"] for field in target_fields],
+                "present_rows": present_rows,
+                "mapped_rows": mapped_rows,
+                "meaningful_label_coverage_percent": _percent(mapped_rows, present_rows),
+                "generic_or_inferred_rows": generic_rows,
+                "missing_reference_rows": missing_reference_rows,
+            }
+        )
+
+    summary = Counter(target["certification_status"] for target in targets)
+    warnings = []
+    if ticket_total == 0:
+        warnings.append("No local tickets are present in the scoped ticket set.")
+    if any(int(target["generic_or_inferred_rows"] or 0) > 0 for target in targets):
+        warnings.append("Some reference labels are locally inferred placeholders, not authoritative Autotask reference labels.")
+    if any(int(target["missing_reference_rows"] or 0) > 0 for target in targets):
+        warnings.append("Some ticket reference values have no local reference-value row.")
+
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "certification_state": (
+            "reference_lineage_available"
+            if targets and all(target["certification_status"] == "certified" for target in targets)
+            else "partial_reference_lineage"
+        ),
+        "summary": {"tickets": ticket_total, **dict(summary)},
+        "targets": targets,
+        "fields": fields,
+        "policy": {
+            "aggregate_only": True,
+            "returns_raw_ticket_text": False,
+            "autotask_writes_allowed": False,
+            "automatic_reference_sync_allowed": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+        },
+        "warnings": warnings,
+        "interpretation": "Reference lineage separates current ticket field availability from meaningful local reference-label coverage; inferred fallback labels remain partial evidence.",
+    }
+
+
 def _summary_where(queue: str | None, assigned_resource_id: int | None) -> tuple[str, list[Any]]:
     clauses = ["t.completed_at_autotask IS NULL", "NOT t.analytics_exclude", "COALESCE(t.status, '') <> ALL(%s)"]
     params: list[Any] = [list(CLOSED_STATUS_IDS)]
@@ -2545,6 +2726,7 @@ def field_certification_report(
     labor_coverage: dict[str, Any] | None = None,
     sla_lineage: dict[str, Any] | None = None,
     response_lineage: dict[str, Any] | None = None,
+    reference_lineage: dict[str, Any] | None = None,
     ticket_history_shape_inventory: dict[str, Any] | None = None,
     waiting_snapshot: dict[str, Any] | None = None,
     authorized_company_ids: list[int] | None = None,
@@ -2560,6 +2742,7 @@ def field_certification_report(
             labor_coverage,
             sla_lineage,
             response_lineage,
+            reference_lineage,
         )
     )
     coverage = coverage_report or field_coverage_report(authorized_company_ids=authorized_company_ids)
@@ -2596,6 +2779,20 @@ def field_certification_report(
         }
     else:
         response_lineage_context = response_lineage_report(authorized_company_ids=authorized_company_ids)
+    if reference_lineage is not None:
+        reference_lineage_context = reference_lineage
+    elif injected_context:
+        reference_lineage_context = {
+            "certification_state": "partial_reference_lineage",
+            "summary": {"tickets": 0},
+            "targets": [],
+            "fields": [],
+            "policy": {"aggregate_only": True, "returns_raw_ticket_text": False},
+            "warnings": ["Injected certification context did not include reference-lineage evidence."],
+            "authorized_company_scope_applied": authorized_company_ids is not None,
+        }
+    else:
+        reference_lineage_context = reference_field_lineage_report(authorized_company_ids=authorized_company_ids)
     if ticket_history_shape_inventory is not None:
         history_shape_context = ticket_history_shape_inventory
     elif injected_context:
@@ -2633,6 +2830,9 @@ def field_certification_report(
     response_author_lineage = response_lineage_context.get("author_lineage") or {}
     customer_author_lineage = response_author_lineage.get("customer") or {}
     technician_author_lineage = response_author_lineage.get("technician") or {}
+    reference_targets = {
+        str(target.get("key")): target for target in reference_lineage_context.get("targets") or []
+    }
     history_shape_counts = history_shape_context.get("counts") or {}
     waiting_snapshot_summary = waiting_snapshot_context.get("summary") or {}
     exact_status_transition = bool(source_capability.get("has_exact_status_transition_timestamp"))
@@ -2665,6 +2865,9 @@ def field_certification_report(
     technician_responses = _field_row_status(coverage, "technician_responses")
     waiting_states = _field_row_status(coverage, "waiting_states")
     ticket_status = _field_row_status(coverage, "ticket_status")
+    priority_field = _field_row_status(coverage, "priority")
+    category_field = _field_row_status(coverage, "category")
+    queue_field = _field_row_status(coverage, "queue")
     labor_certification_status = _certification_status(
         str(time_entries.get("status") or "missing"), str(labor_hours.get("status") or "missing")
     )
@@ -2699,6 +2902,30 @@ def field_certification_report(
         response_note = (
             "Some ticket notes carry both customer and technician author identifiers; keep response analytics partial until attribution is reviewed."
         )
+    priority_reference = reference_targets.get("priority") or {}
+    category_reference = reference_targets.get("category") or {}
+    queue_reference = reference_targets.get("queue") or {}
+    priority_reference_source_status = str(priority_reference.get("certification_status") or "missing").replace(
+        "certified", "available"
+    )
+    category_reference_source_status = str(category_reference.get("certification_status") or "missing").replace(
+        "certified", "available"
+    )
+    queue_reference_source_status = str(queue_reference.get("certification_status") or "missing").replace(
+        "certified", "available"
+    )
+    priority_reference_status = _certification_status(
+        str(priority_field.get("status") or "missing"),
+        priority_reference_source_status,
+    )
+    category_reference_status = _certification_status(
+        str(category_field.get("status") or "missing"),
+        category_reference_source_status,
+    )
+    queue_reference_status = _certification_status(
+        str(queue_field.get("status") or "missing"),
+        queue_reference_source_status,
+    )
 
     targets = [
         {
@@ -2814,6 +3041,48 @@ def field_certification_report(
                 or "Waiting-state precision depends on current status labels and parsed TicketHistory transitions."
             ),
         },
+        {
+            "key": "priority",
+            "label": "Priority current-field/reference lineage",
+            "certification_status": priority_reference_status,
+            "source": priority_field.get("source"),
+            "coverage_percent": priority_field.get("coverage_percent"),
+            "available_count": priority_field.get("available_count"),
+            "total_count": priority_field.get("total_count"),
+            "meaningful_label_coverage_percent": priority_reference.get("meaningful_label_coverage_percent"),
+            "generic_or_inferred_rows": priority_reference.get("generic_or_inferred_rows"),
+            "missing_reference_rows": priority_reference.get("missing_reference_rows"),
+            "prediction_use": "excluded_until_certified_for_model_training",
+            "note": "Priority values are current local ticket fields; meaningful reference labels must be locally certified before model training use.",
+        },
+        {
+            "key": "category",
+            "label": "Category/issue current-field/reference lineage",
+            "certification_status": category_reference_status,
+            "source": category_field.get("source"),
+            "coverage_percent": category_field.get("coverage_percent"),
+            "available_count": category_field.get("available_count"),
+            "total_count": category_field.get("total_count"),
+            "meaningful_label_coverage_percent": category_reference.get("meaningful_label_coverage_percent"),
+            "generic_or_inferred_rows": category_reference.get("generic_or_inferred_rows"),
+            "missing_reference_rows": category_reference.get("missing_reference_rows"),
+            "prediction_use": "excluded_until_certified_for_model_training",
+            "note": "Category, issue type, and subissue type are current local fields; inferred fallback labels remain partial evidence.",
+        },
+        {
+            "key": "queue",
+            "label": "Queue current-field/reference lineage",
+            "certification_status": queue_reference_status,
+            "source": queue_field.get("source"),
+            "coverage_percent": queue_field.get("coverage_percent"),
+            "available_count": queue_field.get("available_count"),
+            "total_count": queue_field.get("total_count"),
+            "meaningful_label_coverage_percent": queue_reference.get("meaningful_label_coverage_percent"),
+            "generic_or_inferred_rows": queue_reference.get("generic_or_inferred_rows"),
+            "missing_reference_rows": queue_reference.get("missing_reference_rows"),
+            "prediction_use": "excluded_until_certified_for_model_training",
+            "note": "Queue values are current local ticket fields; queue-at-creation history and meaningful reference labels are not assumed.",
+        },
     ]
     summary = Counter(target["certification_status"] for target in targets)
     certification_state = (
@@ -2859,6 +3128,16 @@ def field_certification_report(
                 "warnings": response_lineage_context.get("warnings") or [],
                 "interpretation": response_lineage_context.get("interpretation"),
                 "authorized_company_scope_applied": response_lineage_context.get("authorized_company_scope_applied"),
+            },
+            "reference_lineage": {
+                "certification_state": reference_lineage_context.get("certification_state"),
+                "summary": reference_lineage_context.get("summary") or {},
+                "targets": reference_lineage_context.get("targets") or [],
+                "fields": reference_lineage_context.get("fields") or [],
+                "policy": reference_lineage_context.get("policy"),
+                "warnings": reference_lineage_context.get("warnings") or [],
+                "interpretation": reference_lineage_context.get("interpretation"),
+                "authorized_company_scope_applied": reference_lineage_context.get("authorized_company_scope_applied"),
             },
             "status_source": {
                 "source_capability": source_capability,

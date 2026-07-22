@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `15ca2bada4aa81bdd1c29cfd4f503ad7b4f6eb1a`
-- Latest merged PR: `newbie10122/autotask-ai#83`, `Certify response lineage evidence`
-- Latest PR #83 CI: GitHub Actions run `29944435115`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local validation for PR #83 passed with focused field-certification/response-lineage tests `84 passed`, API/worker Python compilation, full pytest `150 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
+- Canonical `main`: `55f3d9804427ae79b3e8b532597282f950f76cc1`
+- Latest merged PR: `newbie10122/autotask-ai#84`, `Record response lineage merge`
+- Latest PR #84 CI: GitHub Actions run `29945153422`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation on current reference-lineage branch passed with focused field-certification/reference-lineage tests `85 passed`, API/worker Python compilation, full pytest `151 passed`, Playwright browser smoke `13 passed`, and real local Postgres field-certification smoke.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -46,6 +46,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge Milestone 2 evidence on canonical `main` `27b0bd7e502a0b9ef74b60238f0e9f362ece422b`: PR #81 adds aggregate-only TicketHistory source-shape inventory, current waiting-state snapshot taxonomy, and a no-proxy-duration contract. Runtime local field certification executed read-only and returned `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, and `waiting_states`; aggregate TicketHistory shape inventory found `38648` rows, `100%` timestamp coverage, `0` structured status-transition rows, and current waiting-state snapshot coverage with `101` unknown/unmapped tickets.
 - Post-merge documentation evidence on canonical `main` `baf37e6c4dd2d1427f0d7770155c1641a3340580`: PR #82 records the PR #81 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
 - Post-merge Milestone 2 evidence on canonical `main` `15ca2bada4aa81bdd1c29cfd4f503ad7b4f6eb1a`: PR #83 adds aggregate-only scoped customer/technician response lineage from local ticket-note author identifiers and normalized/raw note timestamps. Runtime local field certification returned `response_lineage_available`; local ticket notes are present (`675531`), raw note timestamp coverage is `100%`, normalized note timestamp coverage is `0%` until refreshed by future sync/upsert/backfill, customer response notes `8091`, technician response notes `667440`, and ambiguous notes `0`.
+- Post-merge documentation evidence on canonical `main` `55f3d9804427ae79b3e8b532597282f950f76cc1`: PR #84 records the PR #83 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
+- Current active branch validation: `agent/m2-reference-field-lineage` adds aggregate-only scoped reference-field lineage for current priority, category/issue/subissue, queue, and status fields. Runtime local evidence found priority, category/issue/subissue, and queue values are present, but priority/category/queue reference lineage is `partial` because local labels are inferred placeholders rather than authoritative mapped reference labels; field certification blockers now include `priority`, `category`, and `queue` alongside the existing status-duration/waiting blockers.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -61,8 +63,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record PR #83 merge evidence and the updated Second Brain projection state in canonical project documents.
-2. Continue the next safe Milestone 2 source-lineage field without Autotask writes, sync jobs, production deployment, or model workflow changes.
+1. Merge `agent/m2-reference-field-lineage` after CI passes.
+2. Update existing Second Brain PR #13 with sanitized reference-lineage evidence.
+3. Continue the next safe Milestone 2 source-lineage or sync/recovery evidence slice without Autotask writes, production deployment, or model workflow changes.
 
 ## Milestone status
 
