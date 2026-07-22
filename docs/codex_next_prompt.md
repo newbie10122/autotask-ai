@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `16aee8b0ccb1393ca52be2e86790f94220052150`
-- Latest merged PR: `newbie10122/autotask-ai#80`, `Record SLA lineage merge`
-- Latest PR #80 CI: GitHub Actions run `29938480756`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local validation on PR #79 evidence passed with focused field-certification/SLA lineage tests `77 passed`, API/worker Python compilation, full pytest `143 passed`, static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check`; PR #80 recorded that merge evidence in canonical project docs.
+- Canonical `main`: `27b0bd7e502a0b9ef74b60238f0e9f362ece422b`
+- Latest merged PR: `newbie10122/autotask-ai#81`, `Certify status-duration source limitation`
+- Latest PR #81 CI: GitHub Actions run `29942057803`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation on PR #81 evidence passed with focused field-certification/status-duration tests `81 passed`, API/worker Python compilation, full pytest `147 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -43,7 +43,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `b2b9faa65963f1dad280195150bb5128cc0d855c`: PR #78 records the PR #77 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
 - Post-merge Milestone 2 evidence on canonical `main` `b504622a828379434e91a41f40c0247cd5dbebf9`: PR #79 adds scoped SLA lineage evidence for SLA IDs, met flags, due/first-response/resolution targets, pause context, status buckets, and field-certification partial gating when target timestamps are incomplete.
 - Post-merge documentation evidence on canonical `main` `16aee8b0ccb1393ca52be2e86790f94220052150`: PR #80 records the PR #79 SLA lineage merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
-- Current active branch validation: `agent/m2-status-duration-waiting-lineage` passed focused field-certification/status-duration tests with `81 passed`, API/worker Python compilation, full pytest `147 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`. Runtime local field certification executed read-only and returned `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, and `waiting_states`; aggregate TicketHistory shape inventory found `38648` rows, `100%` timestamp coverage, `0` structured status-transition rows, and current waiting-state snapshot coverage with `101` unknown/unmapped tickets.
+- Post-merge Milestone 2 evidence on canonical `main` `27b0bd7e502a0b9ef74b60238f0e9f362ece422b`: PR #81 adds aggregate-only TicketHistory source-shape inventory, current waiting-state snapshot taxonomy, and a no-proxy-duration contract. Runtime local field certification executed read-only and returned `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, and `waiting_states`; aggregate TicketHistory shape inventory found `38648` rows, `100%` timestamp coverage, `0` structured status-transition rows, and current waiting-state snapshot coverage with `101` unknown/unmapped tickets.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -59,9 +59,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge `agent/m2-status-duration-waiting-lineage` after PR CI passes.
-2. Update existing Second Brain PR #13 with the sanitized status-duration/waiting source-limited evidence.
-3. Continue the next safe Milestone 2 source-lineage field without Autotask writes, sync jobs, production deployment, or model workflow changes.
+1. Record the PR #81 merge and updated Second Brain projection state in canonical project docs.
+2. Continue the next safe Milestone 2 source-lineage field without Autotask writes, sync jobs, production deployment, or model workflow changes.
 
 ## Milestone status
 
@@ -83,4 +82,4 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Projection PR `newbie10122/helix-second-brain#6` is merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`. Projection branch head `4306bcc` recorded Autotask AI progress through PR #70, including calibrated predictive ranking evidence, related-data catch-up visibility, admin inspection read audit coverage, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, PR #66 control-document reconciliation, current validation counts, prior predictive evidence, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py` before merge.
 
-Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `ed311a9166088aebce7cf1ece1d30a76017e1697`. It records Autotask AI progress through PR #79, including PR #75 labor gap lineage, PR #77 scoped labor lineage, and PR #79 scoped SLA lineage evidence. Local validation passed with `python3 tools/validate_knowledge.py`. After this branch merges, update the same PR with the status-duration/waiting source-limited evidence; do not mark it merged until the PR is actually merged.
+Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `41512ae44e78e7e25ed21ecf17dd9e335817bc11`. It records Autotask AI progress through PR #81, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, and PR #81 status-duration/waiting source-limited evidence. Local validation passed with `python3 tools/validate_knowledge.py`. Do not mark it merged until the PR is actually merged.
