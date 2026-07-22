@@ -67,7 +67,7 @@
 **State:** Partially mitigated
 **Impact:** Operations status can report a stale scheduler heartbeat even while jobs continue completing, weakening readiness evidence and making pause/restart diagnosis harder.
 **Evidence:** After PR #10, `recent_sync`, `open_ticket_history_gaps`, and `open_ticket_time_entry_gaps` completed, but `scheduler_heartbeats.heartbeat_at` remained at the rebuild-time tick and operations status showed `scheduler.state=stale`.
-**Existing controls:** The scheduler worker now records heartbeat at tick start, tick finish, and failure. Focused tests assert the worker heartbeat contract, and live runtime validation showed `scheduler.state=healthy` after restart with a fresh `heartbeat_at` and completed gap-job evidence. PR #87 adds read-only scheduler automation certification to Operations status; runtime local evidence found all `9` required jobs have recent scheduler-completed runs. Current branch adds stale running-run provenance and classifies the stale `classify_tickets` row as `orphaned_running_row_candidate`.
+**Existing controls:** The scheduler worker now records heartbeat at tick start, tick finish, and failure. Focused tests assert the worker heartbeat contract, and live runtime validation showed `scheduler.state=healthy` after restart with a fresh `heartbeat_at` and completed gap-job evidence. PR #87 adds read-only scheduler automation certification to Operations status; runtime local evidence found all `9` required jobs have recent scheduler-completed runs. PR #89 adds stale running-run provenance and classifies the stale `classify_tickets` row as `orphaned_running_row_candidate`.
 **Next mitigation:** Add authorized stale running-run cleanup or archival, add pause/resume actor/reason provenance, and include heartbeat/restart checks in Quality Streak certification.
 
 ### R8 — Historical backfill resource and API pressure
@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `2f7c577e131df0d3d03f2dd0b0434f978b0f3cd8` through PR #88; Second Brain PR #13 is open at head `709c1e736a223b6f5759bdb0d47a7a702999c228` with local knowledge validation passing.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `1827b5dd9ecfb55316a6716d671d9c22212f78a7` through PR #89; Second Brain PR #13 is open at head `06dacfb4fee52ee48edf11ba39bd07f1059c9ec9` with local knowledge validation passing.
 
 ### R16 — CI runner environment differences
 
@@ -151,4 +151,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `709c1e736a223b6f5759bdb0d47a7a702999c228` with local validation passing through PR #87 evidence; pending merge there does not block independent Autotask AI engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `06dacfb4fee52ee48edf11ba39bd07f1059c9ec9` with local validation passing through PR #89 evidence; pending merge there does not block independent Autotask AI engineering.
