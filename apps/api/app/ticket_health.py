@@ -1894,6 +1894,157 @@ def _threshold_sweep(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sweep
 
 
+def _brier_score(rows: list[dict[str, Any]], probability_key: str = "bayesian_delay_rate") -> float | None:
+    scored = [row for row in rows if row.get(probability_key) is not None]
+    if not scored:
+        return None
+    total = 0.0
+    for row in scored:
+        actual = 1.0 if row.get("actual_delayed") else 0.0
+        probability = min(max(_num(row.get(probability_key)), 0.0), 1.0)
+        total += (probability - actual) ** 2
+    return round(total / len(scored), 3)
+
+
+def _calibration_bands(rows: list[dict[str, Any]], probability_key: str = "bayesian_delay_rate") -> list[dict[str, Any]]:
+    bands: list[dict[str, Any]] = []
+    for index in range(10):
+        lower = index / 10
+        upper = (index + 1) / 10
+        band_rows = [
+            row
+            for row in rows
+            if row.get(probability_key) is not None
+            and lower <= min(max(_num(row.get(probability_key)), 0.0), 1.0) < upper
+        ]
+        if index == 9:
+            band_rows = [
+                row
+                for row in rows
+                if row.get(probability_key) is not None
+                and lower <= min(max(_num(row.get(probability_key)), 0.0), 1.0) <= upper
+            ]
+        if not band_rows:
+            continue
+        predicted_average = sum(min(max(_num(row.get(probability_key)), 0.0), 1.0) for row in band_rows) / len(band_rows)
+        observed_rate = sum(1 for row in band_rows if row.get("actual_delayed")) / len(band_rows)
+        bands.append(
+            {
+                "range": f"{lower:.1f}-{upper:.1f}",
+                "count": len(band_rows),
+                "average_prediction": round(predicted_average, 3),
+                "observed_delay_rate": round(observed_rate, 3),
+                "absolute_error": round(abs(predicted_average - observed_rate), 3),
+            }
+        )
+    return bands
+
+
+def _probability_auc(rows: list[dict[str, Any]], probability_key: str = "bayesian_delay_rate") -> dict[str, Any]:
+    scored = [
+        {
+            "score": min(max(_num(row.get(probability_key)), 0.0), 1.0),
+            "actual": bool(row.get("actual_delayed")),
+        }
+        for row in rows
+        if row.get(probability_key) is not None
+    ]
+    positives = [row for row in scored if row["actual"]]
+    negatives = [row for row in scored if not row["actual"]]
+    roc_auc = None
+    if positives and negatives:
+        wins = 0.0
+        for positive in positives:
+            for negative in negatives:
+                if positive["score"] > negative["score"]:
+                    wins += 1.0
+                elif positive["score"] == negative["score"]:
+                    wins += 0.5
+        roc_auc = round(wins / (len(positives) * len(negatives)), 3)
+
+    sorted_rows = sorted(scored, key=lambda row: row["score"], reverse=True)
+    precision_recall_points: list[dict[str, Any]] = []
+    true_positive = 0
+    false_positive = 0
+    for row in sorted_rows:
+        if row["actual"]:
+            true_positive += 1
+        else:
+            false_positive += 1
+        if positives:
+            precision_recall_points.append(
+                {
+                    "recall": round(true_positive / len(positives), 3),
+                    "precision": round(true_positive / (true_positive + false_positive), 3),
+                }
+            )
+    pr_auc = None
+    if precision_recall_points:
+        previous_recall = 0.0
+        area = 0.0
+        for point in precision_recall_points:
+            recall = _num(point["recall"])
+            area += (recall - previous_recall) * _num(point["precision"])
+            previous_recall = recall
+        pr_auc = round(area, 3)
+    return {
+        "roc_auc": roc_auc,
+        "pr_auc": pr_auc,
+        "positive_count": len(positives),
+        "negative_count": len(negatives),
+    }
+
+
+def _sanitized_concentration(rows: list[dict[str, Any]], key: str, label_prefix: str) -> dict[str, Any]:
+    counts: Counter[str] = Counter()
+    delayed_counts: Counter[str] = Counter()
+    for row in rows:
+        value = row.get(key)
+        bucket_key = "unknown" if value in (None, "") else str(value)
+        counts[bucket_key] += 1
+        if row.get("actual_delayed"):
+            delayed_counts[bucket_key] += 1
+    total = sum(counts.values())
+    top_buckets: list[dict[str, Any]] = []
+    for index, (bucket_key, count) in enumerate(counts.most_common(5), start=1):
+        delayed_count = delayed_counts[bucket_key]
+        top_buckets.append(
+            {
+                "bucket": f"{label_prefix}_{index}",
+                "count": count,
+                "share": round(count / total, 3) if total else None,
+                "delayed_count": delayed_count,
+                "delayed_rate": round(delayed_count / count, 3) if count else None,
+            }
+        )
+    return {
+        "dimension": label_prefix,
+        "distinct_buckets": len(counts),
+        "largest_bucket_share": top_buckets[0]["share"] if top_buckets else None,
+        "top_buckets": top_buckets,
+        "sanitized": True,
+    }
+
+
+def _prediction_target_policy(threshold_days: int, row_limit: int) -> dict[str, Any]:
+    return {
+        "target": "completed_ticket_resolution_duration",
+        "positive_label": f"resolution_days_greater_than_{threshold_days}",
+        "negative_label": f"resolution_days_less_than_or_equal_{threshold_days}",
+        "label_source": "local completed Autotask ticket created/completed timestamps",
+        "training_window": "tickets completed before the current holdout window",
+        "holdout_window": "most recent locally completed tickets within the requested limit",
+        "holdout_limit": row_limit,
+        "review_authority": "advisory_human_review_only",
+        "prohibited_actions": [
+            "no automatic threshold changes",
+            "no model weight changes",
+            "no Autotask writes",
+            "no routing, escalation, notification, assignment, status, or priority changes",
+        ],
+    }
+
+
 def ticket_health_predictive_evaluation(
     limit: int = 500,
     delayed_days_threshold: int = 7,
@@ -1910,6 +2061,8 @@ def ticket_health_predictive_evaluation(
                 SELECT
                     t.id,
                     t.ticket_number,
+                    t.company_id,
+                    COALESCE(NULLIF(t.category, ''), NULLIF(t.issue_type, ''), NULLIF(t.subissue_type, ''), 'uncategorized') AS category_key,
                     COALESCE(t.queue, '') AS queue_key,
                     COALESCE(t.priority, '') AS priority_key,
                     t.created_at_autotask,
@@ -1930,9 +2083,19 @@ def ticket_health_predictive_evaluation(
             return {
                 "ok": True,
                 "review_only": True,
+                "target": _prediction_target_policy(threshold_days, row_limit),
                 "summary": {"holdout_size": 0, "training_groups": 0},
                 "baseline": _binary_classification_metrics([], "baseline_predicted_delayed"),
                 "statistical": _binary_classification_metrics([], "statistical_predicted_delayed"),
+                "calibration": {"brier_score": None, "bands": [], "secondary_metrics": _probability_auc([])},
+                "concentration": {
+                    "company": _sanitized_concentration([], "company_id", "company_bucket"),
+                    "category": _sanitized_concentration([], "category_key", "category_bucket"),
+                },
+                "human_review_threshold_policy": {
+                    "selection_mode": "human_review_required",
+                    "automatic_changes_allowed": False,
+                },
                 "warnings": ["No completed local tickets are available for predictive holdout evaluation."],
             }
         holdout_start = min(row["created_at_autotask"] for row in holdout_rows if row.get("created_at_autotask"))
@@ -1977,6 +2140,8 @@ def ticket_health_predictive_evaluation(
         evaluated.append(
             {
                 "ticket_number": row.get("ticket_number"),
+                "company_id": row.get("company_id"),
+                "category_key": row.get("category_key"),
                 "queue_key": row.get("queue_key"),
                 "priority_key": row.get("priority_key"),
                 "resolution_days": _round_optional(row.get("resolution_days")),
@@ -1992,10 +2157,67 @@ def ticket_health_predictive_evaluation(
         )
     statistical_rows = [row for row in evaluated if not row["statistical_abstained"]]
     threshold_sweep = _threshold_sweep(statistical_rows)
+    statistical_metrics = _binary_classification_metrics(statistical_rows, "statistical_predicted_delayed")
+    calibration = {
+        "brier_score": _brier_score(statistical_rows),
+        "bands": _calibration_bands(statistical_rows),
+        "secondary_metrics": _probability_auc(statistical_rows),
+        "note": "Calibration measures compare Bayesian delay probability to observed delayed labels; they do not tune the model.",
+    }
+    concentration = {
+        "company": _sanitized_concentration(evaluated, "company_id", "company_bucket"),
+        "category": _sanitized_concentration(evaluated, "category_key", "category_bucket"),
+        "note": "Buckets are sanitized and intended to reveal concentration risk without exposing customer names or ticket text.",
+    }
+    coverage = {
+        "holdout_size": len(evaluated),
+        "statistical_evaluated": len(statistical_rows),
+        "statistical_abstentions": abstentions,
+        "statistical_coverage_rate": round(len(statistical_rows) / len(evaluated), 3) if evaluated else None,
+        "abstention_rate": round(abstentions / len(evaluated), 3) if evaluated else None,
+    }
+    policy = {
+        "selection_mode": "human_review_required",
+        "automatic_changes_allowed": False,
+        "default_threshold": 0.5,
+        "candidate_threshold_source": "threshold_sweep_best_f1",
+        "minimum_review_evidence": [
+            "delayed-ticket recall",
+            "precision and false-positive burden",
+            "Brier score and calibration bands",
+            "PR/ROC secondary metrics",
+            "coverage and abstention rates",
+            "client/category concentration",
+            "leakage review",
+        ],
+        "prohibited_actions": _prediction_target_policy(threshold_days, row_limit)["prohibited_actions"],
+    }
+    shadow_evaluation = {
+        "enabled": True,
+        "mode": "local_read_only_shadow_report",
+        "bounded_recent_sample": row_limit,
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "writes_to_autotask": False,
+        "sends_notifications": False,
+        "changes_thresholds_or_workflows": False,
+    }
+    warnings = [
+        "This is offline local evaluation evidence only; it does not tune weights automatically.",
+        "Threshold sweep is advisory evidence only; review before changing scoring or alert thresholds.",
+        "Training rows are limited to tickets completed before the holdout window to reduce leakage.",
+        "No Autotask ticket, assignment, status, or priority is changed.",
+        "Bias and client/category concentration review remains required before production trust.",
+    ]
+    if statistical_metrics.get("recall") == 0:
+        warnings.append("Default statistical recall is zero for delayed tickets in this holdout; do not treat high accuracy as predictive usefulness.")
+    best_threshold = threshold_sweep[0] if threshold_sweep else None
+    if best_threshold and (best_threshold.get("precision") or 0) < 0.2:
+        warnings.append("The best-F1 threshold has low precision in this holdout; human review must weigh false-positive burden.")
     return {
         "ok": True,
         "review_only": True,
         "threshold_days": threshold_days,
+        "target": _prediction_target_policy(threshold_days, row_limit),
         "summary": {
             "holdout_size": len(evaluated),
             "training_groups": len(training_stats),
@@ -2004,17 +2226,19 @@ def ticket_health_predictive_evaluation(
             "holdout_started_at": holdout_start,
         },
         "baseline": _binary_classification_metrics(evaluated, "baseline_predicted_delayed"),
-        "statistical": _binary_classification_metrics(statistical_rows, "statistical_predicted_delayed"),
+        "statistical": statistical_metrics,
+        "coverage": coverage,
+        "calibration": calibration,
+        "concentration": concentration,
         "threshold_sweep": threshold_sweep,
-        "best_threshold_by_f1": threshold_sweep[0] if threshold_sweep else None,
-        "sample": evaluated[:25],
-        "warnings": [
-            "This is offline local evaluation evidence only; it does not tune weights automatically.",
-            "Threshold sweep is advisory evidence only; review before changing scoring or alert thresholds.",
-            "Training rows are limited to tickets completed before the holdout window to reduce leakage.",
-            "No Autotask ticket, assignment, status, or priority is changed.",
-            "Bias and client/category concentration review remains required before production trust.",
+        "best_threshold_by_f1": best_threshold,
+        "human_review_threshold_policy": policy,
+        "shadow_evaluation": shadow_evaluation,
+        "sample": [
+            {key: value for key, value in row.items() if key not in {"company_id", "category_key"}}
+            for row in evaluated[:25]
         ],
+        "warnings": warnings,
     }
 
 

@@ -1092,6 +1092,51 @@ def test_ticket_predictive_threshold_sweep_prefers_f1_then_recall():
     assert sweep[0]["f1"] == 1.0
 
 
+def test_ticket_predictive_calibration_and_auc_metrics_are_review_only():
+    rows = [
+        {"actual_delayed": True, "bayesian_delay_rate": 0.8},
+        {"actual_delayed": False, "bayesian_delay_rate": 0.6},
+        {"actual_delayed": True, "bayesian_delay_rate": 0.4},
+        {"actual_delayed": False, "bayesian_delay_rate": 0.1},
+    ]
+
+    assert ticket_health_module._brier_score(rows) == 0.193
+    bands = ticket_health_module._calibration_bands(rows)
+    auc = ticket_health_module._probability_auc(rows)
+
+    assert bands[0]["range"] == "0.1-0.2"
+    assert any(band["range"] == "0.8-0.9" and band["observed_delay_rate"] == 1.0 for band in bands)
+    assert auc["roc_auc"] == 0.75
+    assert auc["pr_auc"] == 0.834
+
+
+def test_ticket_predictive_concentration_uses_sanitized_buckets():
+    concentration = ticket_health_module._sanitized_concentration(
+        [
+            {"company_id": 10, "actual_delayed": True},
+            {"company_id": 10, "actual_delayed": False},
+            {"company_id": 22, "actual_delayed": True},
+        ],
+        "company_id",
+        "company_bucket",
+    )
+
+    assert concentration["sanitized"] is True
+    assert concentration["distinct_buckets"] == 2
+    assert concentration["top_buckets"][0]["bucket"] == "company_bucket_1"
+    assert "10" not in concentration["top_buckets"][0].values()
+    assert concentration["top_buckets"][0]["share"] == 0.667
+
+
+def test_ticket_predictive_target_policy_blocks_automatic_actions():
+    policy = ticket_health_module._prediction_target_policy(7, 100)
+
+    assert policy["positive_label"] == "resolution_days_greater_than_7"
+    assert policy["review_authority"] == "advisory_human_review_only"
+    assert "no Autotask writes" in policy["prohibited_actions"]
+    assert any("routing" in action for action in policy["prohibited_actions"])
+
+
 def test_customer_success_data_paths_fail_closed_and_filter_company_scope():
     summary_source = inspect.getsource(customer_success_module.customer_success_summary)
     detail_source = inspect.getsource(customer_success_module.customer_success_detail)
