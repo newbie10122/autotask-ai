@@ -205,6 +205,58 @@ def test_status_transition_source_probe_isolates_repeated_unavailable_entities(m
     assert all(item["availability"] == "unavailable" for item in report["results"])
 
 
+def test_reference_metadata_source_probe_is_bounded_read_only(monkeypatch):
+    calls = []
+
+    def fake_request(_self, method, endpoint, json=None):
+        calls.append((method, endpoint, json))
+        if "TicketPriorities" in endpoint:
+            return {"items": [{"id": 1}], "pageDetails": {"nextPageUrl": "https://example.invalid/next"}}
+        raise RuntimeError("entity unavailable")
+
+    monkeypatch.setattr(AutotaskReadOnlyClient, "_request", fake_request)
+
+    report = AutotaskReadOnlyClient(delay_seconds=0).probe_reference_metadata_sources(
+        ("TicketPriorities", "TicketQueues")
+    )
+
+    assert report["probe"] == "reference_metadata_source_candidates"
+    assert report["live_autotask_probe_ran"] is True
+    assert report["autotask_writes_allowed"] is False
+    assert report["max_records_per_entity"] == 1
+    assert report["available_entities"] == ["TicketPriorities"]
+    assert report["results"][0]["has_next_page"] is True
+    assert report["results"][1]["availability"] == "unavailable"
+    assert report["policy"]["manual_admin_only"] is True
+    assert report["policy"]["automatic_reference_sync_allowed"] is False
+    assert all(call[0] == "POST" for call in calls)
+    assert all(call[2]["MaxRecords"] == 1 for call in calls)
+    assert all(call[2]["filter"] == [{"op": "gte", "field": "id", "value": 0}] for call in calls)
+
+
+def test_reference_metadata_source_probe_isolates_repeated_unavailable_entities(monkeypatch):
+    calls = []
+
+    def fake_request(_self, method, endpoint, json=None):
+        calls.append((method, endpoint, json))
+        raise RuntimeError("entity unavailable")
+
+    monkeypatch.setattr(AutotaskReadOnlyClient, "_request", fake_request)
+
+    report = AutotaskReadOnlyClient(delay_seconds=0).probe_reference_metadata_sources(
+        ("TicketPriorities", "TicketCategories", "TicketStatuses")
+    )
+
+    assert len(calls) == 3
+    assert report["available_entities"] == []
+    assert [item["entity"] for item in report["results"]] == [
+        "TicketPriorities",
+        "TicketCategories",
+        "TicketStatuses",
+    ]
+    assert all(item["availability"] == "unavailable" for item in report["results"])
+
+
 def test_next_page_query_urls_use_post(monkeypatch):
     calls = []
     monkeypatch.setattr(

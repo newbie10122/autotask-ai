@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `b914bc1`
-- Latest merged PR: `newbie10122/autotask-ai#105`, `Add reference metadata source contract`
-- Latest PR #105 CI: GitHub Actions run `29957655373`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local validation for PR #105 passed focused reference metadata contract tests with `2 passed`, focused scoped route/route-matrix tests with `2 passed`, `git diff --check`, and full repository validation with `159` API tests plus `13` Playwright tests.
+- Canonical `main`: `d369e05`
+- Latest merged PR: `newbie10122/autotask-ai#106`, `Record reference metadata source contract merge evidence`
+- Latest PR #106 CI: GitHub Actions run `29958067967`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation for PR #106 passed `git diff --check` and full repository validation with `159` API tests plus `13` Playwright tests.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -63,6 +63,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge Milestone 2 evidence on canonical `main` `ce74485`: PR #101 separates authoritative Autotask-sourced labels from bootstrap/inferred local labels in reference lineage, field certification, and Operations UI cards without running sync jobs or writing to Autotask. Runtime after local API/web rebuild returned `/ready` and UI `HTTP 200`; field certification showed priority/category/queue remain `partial` with `0.0%` authoritative label coverage and inferred label rows separated from authoritative rows.
 - Post-merge Milestone 2 evidence on canonical `main` `8910014`: PR #103 adds bounded aggregate raw candidate label-key evidence to reference lineage and field certification, and corrects category raw value lineage to `ticketCategory`. Runtime after local API rebuild returned `/ready` `HTTP 200`; field certification returned source-candidate state `raw_label_candidates_unavailable` with `5000` sampled tickets, `6` fields, `0` fields with candidate labels, and corrected category raw key `ticketCategory`. The report returns no raw label values and does not run sync jobs or write to Autotask.
 - Post-merge Milestone 2 evidence on canonical `main` `b914bc1`: PR #105 adds a read-only `/api/ticket-health/reference-metadata-source-contract` endpoint and embeds the same metadata-source contract in field certification. Runtime after local API rebuild returned `/ready` `HTTP 200`; the endpoint returned `authoritative_reference_metadata_required`, `6` fields requiring metadata source, `0` fields with candidate raw labels, and policy flags blocking live probes, sync authorization, model workflow changes, and Autotask writes.
+- Current active branch validation: `agent/m2-reference-metadata-probe` has focused bounded read-only reference/status probe tests passing with `6 passed`, focused route authority/success-audit tests passing with `2 passed`, full repository validation passing with `161` API tests plus `13` Playwright tests, and clean `git diff --check`. The branch adds Admin-only manual `POST /api/autotask/probe/reference-metadata-sources` with `MaxRecords=1` per candidate entity, per-entity error isolation, success-audit metadata, no scheduling, no automatic reference sync-path changes, no model workflow changes, and no Autotask writes. The branch has not executed the live probe.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -78,7 +79,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record reference metadata source-contract merge evidence on canonical Autotask AI main.
+1. Validate and merge the bounded reference metadata source probe.
 2. Continue the next safe Milestone 2 source-lineage slice without Autotask writes, production deployment, or model workflow changes.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 

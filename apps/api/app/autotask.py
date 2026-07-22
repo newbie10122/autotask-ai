@@ -18,6 +18,16 @@ STATUS_TRANSITION_CANDIDATE_ENTITIES: tuple[str, ...] = (
     "TicketHistory",
     "TicketChangeHistory",
 )
+REFERENCE_METADATA_CANDIDATE_ENTITIES: tuple[str, ...] = (
+    "TicketPriorities",
+    "Priorities",
+    "TicketCategories",
+    "TicketIssueTypes",
+    "TicketSubIssueTypes",
+    "Queues",
+    "TicketQueues",
+    "TicketStatuses",
+)
 STATUS_TRANSITION_PROBE_FILTERS: dict[str, list[dict[str, Any]]] = {}
 
 
@@ -245,6 +255,58 @@ class AutotaskReadOnlyClient:
                 "read_only": True,
                 "manual_admin_only": True,
                 "automatic_sync_path_changes_allowed": False,
+                "automatic_model_or_workflow_changes_allowed": False,
+            },
+        }
+
+    def probe_reference_metadata_sources(
+        self,
+        entities: tuple[str, ...] = REFERENCE_METADATA_CANDIDATE_ENTITIES,
+    ) -> dict[str, Any]:
+        results: list[dict[str, Any]] = []
+        for entity in entities:
+            self._consecutive_errors = 0
+            filters = [{"op": "gte", "field": "id", "value": 0}]
+            try:
+                payload = self.query_entity(entity, filters=filters, max_records=1)
+                items = payload.get("items") or payload.get("records") or payload.get("value") or []
+                results.append(
+                    {
+                        "entity": entity,
+                        "availability": "available",
+                        "sample_count": len(items[:1]),
+                        "probe_filter": filters,
+                        "has_next_page": bool(
+                            payload.get("pageDetails", {}).get("nextPageUrl") or payload.get("nextPageUrl")
+                        ),
+                        "error": None,
+                    }
+                )
+            except Exception as exc:
+                self._consecutive_errors = 0
+                results.append(
+                    {
+                        "entity": entity,
+                        "availability": "unavailable",
+                        "sample_count": 0,
+                        "probe_filter": filters,
+                        "has_next_page": False,
+                        "error": f"{exc.__class__.__name__}: {str(exc)[:240]}",
+                    }
+                )
+        return {
+            "ok": True,
+            "probe": "reference_metadata_source_candidates",
+            "live_autotask_probe_ran": True,
+            "autotask_writes_allowed": False,
+            "max_records_per_entity": 1,
+            "candidate_entities": list(entities),
+            "results": results,
+            "available_entities": [item["entity"] for item in results if item["availability"] == "available"],
+            "policy": {
+                "read_only": True,
+                "manual_admin_only": True,
+                "automatic_reference_sync_allowed": False,
                 "automatic_model_or_workflow_changes_allowed": False,
             },
         }

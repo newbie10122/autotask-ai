@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `b914bc1`, which merged PR `newbie10122/autotask-ai#105` (`Add reference metadata source contract`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#105` run `29957655373`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #105 passed focused reference metadata contract tests with `2 passed`, focused scoped route/route-matrix tests with `2 passed`, `git diff --check`, and full repository validation with `159` API tests plus `13` Playwright tests.
+- Canonical `main` is `d369e05`, which merged PR `newbie10122/autotask-ai#106` (`Record reference metadata source contract merge evidence`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#106` run `29958067967`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #106 passed `git diff --check` and full repository validation with `159` API tests plus `13` Playwright tests.
 - Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `dda245b` after recording Autotask AI progress through PR #105; local `python3 tools/validate_knowledge.py` passed with `109` Markdown files, `109` unique IDs, and `230` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -79,6 +79,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #101 separates meaningful local reference labels from authoritative Autotask-sourced labels in reference lineage, field certification, and Operations field-certification cards.
 - PR #103 adds aggregate-only raw candidate label-key evidence to reference lineage and field certification, including the corrected category raw source key `ticketCategory`.
 - PR #105 adds a read-only reference metadata source contract for authoritative reference-label certification.
+- Current branch `agent/m2-reference-metadata-probe` adds an Admin-only manual bounded read-only reference metadata source probe.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -137,19 +138,30 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record reference metadata source-contract merge evidence.
+1. Validate and merge bounded reference metadata source-probe evidence.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 reference metadata source-contract merge evidence
+## Current receipt — Milestone 2 reference metadata source-probe evidence
+
+- **Slice:** Add Admin-only manual bounded read-only reference metadata source probe on branch `agent/m2-reference-metadata-probe` from canonical `main` `d369e05`.
+- **State:** `partial_foundation`; the app can now manually test candidate reference metadata entities, but the branch does not execute the live probe or certify reference labels.
+- **Files changed:** `apps/api/app/autotask.py`, `apps/api/app/main.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `AutotaskReadOnlyClient.probe_reference_metadata_sources()` probes candidate metadata entities with `MaxRecords=1`, `id >= 0` read filters, per-entity error isolation, sanitized availability results, and policy flags preventing automatic reference sync/model workflow changes. `POST /api/autotask/probe/reference-metadata-sources` is Admin-only and records success-audit metadata.
+- **Validation:** Focused bounded reference/status probe tests passed with `6 passed`; focused route authority/success-audit tests passed with `2 passed`; full repository validation passed with `161` API tests and `13` Playwright tests; `git diff --check` passed. GitHub CI is still required before merge.
+- **Read-only/authority evidence:** This branch does not schedule probes, execute the live probe, run reference sync, run sync jobs, deploy production code, change model threshold/workflow behavior, change routing/assignment, or write to Autotask.
+- **Rollback:** Revert this branch commit; the metadata source contract remains but there is no manual reference metadata availability probe.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+
+## Historical receipt — Milestone 2 reference metadata source-contract merge evidence
 
 - **Slice:** Record reference metadata source-contract merge evidence after PR #105 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; the app can now state which metadata source is still required before priority/category/queue/status labels become authoritative, but it does not fetch that source or certify completeness.
 - **Files changed:** Project status docs only.
 - **Implemented by PR #105:** Reference lineage now embeds `metadata_source_contract`, and `/api/ticket-health/reference-metadata-source-contract` exposes the same scoped read-only contract. The report lists present rows, authoritative-label gaps, local source-authority counts, checked raw candidate label keys, unverified candidate metadata entity names, and the required local reference source class.
 - **Runtime evidence:** Local API rebuild returned Nginx `/ready` `HTTP 200`; `/api/ticket-health/reference-metadata-source-contract` returned `authoritative_reference_metadata_required`, `6` fields requiring metadata source, `0` fields with candidate raw labels, and policy flags blocking live probes, sync authorization, model workflow changes, and Autotask writes. `/api/ticket-health/field-certification` embeds the same metadata-source contract state.
-- **Validation:** PR #105 CI run `29957655373` passed; focused reference metadata contract tests passed with `2 passed`; focused scoped route/route-matrix tests passed with `2 passed`; full repository validation passed with `159` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only reconciliation requires docs whitespace validation and CI before merge.
+- **Validation:** PR #105 CI run `29957655373` passed; focused reference metadata contract tests passed with `2 passed`; focused scoped route/route-matrix tests passed with `2 passed`; full repository validation passed with `159` API tests and `13` Playwright tests; `git diff --check` passed. PR #106 documentation reconciliation CI run `29958067967` also passed before merge.
 - **Read-only/authority evidence:** This docs-only branch does not run reference sync, live Autotask probes, sync jobs, production deployment, model threshold/workflow changes, routing/assignment changes, or Autotask writes.
 - **Rollback:** Revert this docs-only commit; application behavior remains the PR #105 behavior on canonical main.
 - **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `dda245b` and records PR #105 reference metadata source-contract evidence with local knowledge validation passing.
