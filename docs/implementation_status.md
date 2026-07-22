@@ -54,6 +54,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 scoped local feedback routes branch `agent/m1-scoped-local-feedback-routes` exposes local-only ticket-health, customer-success, and routing feedback POST routes for Technician/Admin users with company-scope propagation and ReadOnly denial.
 - Milestone 1 cache/export consumer certification branch `agent/m1-cache-export-consumer-certification` asserts current active cache consumers use scoped cache contracts and no export/download routes exist.
 - Milestone 1 security/isolation Quality Streak branch `agent/m1-security-isolation-quality-streak` adds a repeatable three-run harness for auth, route RBAC, audit, scope, scoped-cache, realtime, feedback, and verifier evidence.
+- Conversational UI branch `agent/ask-ticket-detail-modal` makes Ask Assistant ticket evidence inspectable by turning `Based on Tickets` entries into scoped ticket-detail modal links.
 
 ## Verified gaps blocking production readiness
 
@@ -101,7 +102,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 1 security/isolation Quality Streak
+## Latest receipt — Ask Assistant ticket detail modal
+
+- **Slice:** Make assistant ticket evidence inspectable on branch `agent/ask-ticket-detail-modal` from canonical `main` `695d58b22e4f764e0f07e282d44aaffb3c46fb13`.
+- **State:** `partial`; Ask Assistant ticket evidence is easier to inspect in the UI, but live production-auth deployment evidence remains open.
+- **Files changed:** `apps/web/index.html`, `apps/web/styles.css`, `apps/web/tests/helpers.js`, `apps/web/tests/ask-status.spec.js`, and project status docs.
+- **Implemented:** `Based on Tickets` entries now render as clickable buttons that fetch existing scoped local ticket-health details by ticket number and open a modal with summary, status-duration, recent history, recent labor, and warnings. The modal states that evidence is local and no Autotask data was changed.
+- **Validation:** `npm run test:web` passed with `8 passed`. Full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `112 passed`, static web JavaScript syntax validation, Playwright browser smoke `8 passed`, and `git diff --check`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added; the modal reads existing local scoped API evidence only.
+- **Rollback:** Revert this branch commit; the Ask Assistant returns to plain text `Based on Tickets` entries.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 1 security/isolation Quality Streak
 
 - **Slice:** Add repeatable Milestone 1 security/isolation Quality Streak harness on branch `agent/m1-security-isolation-quality-streak` from canonical `main` `a58b10a91b101d21cd84742e5ff72abc45c44a3b`.
 - **State:** `partial`; security/isolation now has repeatable local 3/3 streak evidence, but live production-auth deployment evidence remains open.
