@@ -57,6 +57,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Conversational UI branch `agent/ask-ticket-detail-modal` makes Ask Assistant ticket evidence inspectable by turning `Based on Tickets` entries into scoped ticket-detail modal links.
 - Conversational UI branch `agent/answer-ticket-links` makes ticket IDs inside rendered assistant answer text open the same scoped ticket-detail modal.
 - Conversational UI branch `agent/ask-progress-phases` makes Ask Assistant request state explicit with visible phases for scoped ticket search, evidence preparation, local CPU model waiting, and answer rendering, plus terminal text that distinguishes active requests from timeout/error/done states.
+- Conversational behavior branch `agent/ticket-history-only-no-llm` makes Ticket History Only deterministic and local-evidence-only; it skips the local chat model while keeping generated prose explicit to General + Ticket History and Deep Dive.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
@@ -264,7 +265,19 @@ None currently identified for documentation and non-production implementation wo
 - **Rollback:** Revert this branch commit; scheduled jobs keep running, but the Operations page returns to the previous generic counts/tables without the automation-health summary.
 - **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
 
-## Latest receipt — Ask Assistant progress phases
+## Latest receipt — Ticket History Only deterministic mode
+
+- **Slice:** Make Ticket History Only skip the local LLM on branch `agent/ticket-history-only-no-llm` from canonical `main` `cc63a9e1434a0dc15a1c5bc25258f23d7b6549a1`; merged as PR #63 into canonical `main` `e05f32ed28b4446ad53bdd6911e782f9f3d22d6f`.
+- **State:** `partial`; mode behavior is clearer and faster for deterministic evidence, but live production-auth deployment evidence remains open.
+- **Files changed:** `apps/api/app/assistant.py`, `apps/api/tests/test_ingestion_rag.py`, `apps/web/index.html`, `apps/web/tests/ask-status.spec.js`, and project status docs.
+- **Implemented:** `ticket_history_only` returns retrieved local ticket evidence without invoking `_chat_with_timeout`; generated-answer verifier tests now explicitly use generated modes. The Ask progress UI labels the model phase as skipped for Ticket History Only.
+- **Validation:** Focused API mode tests passed with `2 passed`; focused `npx playwright test apps/web/tests/ask-status.spec.js` passed with `4 passed`; full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `134 passed`, static web JavaScript syntax validation, Playwright browser smoke `12 passed`, and `git diff --check`.
+- **Runtime evidence:** Local API/web containers were rebuilt; `/ready` returned ready and the static web bundle contains the Ticket History Only skip-label logic.
+- **Read-only evidence:** No sync job, production deployment, live credential, model tuning, routing, escalation, notification, assignment, workflow, or Autotask write behavior was changed.
+- **Rollback:** Revert this branch commit; Ticket History Only resumes the prior generated-answer path when evidence is strong.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Ask Assistant progress phases
 
 - **Slice:** Show Ask Assistant request phases on branch `agent/ask-progress-phases` from canonical `main` `068473623df7134294c46cb9767eae8cc59a3b43`; merged as PR #61 into canonical `main` `98c047d290fa3ae89b1d196fbfcc91771e55de98`.
 - **State:** `partial`; conversational request state is clearer, but live production-auth deployment evidence remains open.
