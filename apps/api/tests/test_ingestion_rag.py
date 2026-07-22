@@ -2061,6 +2061,9 @@ def test_sync_reference_data_upserts_available_ticket_category_metadata(monkeypa
             assert limit == 500
             yield ([{"id": 12, "name": "Printer Support", "isActive": True}], {})
 
+        def ticket_entity_fields(self):
+            return []
+
     monkeypatch.setattr(ticket_analytics_module, "init_schema", lambda: None)
     monkeypatch.setattr(ticket_analytics_module, "db_connection", lambda: FakeConnection())
 
@@ -2071,6 +2074,75 @@ def test_sync_reference_data_upserts_available_ticket_category_metadata(monkeypa
     assert result["metadata_sync"]["available_entities"] == ["TicketCategories"]
     assert result["metadata_sync"]["autotask_writes_allowed"] is False
     assert result["metadata_sync"]["processed"] == 1
+
+
+def test_sync_reference_data_upserts_ticket_picklist_metadata(monkeypatch):
+    captured_upserts = []
+
+    class FakeResult:
+        def __init__(self, rows=None, row=None):
+            self.rows = rows or []
+            self.row = row or {"count": 0}
+
+        def fetchall(self):
+            return self.rows
+
+        def fetchone(self):
+            return self.row
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            if "INSERT INTO autotask_reference_values" in sql:
+                captured_upserts.append(params)
+                return FakeResult()
+            if "SELECT DISTINCT" in sql:
+                return FakeResult(rows=[])
+            if "count(*) AS count" in sql:
+                return FakeResult(row={"count": len(captured_upserts)})
+            return FakeResult(rows=[])
+
+    class FakeAutotaskClient:
+        def iter_entity_pages(self, entity, filters=None, limit=None):
+            return
+            yield
+
+        def ticket_entity_fields(self):
+            return [
+                {
+                    "name": "priority",
+                    "isPickList": True,
+                    "picklistValues": [{"value": 2, "label": "High", "isActive": True}],
+                },
+                {
+                    "name": "queueID",
+                    "isPickList": True,
+                    "picklistValues": [{"value": 8, "label": "Helpdesk", "isActive": True}],
+                },
+                {
+                    "name": "companyID",
+                    "isReference": True,
+                    "picklistValues": [{"value": 1, "label": "Do Not Upsert"}],
+                },
+            ]
+
+    monkeypatch.setattr(ticket_analytics_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_analytics_module, "db_connection", lambda: FakeConnection())
+
+    result = ticket_analytics_module.sync_reference_data(autotask_client=FakeAutotaskClient())
+
+    upserts = [params[:4] for params in captured_upserts]
+    assert ("priority", "2", "High", "autotask_metadata") in upserts
+    assert ("queue", "8", "Helpdesk", "autotask_metadata") in upserts
+    assert not [params for params in captured_upserts if params[0] == "companyID"]
+    assert result["metadata_sync"]["ticket_picklist_fields"] == ["priority", "queueID"]
+    assert result["metadata_sync"]["ticket_picklist_upserted"] == 2
+    assert result["metadata_sync"]["autotask_writes_allowed"] is False
 
 
 def test_reference_data_status_reports_source_counts(monkeypatch):

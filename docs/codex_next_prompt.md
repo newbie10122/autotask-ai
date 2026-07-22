@@ -69,6 +69,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `98188c4`: PR #109 records the runtime probe evidence and Second Brain projection PR #13 head `2f86a7b`.
 - Post-merge Milestone 2 evidence on canonical `main` `526f7c6`: PR #111 adds read-only `TicketCategories` metadata ingestion into `autotask_reference_values` with `source='autotask_metadata'`. Runtime after local API rebuild returned `/ready` `HTTP 200`; `POST /api/sync/reference-data/start` processed/upserted `14` `TicketCategories` metadata rows with no metadata-sync errors and `autotask_writes_allowed=false`. Field certification still returned `partial_field_certification`; category reference lineage is now `100.0%` authoritative, but issue/subissue, priority, queue, status-duration, and waiting blockers remain.
 - Post-merge documentation evidence on canonical `main` `6c7bec5`: PR #112 records the PR #111 runtime evidence and Second Brain projection PR #13 head `e367155`.
+- Current branch validation: `agent/m2-ticket-picklist-metadata-sync` focused reference-data/probe/contract validation passed with `6` tests, Python compile passed for changed modules/tests, and `git diff --check` passed. The branch adds read-only `/V1.0/Tickets/entityInformation/fields` picklist ingestion for priority, category, issue type, subissue type, queue, and status labels without running the live sync or allowing Autotask writes.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -84,8 +85,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record the `TicketCategories` authoritative metadata sync runtime evidence and update the open Second Brain projection.
-2. Continue the next safe Milestone 2 source-lineage slice for priority, queue, issue/subissue, status-duration, and waiting blockers without Autotask writes, production deployment, or model workflow changes.
+1. Merge the ticket picklist metadata sync foundation.
+2. Execute and record bounded read-only runtime evidence for ticket picklist metadata, then continue status-duration and waiting blockers without Autotask writes, production deployment, or model workflow changes.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 
 ## Milestone status

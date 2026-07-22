@@ -164,6 +164,11 @@ class AutotaskReadOnlyClient:
             "threshold": payload,
         }
 
+    def ticket_entity_fields(self) -> list[dict[str, Any]]:
+        payload = self._request("GET", "/V1.0/Tickets/entityInformation/fields")
+        fields = payload.get("fields") or []
+        return [field for field in fields if isinstance(field, dict)]
+
     def query_entity(
         self,
         entity: str,
