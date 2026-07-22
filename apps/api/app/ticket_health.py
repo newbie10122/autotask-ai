@@ -133,12 +133,21 @@ REQUIRED_FIELDS: tuple[dict[str, Any], ...] = (
 
 REFERENCE_LINEAGE_FIELDS: tuple[dict[str, str], ...] = (
     {"key": "priority", "label": "Priority", "column": "priority", "raw_key": "priority"},
-    {"key": "category", "label": "Category", "column": "category", "raw_key": "category"},
+    {"key": "category", "label": "Category", "column": "category", "raw_key": "ticketCategory"},
     {"key": "issue_type", "label": "Issue type", "column": "issue_type", "raw_key": "issueType"},
     {"key": "subissue_type", "label": "Subissue type", "column": "subissue_type", "raw_key": "subIssueType"},
     {"key": "queue", "label": "Queue", "column": "queue", "raw_key": "queueID"},
     {"key": "status", "label": "Status", "column": "status", "raw_key": "status"},
 )
+
+REFERENCE_LABEL_SOURCE_CANDIDATE_KEYS: dict[str, tuple[str, ...]] = {
+    "priority": ("priorityLabel", "priorityName", "priorityDisplayName"),
+    "category": ("ticketCategoryLabel", "ticketCategoryName", "categoryLabel", "categoryName"),
+    "issue_type": ("issueTypeLabel", "issueTypeName"),
+    "subissue_type": ("subIssueTypeLabel", "subIssueTypeName"),
+    "queue": ("queueName", "queueLabel", "queueDisplayName"),
+    "status": ("statusLabel", "statusName", "statusDisplayName"),
+}
 
 REFERENCE_LINEAGE_TARGETS: tuple[dict[str, Any], ...] = (
     {"key": "priority", "label": "Priority reference lineage", "fields": ("priority",)},
@@ -154,6 +163,7 @@ PREDICTION_PRIOR_SAMPLE_SIZE = 5
 PREDICTION_MIN_SAMPLE_SIZE = 5
 PREDICTIVE_REVIEW_MODEL_VERSION = "bayesian_queue_priority_feedback_v1_review_only"
 WAITING_TAXONOMY_VERSION = "current_status_waiting_taxonomy_v1"
+REFERENCE_LABEL_SOURCE_CANDIDATE_SAMPLE_LIMIT = 5000
 WAITING_TAXONOMY_BUCKETS = {
     "waiting_customer": "Waiting on customer/client",
     "waiting_vendor": "Waiting on vendor",
@@ -1893,6 +1903,96 @@ def _reference_source_authority(source: Any) -> str:
     return "other"
 
 
+def _reference_label_source_candidates(
+    conn: Any,
+    *,
+    company_scope_sql: str,
+    company_scope_params: list[Any],
+    ticket_total: int,
+    sample_limit: int = REFERENCE_LABEL_SOURCE_CANDIDATE_SAMPLE_LIMIT,
+) -> dict[str, Any]:
+    fields: list[dict[str, Any]] = []
+    for spec in REFERENCE_LINEAGE_FIELDS:
+        raw_value_key = spec["raw_key"]
+        candidate_keys = REFERENCE_LABEL_SOURCE_CANDIDATE_KEYS.get(spec["key"], ())
+        select_parts = [
+            "count(*) FILTER (WHERE NULLIF(raw->>%s, '') IS NOT NULL) AS raw_value_rows",
+        ]
+        params: list[Any] = [raw_value_key]
+        for index, candidate_key in enumerate(candidate_keys):
+            select_parts.append(
+                f"count(*) FILTER (WHERE NULLIF(raw->>%s, '') IS NOT NULL) AS candidate_{index}_rows"
+            )
+            params.append(candidate_key)
+        row = conn.execute(
+            f"""
+            WITH sampled AS (
+              SELECT t.raw
+              FROM autotask_tickets t
+              WHERE true {company_scope_sql}
+              ORDER BY t.id DESC
+              LIMIT %s
+            )
+            SELECT
+              count(*) AS inspected_tickets,
+              {", ".join(select_parts)}
+            FROM sampled
+            """,
+            (*company_scope_params, sample_limit, *params),
+        ).fetchone()
+        candidates = []
+        candidate_rows = 0
+        inspected_tickets = int(row["inspected_tickets"] or 0)
+        for index, candidate_key in enumerate(candidate_keys):
+            rows = int(row[f"candidate_{index}_rows"] or 0)
+            candidate_rows += rows
+            candidates.append(
+                {
+                    "raw_key": candidate_key,
+                    "rows": rows,
+                    "coverage_percent": _percent(rows, inspected_tickets),
+                }
+            )
+        fields.append(
+            {
+                "key": spec["key"],
+                "label": spec["label"],
+                "inspected_tickets": inspected_tickets,
+                "raw_value_key": raw_value_key,
+                "raw_value_rows": int(row["raw_value_rows"] or 0),
+                "raw_value_coverage_percent": _percent(int(row["raw_value_rows"] or 0), inspected_tickets),
+                "candidate_label_rows": candidate_rows,
+                "candidate_label_coverage_percent": _percent(candidate_rows, inspected_tickets),
+                "candidate_label_keys": candidates,
+                "candidate_labels_available": candidate_rows > 0,
+            }
+        )
+    fields_with_candidates = sum(1 for field in fields if field["candidate_labels_available"])
+    return {
+        "certification_state": (
+            "raw_label_candidates_available" if fields_with_candidates else "raw_label_candidates_unavailable"
+        ),
+        "summary": {
+            "tickets": ticket_total,
+            "sample_limit": sample_limit,
+            "sampled_tickets": max((int(field.get("inspected_tickets") or 0) for field in fields), default=0),
+            "fields": len(fields),
+            "fields_with_candidate_labels": fields_with_candidates,
+        },
+        "fields": fields,
+        "policy": {
+            "aggregate_only": True,
+            "bounded_sample": True,
+            "sample_limit": sample_limit,
+            "returns_raw_ticket_text": False,
+            "returns_raw_label_values": False,
+            "live_autotask_probe_ran": False,
+            "autotask_writes_allowed": False,
+        },
+        "interpretation": "Candidate raw label keys are inspected as aggregate coverage only; absence means local ticket payloads do not currently expose authoritative display labels for those fields.",
+    }
+
+
 def reference_field_lineage_report(authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
     started = time.monotonic()
     init_schema()
@@ -1905,6 +2005,12 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
             tuple(company_scope_params),
         ).fetchone()
         ticket_total = int(total_row["tickets"] or 0)
+        source_candidates = _reference_label_source_candidates(
+            conn,
+            company_scope_sql=company_scope_sql,
+            company_scope_params=company_scope_params,
+            ticket_total=ticket_total,
+        )
         for spec in REFERENCE_LINEAGE_FIELDS:
             key = spec["key"]
             column = spec["column"]
@@ -2068,6 +2174,7 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
         "summary": {"tickets": ticket_total, **dict(summary)},
         "targets": targets,
         "fields": fields,
+        "source_candidates": source_candidates,
         "policy": {
             "aggregate_only": True,
             "returns_raw_ticket_text": False,
@@ -3194,6 +3301,7 @@ def field_certification_report(
                 "summary": reference_lineage_context.get("summary") or {},
                 "targets": reference_lineage_context.get("targets") or [],
                 "fields": reference_lineage_context.get("fields") or [],
+                "source_candidates": reference_lineage_context.get("source_candidates") or {},
                 "policy": reference_lineage_context.get("policy"),
                 "warnings": reference_lineage_context.get("warnings") or [],
                 "interpretation": reference_lineage_context.get("interpretation"),

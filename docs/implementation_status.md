@@ -77,6 +77,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #97 records local pause/resume provenance in Operations settings/status and success audits: action, actor, reason, timestamp, and policy flags proving local metadata only, no job execution, and no Autotask writes.
 - PR #99 preserves bootstrap reference-label provenance during reference sync, reports reference label counts by source, and displays bootstrap/inferred/source counts in the UI.
 - PR #101 separates meaningful local reference labels from authoritative Autotask-sourced labels in reference lineage, field certification, and Operations field-certification cards.
+- Current branch `agent/m2-reference-label-source-candidates` adds aggregate-only raw candidate label-key evidence to reference lineage and field certification, including the corrected category raw source key `ticketCategory`.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -135,12 +136,24 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record reference-lineage source-authority merge evidence after PR #101 and Second Brain PR #13 update.
+1. Validate and merge reference-label source-candidate evidence.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 reference-lineage source-authority merge evidence
+## Current receipt — Milestone 2 reference-label source-candidate evidence
+
+- **Slice:** Add aggregate raw candidate label-key evidence on branch `agent/m2-reference-label-source-candidates` from canonical `main` `0f47f56`.
+- **State:** `partial_foundation`; local ticket payloads can now prove whether raw display-label candidate keys exist, but authoritative reference-label completeness remains open.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** Reference lineage now reports bounded aggregate source candidates for priority, category, issue type, subissue type, queue, and status without returning raw labels. It also corrects category raw value lineage to `ticketCategory`, matching the sync mapping.
+- **Runtime evidence:** Local API rebuild returned Nginx `/ready` `HTTP 200`; `/api/ticket-health/field-certification` returned source-candidate state `raw_label_candidates_unavailable` with `5000` sampled tickets, `6` fields, `0` fields with candidate labels, and corrected category raw key `ticketCategory`.
+- **Validation:** Focused API validation passed with `7 passed`; full repository validation passed with `158` API tests and `13` Playwright tests; `git diff --check` passed. GitHub CI is still required before merge.
+- **Read-only/authority evidence:** This branch only changes local aggregate certification/reporting. It does not run reference sync, sync jobs, live Autotask probes, production deployment, model threshold/workflow changes, routing/assignment changes, or Autotask writes.
+- **Rollback:** Revert this branch commit; reference lineage returns to source-authority evidence without raw label-key candidate coverage.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+
+## Historical receipt — Milestone 2 reference-lineage source-authority merge evidence
 
 - **Slice:** Record reference-lineage source-authority merge evidence after PR #101 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; source authority is clearer, but authoritative Autotask reference-label completeness remains open until Autotask-sourced labels cover the relevant local ticket values.
