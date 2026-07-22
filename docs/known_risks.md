@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `a98f99a9156548958ea370c7b6042e0e74f99ed9` through PR #66, with existing Second Brain PR #6 updated through head `8042a4b` and local knowledge validation passing.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `0516706387056409668a2e9e266c7cee0211f4c8` through PR #70; Second Brain PR #6 was merged as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after projection head `4306bcc` recorded that evidence and local knowledge validation passed.
 
 ### R16 — CI runner environment differences
 
@@ -151,4 +151,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #6 has an updated Autotask AI projection through PR #66 at head `8042a4b` with local validation passing; remote validation status must remain tracked there but does not block independent Autotask AI engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #6 is merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`; future material Autotask AI slices should create a new governed projection branch/PR after project-local evidence is current.
