@@ -706,6 +706,116 @@ def ticket_history_transition_parse_summary(
     }
 
 
+def ticket_history_content_certification_report(
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    started = time.monotonic()
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    with db_connection() as conn:
+        counts = conn.execute(
+            f"""
+            SELECT
+                count(*) AS total_history,
+                count(*) FILTER (WHERE happened_at IS NOT NULL) AS timestamped_history,
+                count(*) FILTER (
+                    WHERE lower(COALESCE(action, '') || ' ' || COALESCE(detail, '')) LIKE '%%status%%'
+                       OR raw::text ILIKE '%%status%%'
+                ) AS status_like_rows,
+                count(*) FILTER (WHERE raw ? 'field') AS raw_field_rows,
+                count(*) FILTER (WHERE raw ? 'oldValue') AS raw_old_value_rows,
+                count(*) FILTER (WHERE raw ? 'newValue') AS raw_new_value_rows
+            FROM autotask_ticket_history h
+            JOIN autotask_tickets t ON t.id=h.ticket_id
+            WHERE true {company_scope_sql}
+            """,
+            tuple(company_scope_params),
+        ).fetchone()
+        action_rows = conn.execute(
+            f"""
+            SELECT
+                COALESCE(action, '[Blank]') AS action,
+                count(*) AS row_count,
+                count(*) FILTER (WHERE detail IS NOT NULL AND detail <> '') AS rows_with_detail,
+                count(*) FILTER (WHERE happened_at IS NOT NULL) AS rows_with_timestamp
+            FROM autotask_ticket_history h
+            JOIN autotask_tickets t ON t.id=h.ticket_id
+            WHERE true {company_scope_sql}
+            GROUP BY COALESCE(action, '[Blank]')
+            ORDER BY count(*) DESC, action
+            LIMIT 20
+            """,
+            tuple(company_scope_params),
+        ).fetchall()
+        raw_key_rows = conn.execute(
+            f"""
+            SELECT raw_key, count(*) AS row_count
+            FROM (
+                SELECT jsonb_object_keys(h.raw) AS raw_key
+                FROM autotask_ticket_history h
+                JOIN autotask_tickets t ON t.id=h.ticket_id
+                WHERE true {company_scope_sql}
+            ) keys
+            GROUP BY raw_key
+            ORDER BY count(*) DESC, raw_key
+            LIMIT 30
+            """,
+            tuple(company_scope_params),
+        ).fetchall()
+
+    total_history = int(counts["total_history"] or 0)
+    timestamped_history = int(counts["timestamped_history"] or 0)
+    status_like_rows = int(counts["status_like_rows"] or 0)
+    raw_field_rows = int(counts["raw_field_rows"] or 0)
+    raw_old_value_rows = int(counts["raw_old_value_rows"] or 0)
+    raw_new_value_rows = int(counts["raw_new_value_rows"] or 0)
+    action_categories = Counter()
+    top_actions = []
+    for row in action_rows:
+        category = classify_history_transition_field(row["action"])
+        row_dict = {
+            "action": row["action"],
+            "category": category,
+            "row_count": int(row["row_count"] or 0),
+            "rows_with_detail": int(row["rows_with_detail"] or 0),
+            "rows_with_timestamp": int(row["rows_with_timestamp"] or 0),
+        }
+        top_actions.append(row_dict)
+        action_categories[category] += row_dict["row_count"]
+
+    source_limited = status_like_rows == 0 or raw_field_rows == 0 or raw_old_value_rows == 0 or raw_new_value_rows == 0
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "certification_state": "source_limited" if source_limited else "parser_candidate_available",
+        "counts": {
+            "total_history": total_history,
+            "timestamped_history": timestamped_history,
+            "timestamp_coverage_percent": _percent(timestamped_history, total_history),
+            "status_like_rows": status_like_rows,
+            "status_like_percent": _percent(status_like_rows, total_history),
+            "raw_field_rows": raw_field_rows,
+            "raw_old_value_rows": raw_old_value_rows,
+            "raw_new_value_rows": raw_new_value_rows,
+        },
+        "top_actions": top_actions,
+        "action_categories": [
+            {"category": category, "row_count": count} for category, count in action_categories.most_common()
+        ],
+        "raw_keys": [{"key": row["raw_key"], "row_count": int(row["row_count"] or 0)} for row in raw_key_rows],
+        "policy": {
+            "returns_raw_ticket_text": False,
+            "autotask_writes_allowed": False,
+            "automatic_parser_changes_allowed": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+        },
+        "warnings": [
+            "This report returns aggregate action/raw-key evidence only; raw TicketHistory detail text is intentionally omitted.",
+            "Status-duration and waiting analytics remain source-limited until timestamped status-change content is present and parser-certified.",
+        ],
+    }
+
+
 def ticket_history_coverage_report(limit: int = 10) -> dict[str, Any]:
     row_limit = min(max(limit, 1), 100)
     init_schema()
