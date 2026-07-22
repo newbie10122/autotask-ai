@@ -157,6 +157,15 @@
           </div>
           <div id="relatedDataAutomation" class="job-card-grid"></div>
         </div>
+        <div class="automation-panel" aria-live="polite">
+          <h3>Field Certification</h3>
+          <div class="connection-grid">
+            <div><span>State</span><strong id="fieldCertificationState">Loading</strong></div>
+            <div><span>Blockers</span><strong id="fieldCertificationBlockers">Loading</strong></div>
+            <div><span>Status Parser</span><strong id="fieldCertificationParser">Loading</strong></div>
+          </div>
+          <div id="fieldCertificationTargets" class="job-card-grid"></div>
+        </div>
         <h3>Run Now</h3>
         <div class="actions">
           <button data-job="recent_sync" data-requires-role="Admin" type="button">Run Recent Sync Now</button>
@@ -721,10 +730,11 @@
       }
 
       async function loadOperations() {
-        const [status, jobs, runs] = await Promise.all([
+        const [status, jobs, runs, fieldCertification] = await Promise.all([
           api("/api/operations/status"),
           api("/api/operations/jobs"),
           api("/api/operations/jobs/runs"),
+          api("/api/ticket-health/field-certification"),
         ]);
         document.getElementById("opsApi").textContent = status.api_status;
         document.getElementById("opsDb").textContent = status.db_status;
@@ -840,6 +850,31 @@
           renderKeyValue(card, "Error", run.last_error || "None");
           relatedDataTarget.appendChild(card);
         });
+        renderFieldCertification(fieldCertification);
+      }
+
+      function renderFieldCertification(data) {
+        document.getElementById("fieldCertificationState").textContent = data.certification_state || "Unknown";
+        document.getElementById("fieldCertificationBlockers").textContent = (data.blockers || []).join(", ") || "None";
+        const parser = data.source_reports?.transition_parser || {};
+        document.getElementById("fieldCertificationParser").textContent =
+          `${parser.parsed_status_transitions ?? 0} status / ${parser.timestamped_status_transitions ?? 0} timestamped`;
+        const target = document.getElementById("fieldCertificationTargets");
+        target.innerHTML = "";
+        (data.targets || []).forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "job-card";
+          const title = document.createElement("strong");
+          title.textContent = item.label || item.key;
+          card.appendChild(title);
+          renderKeyValue(card, "Status", item.certification_status || "unknown");
+          renderKeyValue(card, "Coverage", item.coverage_percent == null ? "Unknown" : `${item.coverage_percent}%`);
+          renderKeyValue(card, "Predictive", item.prediction_use || "unknown");
+          target.appendChild(card);
+        });
+        if (!(data.targets || []).length) {
+          target.textContent = "No field certification targets reported.";
+        }
       }
 
       document.getElementById("askButton").addEventListener("click", async () => {

@@ -34,4 +34,12 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(automationPanel).toContainText("685");
   await expect(automationPanel).toContainText("40");
   await expect(automationPanel).toContainText("None");
+
+  await expect(page.locator("#fieldCertificationState")).toHaveText("partial_field_certification");
+  await expect(page.locator("#fieldCertificationBlockers")).toContainText("status_duration");
+  await expect(page.locator("#fieldCertificationParser")).toHaveText("0 status / 0 timestamped");
+  const fieldPanel = page.locator("#fieldCertificationTargets");
+  await expect(fieldPanel).toContainText("TicketHistory coverage");
+  await expect(fieldPanel).toContainText("source_limited");
+  await expect(fieldPanel).toContainText("TimeEntries and labor-hour lineage");
 });
