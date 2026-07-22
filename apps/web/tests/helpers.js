@@ -74,7 +74,19 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
           autotask_threshold_remaining: 100,
           disk_free_gb: 10,
           global_pause: false,
-          counts: { tickets: 0, ticket_notes: 0, eligible_missing_embeddings: 0 }
+          scheduler: {
+            state: "healthy",
+            heartbeat_age_seconds: 12,
+            heartbeat: { status: "running" },
+            next_due_job: { job_name: "open_ticket_history_gaps", due_at: "2026-07-22T00:29:03Z" }
+          },
+          counts: {
+            tickets: 67726,
+            ticket_notes: 675531,
+            time_entries: 49054,
+            ticket_history: 29340,
+            eligible_missing_embeddings: 0
+          }
         })
       });
     }
@@ -82,7 +94,39 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ jobs: [], running: [] }) });
     }
     if (pathname === "/api/operations/jobs/runs") {
-      return route.fulfill({ contentType: "application/json", body: JSON.stringify({ runs: [] }) });
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          runs: [
+            {
+              id: 10,
+              job_name: "open_ticket_history_gaps",
+              status: "completed",
+              started_at: "2026-07-22T00:13:11Z",
+              finished_at: "2026-07-22T00:14:03Z",
+              duration_ms: 52053,
+              pulled_count: 685,
+              inserted_count: 2,
+              updated_count: 683,
+              failed_count: 0,
+              last_error: null
+            },
+            {
+              id: 9,
+              job_name: "ticket_time_entry_gaps",
+              status: "completed",
+              started_at: "2026-07-22T00:11:41Z",
+              finished_at: "2026-07-22T00:12:10Z",
+              duration_ms: 28598,
+              pulled_count: 40,
+              inserted_count: 40,
+              updated_count: 0,
+              failed_count: 0,
+              last_error: null
+            }
+          ]
+        })
+      });
     }
     if (pathname === "/api/admin/curated-memory") {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [] }) });

@@ -124,6 +124,9 @@ A milestone may be marked `verified_complete` only when:
 - TimeEntries absence must be classified separately from unchecked or failed synchronization. A ticket with no TimeEntries can only be treated as confirmed-empty when a successful source query recorded a gap-check timestamp and zero-result count.
 - Scheduler readiness evidence requires fresh heartbeat updates, restart recovery evidence, bounded job cadence evidence, conflict-lock evidence, and distinct skipped/blocked/failed/idle reasons.
 - Current scheduler heartbeat repair evidence: the worker records heartbeat at tick start, tick finish, and failure; focused repo-hygiene validation passed with `12 passed`, full governed validation passed with `75 passed`, and live operations status showed `scheduler.state=healthy` with fresh `heartbeat_at` after rebuilding `worker-scheduler`.
+- Current branch evidence on `agent/operations-automation-visibility`: the Operations UI exposes local TimeEntries/TicketHistory totals, scheduler state, heartbeat age, next due job, and recent related-data automation movement for open-ticket and estate TimeEntries/TicketHistory jobs.
+- Current branch runtime evidence: read-only local operations checks on 2026-07-22 showed `scheduler.state=healthy`, `global_pause=false`, fresh heartbeat, `time_entries=49054`, `ticket_history=29340`, and recent successful related-data pulls/updates with zero failures.
+- Current branch validation: `npm run test:web -- operations-automation.spec.js` passed with `1 passed`; `npm run test:web` passed with `10 passed`; full `./scripts/validate-ci.sh && git diff --check` passed with production-auth preflight, 10 ordered migrations, full pytest `112 passed`, static web JavaScript syntax, Playwright browser smoke `10 passed`, and whitespace checks. This is visibility and scheduler evidence only; historical catch-up, field certification, and three-run sync/recovery evidence remain required.
 
 ## Milestone 3
 

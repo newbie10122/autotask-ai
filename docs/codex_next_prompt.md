@@ -5,11 +5,11 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `2b5485c00dcb940650b3076d44ccbfb8a7d9381d`
-- Latest merged PR: `newbie10122/autotask-ai#27`, `Add answer safety quality streak harness`
-- Latest PR #27 CI: GitHub Actions run `29866943237`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed validation: `./scripts/validate-ci.sh && git diff --check` passed with production-auth preflight, full pytest `104 passed`, and Playwright browser smoke `6 passed` on branch `agent/m1-summary-cache-scope-contracts`.
-- Current working branch objective: `agent/m1-summary-cache-scope-contracts` moves ticket-health and customer-success summary cache keys onto the scoped cache contract.
+- Canonical `main`: `96a3e9503b0195af8157324afb6824a04aeb03e0`
+- Latest merged PR: `newbie10122/autotask-ai#37`, `Link assistant answer ticket IDs`
+- Latest PR #37 CI: GitHub Actions run `29880152593`, workflow `CI`, passed before merge
+- Latest local governed validation: `./scripts/validate-ci.sh && git diff --check` passed with production-auth preflight, full pytest `112 passed`, and Playwright browser smoke `10 passed` on branch `agent/operations-automation-visibility`.
+- Current working branch objective: `agent/operations-automation-visibility` makes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data automation movement visible in the Operations UI.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -19,18 +19,18 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - `/api/operations/status` returned `global_pause=false` and no Autotask threshold error.
 - Local synchronized ticket classification is complete for current tickets: `67726/67726`, `0` unclassified.
 - TimeEntries/TicketHistory automation is active: recent sync includes TimeEntries, open-ticket gap jobs run every 15 minutes, and estate gap jobs run hourly.
-- Current observed counts: `time_entries=46899`, `ticket_history=28207`.
-- Open-ticket labor coverage: `90/146` with TimeEntries, `56` checked-empty, `0` unchecked.
-- Open-ticket TicketHistory coverage: `146/146`.
+- Current observed counts from read-only local operations checks on 2026-07-22: `tickets=67726`, `ticket_notes=675531`, `time_entries=49054`, `ticket_history=29340`.
+- Recent related-data movement included successful `open_ticket_history_gaps`, `ticket_history_gaps`, and `ticket_time_entry_gaps` runs with zero failures.
+- The Operations UI now has a pending branch to show this evidence without requiring raw JSON inspection.
 - Scheduler heartbeat/restart provenance is repaired on canonical `main`: runtime evidence after PR #11 showed `scheduler.state=healthy` with fresh heartbeat and completed gap-job evidence.
 
 ## Immediate run objective
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge branch `agent/m1-summary-cache-scope-contracts` after full validation and GitHub CI pass.
-2. Update the existing Second Brain projection PR with the summary-cache scope evidence.
-3. Continue Milestone 1 closeout with live production-auth deployment evidence, broader ticket-health/customer-success/routing scope certification, and remaining capability Quality Streak receipts.
+1. Open and merge branch `agent/operations-automation-visibility` after GitHub CI passes.
+2. Update the existing Second Brain projection PR with the operations automation visibility evidence.
+3. Continue Milestone 1 closeout and Milestone 2 certification with live production-auth evidence where approved, bounded related-data catch-up certification, status-duration/SLA source-lineage work, and remaining capability Quality Streak receipts.
 
 ## Milestone status
 
@@ -52,6 +52,6 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Existing projection branch: `agent/autotask-ai-governed-roadmap-projection`.
 Existing PR: `newbie10122/helix-second-brain#6`.
-Latest pushed projection head `72eea2c` records PR #27, canonical commit, answer-safety Quality Streak harness, generated-answer verifier evidence, adversarial conversational verifier evidence, bootstrap app-user tooling, production-auth preflight validation, active scoped-cache consumer validation, source-sufficiency verifier checks, keyboard/focus browser smoke, browser accessibility smoke, capability certification matrix, validation-harness streak tracking, browser UI RBAC, unsupported-claim verifier breadth, cache/export contracts, verifier-failure audit, success audit actor/scope linkage, route authority/static UI contracts, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
+Latest pushed projection head `2cf1127` records PR #37, canonical commit, Ask Assistant status clarity, ticket-detail modal links, answer-body ticket links, prior Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
 
 Update the existing projection after the next material Autotask AI slice. Do not create duplicate projection PRs, and do not mark Second Brain state `merged` until PR #6 is actually merged.

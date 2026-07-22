@@ -124,7 +124,18 @@
           <div><span>Global Pause</span><strong id="opsPause">Loading</strong></div>
           <div><span>Tickets</span><strong id="opsTickets">Loading</strong></div>
           <div><span>Ticket Notes</span><strong id="opsNotes">Loading</strong></div>
+          <div><span>Time Entries</span><strong id="opsTimeEntries">Loading</strong></div>
+          <div><span>Ticket History</span><strong id="opsTicketHistory">Loading</strong></div>
           <div><span>Embeddings Backlog</span><strong id="opsEmbeddingBacklog">Loading</strong></div>
+        </div>
+        <div class="automation-panel" aria-live="polite">
+          <h3>Automation Health</h3>
+          <div class="connection-grid">
+            <div><span>Scheduler</span><strong id="schedulerState">Loading</strong></div>
+            <div><span>Heartbeat Age</span><strong id="schedulerHeartbeat">Loading</strong></div>
+            <div><span>Next Due Job</span><strong id="schedulerNextDue">Loading</strong></div>
+          </div>
+          <div id="relatedDataAutomation" class="job-card-grid"></div>
         </div>
         <h3>Run Now</h3>
         <div class="actions">
@@ -301,6 +312,24 @@
         if (value === null || value === undefined || value === "") return "Not available";
         if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(2);
         return String(value);
+      };
+      const formatDuration = (milliseconds) => {
+        if (milliseconds === null || milliseconds === undefined || milliseconds === "") return "Not available";
+        const seconds = Math.round(Number(milliseconds) / 1000);
+        if (!Number.isFinite(seconds)) return "Not available";
+        if (seconds < 60) return `${seconds}s`;
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}m ${remainingSeconds}s`;
+      };
+      const formatAgeSeconds = (seconds) => {
+        if (seconds === null || seconds === undefined || seconds === "") return "Not available";
+        const rounded = Math.max(0, Math.round(Number(seconds)));
+        if (!Number.isFinite(rounded)) return "Not available";
+        if (rounded < 60) return `${rounded}s ago`;
+        const minutes = Math.floor(rounded / 60);
+        const remainingSeconds = rounded % 60;
+        return `${minutes}m ${remainingSeconds}s ago`;
       };
       const renderKeyValue = (target, label, value) => {
         const row = document.createElement("div");
@@ -636,7 +665,17 @@
         document.getElementById("opsPause").textContent = status.global_pause ? "Paused" : "Running";
         document.getElementById("opsTickets").textContent = status.counts.tickets || 0;
         document.getElementById("opsNotes").textContent = status.counts.ticket_notes || 0;
+        document.getElementById("opsTimeEntries").textContent = status.counts.time_entries || 0;
+        document.getElementById("opsTicketHistory").textContent = status.counts.ticket_history || 0;
         document.getElementById("opsEmbeddingBacklog").textContent = status.counts.eligible_missing_embeddings || 0;
+        const scheduler = status.scheduler || {};
+        const heartbeat = scheduler.heartbeat || {};
+        const nextDue = scheduler.next_due_job || {};
+        document.getElementById("schedulerState").textContent = scheduler.state || heartbeat.status || "Unknown";
+        document.getElementById("schedulerHeartbeat").textContent = formatAgeSeconds(scheduler.heartbeat_age_seconds);
+        document.getElementById("schedulerNextDue").textContent = nextDue.job_name
+          ? `${nextDue.job_name}${nextDue.due_at ? ` due ${nextDue.due_at}` : ""}`
+          : "No due job reported";
 
         const jobsBody = document.getElementById("scheduledJobs");
         jobsBody.innerHTML = "";
@@ -688,6 +727,19 @@
 
         const historyBody = document.getElementById("jobHistory");
         historyBody.innerHTML = "";
+        const relatedDataTarget = document.getElementById("relatedDataAutomation");
+        relatedDataTarget.innerHTML = "";
+        const relatedJobNames = new Set([
+          "open_ticket_history_gaps",
+          "open_ticket_time_entry_gaps",
+          "ticket_history_gaps",
+          "ticket_time_entry_gaps",
+          "recent_sync",
+          "classify_tickets",
+          "build_documents",
+          "run_embeddings",
+        ]);
+        const latestRelatedRuns = [];
         runs.runs.forEach((run) => {
           const tr = document.createElement("tr");
           [run.id, run.job_name, run.status, run.duration_ms || "", run.pulled_count, run.inserted_count, run.updated_count, run.failed_count, run.last_error || ""].forEach((value) => {
@@ -696,6 +748,28 @@
             tr.appendChild(td);
           });
           historyBody.appendChild(tr);
+          if (relatedJobNames.has(run.job_name) && latestRelatedRuns.length < 6) {
+            latestRelatedRuns.push(run);
+          }
+        });
+        if (!latestRelatedRuns.length) {
+          relatedDataTarget.textContent = "No recent automation runs reported.";
+        }
+        latestRelatedRuns.forEach((run) => {
+          const card = document.createElement("div");
+          card.className = "job-card";
+          const title = document.createElement("strong");
+          title.textContent = run.job_name;
+          card.appendChild(title);
+          renderKeyValue(card, "Status", run.status);
+          renderKeyValue(card, "Finished", run.finished_at || "Still running");
+          renderKeyValue(card, "Duration", formatDuration(run.duration_ms));
+          renderKeyValue(card, "Pulled", run.pulled_count);
+          renderKeyValue(card, "Inserted", run.inserted_count);
+          renderKeyValue(card, "Updated", run.updated_count);
+          renderKeyValue(card, "Failed", run.failed_count);
+          renderKeyValue(card, "Error", run.last_error || "None");
+          relatedDataTarget.appendChild(card);
         });
       }
 
