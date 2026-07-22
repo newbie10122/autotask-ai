@@ -67,18 +67,62 @@ def test_status_transition_source_probe_is_bounded_read_only(monkeypatch):
 def test_status_transition_source_probe_uses_ticket_history_filter(monkeypatch):
     calls = []
 
+    class FakeResult:
+        def fetchone(self):
+            return {"autotask_id": 98765}
+
+    class FakeConnection:
+        def execute(self, _sql):
+            return FakeResult()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
     def fake_request(_self, method, endpoint, json=None):
         calls.append((method, endpoint, json))
         return {"items": [{"id": 1}]}
 
+    monkeypatch.setattr("app.autotask.db_connection", lambda: FakeConnection())
     monkeypatch.setattr(AutotaskReadOnlyClient, "_request", fake_request)
 
     report = AutotaskReadOnlyClient(delay_seconds=0).probe_status_transition_sources(("TicketHistory",))
 
     assert report["available_entities"] == ["TicketHistory"]
     assert calls[0][2]["MaxRecords"] == 1
+    assert calls[0][2]["filter"] == [{"op": "eq", "field": "ticketID", "value": 98765}]
+    assert report["results"][0]["probe_filter"] == [{"op": "eq", "field": "ticketID", "value": 98765}]
+
+
+def test_status_transition_source_probe_falls_back_without_local_ticket(monkeypatch):
+    calls = []
+
+    class FakeResult:
+        def fetchone(self):
+            return None
+
+    class FakeConnection:
+        def execute(self, _sql):
+            return FakeResult()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr("app.autotask.db_connection", lambda: FakeConnection())
+    monkeypatch.setattr(
+        AutotaskReadOnlyClient,
+        "_request",
+        lambda _self, method, endpoint, json=None: calls.append((method, endpoint, json)) or {"items": []},
+    )
+
+    AutotaskReadOnlyClient(delay_seconds=0).probe_status_transition_sources(("TicketHistory",))
+
     assert calls[0][2]["filter"] == [{"op": "gte", "field": "ticketID", "value": 0}]
-    assert report["results"][0]["probe_filter"] == [{"op": "gte", "field": "ticketID", "value": 0}]
 
 
 def test_status_transition_source_probe_isolates_repeated_unavailable_entities(monkeypatch):
