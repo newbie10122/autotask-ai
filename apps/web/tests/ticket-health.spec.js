@@ -52,6 +52,7 @@ test("ticket health view shows predictive ranking and abstention evidence", asyn
   await expect(queue).toContainText("T20260421.0014");
   await expect(queue).toContainText("strong");
   await expect(queue).toContainText("5980");
+  await expect(queue).toContainText("calibrated_delay_probability=0.56");
   await expect(queue).toContainText("Abstained");
   await expect(queue).toContainText("insufficient_local_history");
 

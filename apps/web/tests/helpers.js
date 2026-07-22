@@ -226,6 +226,10 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
                 abstained: false,
                 confidence: "strong",
                 sample_size: 5980,
+                model_version: "bayesian_queue_priority_feedback_v1_review_only",
+                bayesian_delay_rate: 0.42,
+                calibrated_delay_probability: 0.56,
+                calibrated_rank_contribution: 7,
                 reason_codes: ["open_age_exceeds_similar_resolution_average", "labor_exceeds_similar_average"]
               }
             },
