@@ -56,6 +56,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 security/isolation Quality Streak branch `agent/m1-security-isolation-quality-streak` adds a repeatable three-run harness for auth, route RBAC, audit, scope, scoped-cache, realtime, feedback, and verifier evidence.
 - Conversational UI branch `agent/ask-ticket-detail-modal` makes Ask Assistant ticket evidence inspectable by turning `Based on Tickets` entries into scoped ticket-detail modal links.
 - Conversational UI branch `agent/answer-ticket-links` makes ticket IDs inside rendered assistant answer text open the same scoped ticket-detail modal.
+- Conversational UI branch `agent/ask-progress-phases` makes Ask Assistant request state explicit with visible phases for scoped ticket search, evidence preparation, local CPU model waiting, and answer rendering, plus terminal text that distinguishes active requests from timeout/error/done states.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
@@ -263,10 +264,21 @@ None currently identified for documentation and non-production implementation wo
 - **Rollback:** Revert this branch commit; scheduled jobs keep running, but the Operations page returns to the previous generic counts/tables without the automation-health summary.
 - **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
 
+## Latest receipt — Ask Assistant progress phases
+
+- **Slice:** Show Ask Assistant request phases on branch `agent/ask-progress-phases` from canonical `main` `068473623df7134294c46cb9767eae8cc59a3b43`; merged as PR #61 into canonical `main` `98c047d290fa3ae89b1d196fbfcc91771e55de98`.
+- **State:** `partial`; conversational request state is clearer, but live production-auth deployment evidence remains open.
+- **Files changed:** `apps/web/index.html`, `apps/web/styles.css`, `apps/web/tests/ask-status.spec.js`, and project status docs.
+- **Implemented:** Ask Assistant now shows visible request phases for scoped ticket search, evidence preparation, local CPU model waiting, and answer rendering. Running text says the request is active, while timeout/error/done text says no browser request remains active.
+- **Validation:** Focused `npx playwright test apps/web/tests/ask-status.spec.js` passed with `4 passed`; full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `133 passed`, static web JavaScript syntax validation, Playwright browser smoke `12 passed`, and `git diff --check`.
+- **Read-only evidence:** No backend API contract, sync job, production deployment, live credential, local feedback, model, workflow, or Autotask write behavior was changed.
+- **Rollback:** Revert this branch commit; Ask Assistant returns to the prior single-line running/timeout status while ticket-detail modal links remain intact.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
 ## Previous receipt — Ask Assistant answer ticket links
 
-- **Slice:** Make ticket IDs inside assistant answer text clickable on branch `agent/answer-ticket-links` from canonical `main` `65a42bbdc4fa6689ad2fb67fea00d3aa0a375783`.
-- **State:** `partial`; answer evidence is easier to inspect in the UI, but live production-auth deployment evidence remains open.
+- **Slice:** Make ticket IDs inside assistant answers inspectable on branch `agent/answer-ticket-links` from canonical `main` `4f7029b5ba818d3a413e2411a4fa94e06963f06b`.
+- **State:** `partial`; assistant answer evidence is easier to inspect in the UI, but live production-auth deployment evidence remains open.
 - **Files changed:** `apps/web/index.html`, `apps/web/tests/ask-status.spec.js`, and project status docs.
 - **Implemented:** Rendered assistant answer paragraphs and bullet lines now detect `T########.####` ticket IDs and turn them into buttons that open the existing scoped local ticket-health detail modal.
 - **Validation:** `npm run test:web` passed with `9 passed`.
