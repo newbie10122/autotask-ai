@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `c1caa13d9b9785fce242b4a6ef2df8294857dceb`
-- Latest merged PR: `newbie10122/autotask-ai#93`, `Record stale scheduler cleanup execution evidence`
-- Latest PR #93 CI: GitHub Actions run `29950143994`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local validation for stale-run cleanup execution passed guarded local archive runtime smoke, Operations status runtime smoke, Nginx UI root smoke, focused docs whitespace validation, full repository validation with `154 passed`, and Playwright browser smoke with `13 passed`.
+- Canonical `main`: `c604049dacc767b7d1e103a50b8fbfd6e1d4d405`
+- Latest merged PR: `newbie10122/autotask-ai#94`, `Record cleanup execution merge evidence`
+- Latest PR #94 CI: GitHub Actions run `29950689934`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation for scheduler recovery-streak evidence passed focused scheduler recovery tests with `3 passed`, focused Operations browser smoke with `1 passed`, local runtime scheduler-recovery smoke, Nginx ready/UI smoke, full repository validation with `155 passed`, and Playwright browser smoke with `13 passed`.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -56,6 +56,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge Milestone 2 evidence on canonical `main` `216e803296698febd0c869bacbce671dd5f60e50`: PR #91 adds Admin-only local archival for stale orphaned scheduler run metadata. The route only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job; focused scheduler/archive tests passed with `3 passed`, route/audit tests with `4 passed`, Operations browser smoke with `1 passed`, full repository validation with `154 passed`, Playwright browser smoke with `13 passed`, and CI run `29948960498` passed. PR #91 did not execute cleanup against the live database.
 - Post-merge documentation evidence on canonical `main` `8f9c2710e67ac135797b3b0c38f7f112e097ecb9`: PR #92 records the PR #91 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
 - Post-merge Milestone 2 evidence on canonical `main` `c1caa13d9b9785fce242b4a6ef2df8294857dceb`: PR #93 records guarded local Admin route cleanup execution for stale scheduler run `4143`; follow-up Operations status returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, no blockers, and `0` stale provenance rows. Nginx `/ready` and UI root returned `HTTP 200`.
+- Post-merge documentation evidence on canonical `main` `c604049dacc767b7d1e103a50b8fbfd6e1d4d405`: PR #94 records PR #93 merge evidence and Second Brain PR #13 head `7cd186cb9777025770ce5bc27cbe7e77e2408a16`.
+- Current branch runtime evidence: `agent/m2-scheduler-streak-evidence` adds read-only scheduler recovery-streak evidence. Local runtime after rebuild and scheduler tick returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, recovery streak `scheduler_recovery_streak_available`, `9` clean-streak jobs, `0` partial-streak jobs, and `3` required clean runs per job.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -71,9 +73,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record PR #93 merge evidence in canonical project documents, then merge that docs-only reconciliation after CI passes.
-2. Continue sync/recovery streak evidence.
-3. Continue the next safe Milestone 2 source-lineage or sync/recovery evidence slice without Autotask writes, production deployment, or model workflow changes.
+1. Merge scheduler recovery-streak evidence after full validation and CI pass.
+2. Update existing Second Brain PR #13 with sanitized recovery-streak evidence after this branch merges.
+3. Continue the next safe Milestone 2 source-lineage slice without Autotask writes, production deployment, or model workflow changes.
 
 ## Milestone status
 

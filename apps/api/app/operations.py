@@ -185,7 +185,7 @@ RAW_BACKFILL_JOBS = {
     "raw_backfill_companies",
 }
 MUTATES_CHUNKS = {"build_documents", "reclassify_chunks"}
-OPERATIONS_STATUS_CACHE_VERSION = 5
+OPERATIONS_STATUS_CACHE_VERSION = 6
 SYNC_RECOVERY_REQUIRED_JOBS: tuple[str, ...] = (
     "recent_sync",
     "open_ticket_time_entry_gaps",
@@ -1195,6 +1195,93 @@ def _stale_running_provenance(conn: Any, now: datetime, *, limit: int = 10) -> l
     return provenance
 
 
+def _scheduler_recovery_streak(conn: Any) -> dict[str, Any]:
+    required_values = ", ".join(["(%s)"] * len(SYNC_RECOVERY_REQUIRED_JOBS))
+    rows = conn.execute(
+        f"""
+        WITH required(job_name) AS (VALUES {required_values}),
+        ranked_runs AS (
+            SELECT
+                jr.job_name,
+                jr.id,
+                jr.status,
+                jr.started_at,
+                jr.finished_at,
+                jr.failed_count,
+                jr.last_error IS NOT NULL AS has_error,
+                row_number() OVER (
+                    PARTITION BY jr.job_name
+                    ORDER BY jr.started_at DESC, jr.id DESC
+                ) AS run_rank
+            FROM job_runs jr
+            INNER JOIN required r ON r.job_name=jr.job_name
+            WHERE jr.triggered_by='scheduler'
+        )
+        SELECT
+            r.job_name,
+            count(rr.id) AS inspected_runs,
+            count(rr.id) FILTER (
+                WHERE rr.status='completed'
+                  AND COALESCE(rr.failed_count, 0)=0
+                  AND NOT rr.has_error
+            ) AS clean_completed_runs,
+            count(rr.id) FILTER (
+                WHERE rr.status='failed'
+                   OR COALESCE(rr.failed_count, 0)>0
+                   OR rr.has_error
+            ) AS problematic_runs,
+            max(rr.finished_at) FILTER (
+                WHERE rr.status='completed'
+                  AND COALESCE(rr.failed_count, 0)=0
+                  AND NOT rr.has_error
+            ) AS latest_clean_finished_at
+        FROM required r
+        LEFT JOIN ranked_runs rr ON rr.job_name=r.job_name AND rr.run_rank <= 3
+        GROUP BY r.job_name
+        ORDER BY r.job_name
+        """,
+        tuple(SYNC_RECOVERY_REQUIRED_JOBS),
+    ).fetchall()
+    jobs = []
+    clean_jobs = 0
+    for row in rows:
+        item = dict(row)
+        inspected_runs = int(item.get("inspected_runs") or 0)
+        clean_completed_runs = int(item.get("clean_completed_runs") or 0)
+        problematic_runs = int(item.get("problematic_runs") or 0)
+        status = "available" if inspected_runs >= 3 and clean_completed_runs >= 3 and problematic_runs == 0 else "partial"
+        if status == "available":
+            clean_jobs += 1
+        jobs.append(
+            {
+                "job_name": item.get("job_name"),
+                "inspected_runs": inspected_runs,
+                "clean_completed_runs": clean_completed_runs,
+                "problematic_runs": problematic_runs,
+                "latest_clean_finished_at": item.get("latest_clean_finished_at"),
+                "streak_status": status,
+            }
+        )
+    blockers = [job["job_name"] for job in jobs if job["streak_status"] != "available"]
+    return {
+        "state": "scheduler_recovery_streak_available" if not blockers else "partial_scheduler_recovery_streak",
+        "summary": {
+            "required_jobs": len(SYNC_RECOVERY_REQUIRED_JOBS),
+            "clean_streak_jobs": clean_jobs,
+            "partial_streak_jobs": len(blockers),
+            "required_clean_runs_per_job": 3,
+        },
+        "blockers": blockers,
+        "jobs": jobs,
+        "policy": {
+            "read_only": True,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+            "returns_raw_error_text": False,
+        },
+    }
+
+
 def scheduler_automation_certification_report() -> dict[str, Any]:
     ensure_operations_defaults()
     now = datetime.now(UTC)
@@ -1288,6 +1375,7 @@ def scheduler_automation_certification_report() -> dict[str, Any]:
             """
         ).fetchone()
         stale_running_provenance = _stale_running_provenance(conn, now)
+        recovery_streak = _scheduler_recovery_streak(conn)
 
     jobs: list[dict[str, Any]] = []
     for row in rows:
@@ -1358,6 +1446,7 @@ def scheduler_automation_certification_report() -> dict[str, Any]:
         "blockers": blockers,
         "jobs": jobs,
         "stale_running_provenance": stale_running_provenance,
+        "recovery_streak": recovery_streak,
         "policy": {
             "read_only": True,
             "runs_jobs": False,

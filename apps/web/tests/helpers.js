@@ -99,7 +99,17 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
                 newer_completed_run_id: 4391,
                 stale_state: "orphaned_running_row_candidate"
               }
-            ]
+            ],
+            recovery_streak: {
+              state: "partial_scheduler_recovery_streak",
+              summary: {
+                required_jobs: 9,
+                clean_streak_jobs: 8,
+                partial_streak_jobs: 1,
+                required_clean_runs_per_job: 3
+              },
+              blockers: ["nightly_pipeline"]
+            }
           },
           counts: {
             tickets: 67726,

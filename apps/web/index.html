@@ -162,6 +162,7 @@
             <div><span>Next Due Job</span><strong id="schedulerNextDue">Loading</strong></div>
             <div><span>Certification</span><strong id="schedulerAutomationState">Loading</strong></div>
             <div><span>Stale Runs</span><strong id="schedulerStaleRuns">Loading</strong></div>
+            <div><span>Recovery Streak</span><strong id="schedulerRecoveryStreak">Loading</strong></div>
           </div>
           <div id="schedulerStaleProvenance" class="job-card-grid"></div>
           <div id="relatedDataAutomation" class="job-card-grid"></div>
@@ -820,6 +821,11 @@
         const automationSummary = schedulerAutomation.summary || {};
         document.getElementById("schedulerAutomationState").textContent = schedulerAutomation.certification_state || "Unknown";
         document.getElementById("schedulerStaleRuns").textContent = automationSummary.stale_running_jobs ?? 0;
+        const recoveryStreak = schedulerAutomation.recovery_streak || {};
+        const recoverySummary = recoveryStreak.summary || {};
+        document.getElementById("schedulerRecoveryStreak").textContent = recoveryStreak.state
+          ? `${recoveryStreak.state} (${recoverySummary.clean_streak_jobs ?? 0}/${recoverySummary.required_jobs ?? 0})`
+          : "Unknown";
         const staleTarget = document.getElementById("schedulerStaleProvenance");
         staleTarget.innerHTML = "";
         (schedulerAutomation.stale_running_provenance || []).forEach((run) => {

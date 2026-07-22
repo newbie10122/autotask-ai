@@ -29,6 +29,7 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(page.locator("#schedulerNextDue")).toContainText("open_ticket_history_gaps");
   await expect(page.locator("#schedulerAutomationState")).toHaveText("partial_scheduler_automation_evidence");
   await expect(page.locator("#schedulerStaleRuns")).toHaveText("1");
+  await expect(page.locator("#schedulerRecoveryStreak")).toHaveText("partial_scheduler_recovery_streak (8/9)");
   await expect(page.locator("#schedulerStaleProvenance")).toContainText("classify_tickets #4143");
   await expect(page.locator("#schedulerStaleProvenance")).toContainText("orphaned_running_row_candidate");
   await expect(page.locator("#schedulerStaleProvenance")).toContainText("Newer Completed");
