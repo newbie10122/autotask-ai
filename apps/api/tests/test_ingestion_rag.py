@@ -1572,18 +1572,131 @@ def test_ticket_field_certification_marks_source_limited_operational_inputs():
         "timestamped_status_transitions": 0,
         "source_limited": True,
     }
+    labor_coverage = {
+        "summary": {
+            "open_tickets": 10,
+            "open_tickets_with_time_entries": 3,
+            "open_tickets_without_time_entries": 7,
+            "open_tickets_checked_for_time_entries": 10,
+            "open_tickets_checked_empty_time_entries": 7,
+            "open_tickets_unchecked_time_entries": 0,
+            "coverage_percent": 30.0,
+        },
+        "warnings": ["7 open tickets have checked-empty TimeEntries evidence."],
+    }
 
-    report = ticket_health_module.field_certification_report(coverage, diagnostics, transition_summary)
+    report = ticket_health_module.field_certification_report(coverage, diagnostics, transition_summary, labor_coverage=labor_coverage)
     by_target = {target["key"]: target for target in report["targets"]}
 
     assert report["certification_state"] == "partial_field_certification"
     assert by_target["status_duration"]["certification_status"] == "source_limited"
     assert by_target["time_entries"]["certification_status"] == "certified"
+    assert by_target["time_entries"]["unchecked_open_tickets"] == 0
+    assert by_target["time_entries"]["checked_empty_open_tickets"] == 7
     assert by_target["sla_information"]["certification_status"] == "missing"
     assert "status_duration" in report["predictive_policy"]["excluded_until_certified"]
+    assert report["source_reports"]["labor_gap_context"]["summary"]["open_tickets_checked_empty_time_entries"] == 7
     assert "by_status" not in report["source_reports"]["status_source"]["status_sample_coverage"]
     assert report["predictive_policy"]["automatic_model_or_workflow_changes_allowed"] is False
     assert report["source_reports"]["status_transition_source_candidates"]["policy"]["live_autotask_probe_ran"] is False
+
+
+def test_ticket_field_certification_keeps_labor_partial_until_gap_checks_finish():
+    coverage = {
+        "ready_for_ticket_health": False,
+        "counts": {"tickets": 10, "ticket_history": 10, "time_entries": 3},
+        "blockers": [],
+        "fields": [
+            {
+                "key": "ticket_status",
+                "status": "available",
+                "available_count": 10,
+                "total_count": 10,
+                "coverage_percent": 100.0,
+                "source": "autotask_tickets.status",
+                "note": "",
+            },
+            {
+                "key": "ticket_status_history",
+                "status": "available",
+                "available_count": 10,
+                "total_count": 10,
+                "coverage_percent": 100.0,
+                "source": "autotask_ticket_history",
+                "note": "",
+            },
+            {
+                "key": "waiting_states",
+                "status": "available",
+                "available_count": 10,
+                "total_count": 10,
+                "coverage_percent": 100.0,
+                "source": "current status plus TicketHistory",
+                "note": "",
+            },
+            {
+                "key": "time_entries",
+                "status": "available",
+                "available_count": 3,
+                "total_count": 3,
+                "coverage_percent": 100.0,
+                "source": "autotask_time_entries",
+                "note": "",
+            },
+            {
+                "key": "labor_hours",
+                "status": "available",
+                "available_count": 3,
+                "total_count": 3,
+                "coverage_percent": 100.0,
+                "source": "autotask_time_entries.hours",
+                "note": "",
+            },
+            {
+                "key": "sla_information",
+                "status": "available",
+                "available_count": 10,
+                "total_count": 10,
+                "coverage_percent": 100.0,
+                "source": "SLA raw fields",
+                "note": "",
+            },
+        ],
+    }
+    diagnostics = {
+        "source_capability": {"has_exact_status_transition_timestamp": True},
+        "open_ticket_history_context": {
+            "open_tickets": 10,
+            "open_tickets_with_history": 10,
+            "open_tickets_without_history": 0,
+        },
+        "status_sample_coverage": {"sampled_status_candidate_rows": 2},
+    }
+    transition_summary = {
+        "parsed_status_transitions": 2,
+        "timestamped_status_transitions": 2,
+    }
+    labor_coverage = {
+        "summary": {
+            "open_tickets": 10,
+            "open_tickets_with_time_entries": 3,
+            "open_tickets_without_time_entries": 7,
+            "open_tickets_checked_for_time_entries": 4,
+            "open_tickets_checked_empty_time_entries": 1,
+            "open_tickets_unchecked_time_entries": 6,
+            "coverage_percent": 30.0,
+        },
+        "warnings": ["6 open local tickets do not have local TimeEntries yet."],
+    }
+
+    report = ticket_health_module.field_certification_report(coverage, diagnostics, transition_summary, labor_coverage=labor_coverage)
+    by_target = {target["key"]: target for target in report["targets"]}
+
+    assert by_target["time_entries"]["certification_status"] == "partial"
+    assert by_target["time_entries"]["unchecked_open_tickets"] == 6
+    assert "TimeEntries gap checks still have unchecked open tickets" in by_target["time_entries"]["note"]
+    assert "time_entries" in report["predictive_policy"]["excluded_until_certified"]
+    assert report["source_reports"]["labor_gap_context"]["summary"]["open_tickets_unchecked_time_entries"] == 6
 
 
 def test_ticket_history_transition_parse_summary_counts_status_transitions(monkeypatch):
