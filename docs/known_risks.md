@@ -58,7 +58,7 @@
 **Severity:** Medium
 **State:** Partially mitigated
 **Impact:** Ticket-health, prediction, and routing calculations may be incomplete or misleading.
-**Existing controls:** PR `newbie10122/autotask-ai#10` restored read-only TimeEntries and TicketHistory automation, including recent-sync TimeEntries, open-ticket gap repair, estate-wide gap sweeps, and operations coverage reporting. Branch `agent/m2-related-data-catchup-cadence` raises bounded estate TimeEntries/TicketHistory gap batch defaults to `100`, upgrades persisted old-default `25` values only, and exposes estimated bounded catch-up runs in Operations. PR #75 carries TimeEntries checked-empty versus unchecked gap-check evidence into field certification.
+**Existing controls:** PR `newbie10122/autotask-ai#10` restored read-only TimeEntries and TicketHistory automation, including recent-sync TimeEntries, open-ticket gap repair, estate-wide gap sweeps, and operations coverage reporting. Branch `agent/m2-related-data-catchup-cadence` raises bounded estate TimeEntries/TicketHistory gap batch defaults to `100`, upgrades persisted old-default `25` values only, and exposes estimated bounded catch-up runs in Operations. PR #75 carries TimeEntries checked-empty versus unchecked gap-check evidence into field certification. Branch `agent/m2-scoped-labor-lineage` applies authorized company scope to labor coverage and field-certification labor context.
 **Next mitigation:** Complete field inventory, source-lineage certification, SLA/status/waiting fields, freshness policy, restart/recovery tests, and explicit distinctions among synchronized, checked-empty, unchecked, failed, unavailable, and authorization-filtered data.
 
 ### R18 — Scheduler heartbeat can drift from actual job execution
@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `b03f4f35b2d032af58e7447444be6550136f9410` through PR #75; Second Brain PR #13 is open at head `efde35985ce30cc3955f27488ba16336ef5e2cdf` with local knowledge validation passing.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `f2212e93ad80259b6b5bba5eb121071d15c6fd5c` through PR #76; Second Brain PR #13 is open at head `efde35985ce30cc3955f27488ba16336ef5e2cdf` with local knowledge validation passing.
 
 ### R16 — CI runner environment differences
 

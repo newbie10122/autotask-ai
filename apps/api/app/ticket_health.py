@@ -949,17 +949,19 @@ def ticket_history_coverage_report(limit: int = 10) -> dict[str, Any]:
     }
 
 
-def labor_coverage_report(limit: int = 10) -> dict[str, Any]:
+def labor_coverage_report(limit: int = 10, authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
     row_limit = min(max(limit, 1), 100)
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
     init_schema()
     with db_connection() as conn:
         summary = conn.execute(
-            """
+            f"""
             WITH open_tickets AS (
                 SELECT t.id
                 FROM autotask_tickets t
                 WHERE t.completed_at_autotask IS NULL
                   AND COALESCE(t.status, '') <> ALL(%s)
+                  {company_scope_sql}
             ),
             labor AS (
                 SELECT
@@ -991,11 +993,11 @@ def labor_coverage_report(limit: int = 10) -> dict[str, Any]:
             LEFT JOIN ticket_gap_sync_checks gap_check
               ON gap_check.ticket_id=open_tickets.id AND gap_check.sync_type='open_ticket_time_entry_gaps'
             """,
-            (list(CLOSED_STATUS_IDS),),
+            (list(CLOSED_STATUS_IDS), *company_scope_params),
         ).fetchone()
         by_status = list(
             conn.execute(
-                """
+                f"""
                 WITH labor AS (
                     SELECT
                         ticket_id,
@@ -1030,16 +1032,17 @@ def labor_coverage_report(limit: int = 10) -> dict[str, Any]:
                   ON gap_check.ticket_id=t.id AND gap_check.sync_type='open_ticket_time_entry_gaps'
                 WHERE t.completed_at_autotask IS NULL
                   AND COALESCE(t.status, '') <> ALL(%s)
+                  {company_scope_sql}
                 GROUP BY COALESCE(status_ref.label, t.status, '[Blank]')
                 ORDER BY without_time_entries DESC, open_tickets DESC, status_label
                 LIMIT 25
                 """,
-                (list(CLOSED_STATUS_IDS),),
+                (list(CLOSED_STATUS_IDS), *company_scope_params),
             ).fetchall()
         )
         next_targets = list(
             conn.execute(
-                """
+                f"""
                 WITH labor AS (
                     SELECT
                         ticket_id,
@@ -1069,6 +1072,7 @@ def labor_coverage_report(limit: int = 10) -> dict[str, Any]:
                   ON gap_check.ticket_id=t.id AND gap_check.sync_type='open_ticket_time_entry_gaps'
                 WHERE t.completed_at_autotask IS NULL
                   AND COALESCE(t.status, '') <> ALL(%s)
+                  {company_scope_sql}
                 ORDER BY
                     (COALESCE(labor.entry_count, 0) = 0) DESC,
                     gap_check.last_checked_at NULLS FIRST,
@@ -1077,7 +1081,7 @@ def labor_coverage_report(limit: int = 10) -> dict[str, Any]:
                     t.id
                 LIMIT %s
                 """,
-                (list(CLOSED_STATUS_IDS), row_limit),
+                (list(CLOSED_STATUS_IDS), *company_scope_params, row_limit),
             ).fetchall()
         )
 
@@ -1106,6 +1110,7 @@ def labor_coverage_report(limit: int = 10) -> dict[str, Any]:
         "by_status": [dict(row) for row in by_status],
         "next_targets": [dict(row) for row in next_targets],
         "warnings": warnings,
+        "authorized_company_scope_applied": authorized_company_ids is not None,
     }
 
 
@@ -1814,7 +1819,7 @@ def field_certification_report(
         transition_parse_summary=transition_summary,
         authorized_company_ids=authorized_company_ids,
     )
-    labor_gap_context = labor_coverage or labor_coverage_report()
+    labor_gap_context = labor_coverage or labor_coverage_report(authorized_company_ids=authorized_company_ids)
     source_capability = status_diag.get("source_capability") or {}
     open_history = status_diag.get("open_ticket_history_context") or {}
     status_sample = status_diag.get("status_sample_coverage") or {}

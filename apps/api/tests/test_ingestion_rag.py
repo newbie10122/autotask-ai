@@ -1250,6 +1250,116 @@ def test_ticket_health_data_paths_accept_and_apply_company_scope():
     assert "company_scope_sql" in number_source
 
 
+def test_labor_coverage_report_applies_authorized_company_scope(monkeypatch):
+    captured_queries = []
+
+    class FakeResult:
+        def __init__(self, row=None, rows=None):
+            self.row = row or {}
+            self.rows = rows or []
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            captured_queries.append((sql, params))
+            if "count(*) AS open_tickets" in sql:
+                return FakeResult(
+                    {
+                        "open_tickets": 2,
+                        "open_tickets_with_time_entries": 1,
+                        "open_tickets_without_time_entries": 1,
+                        "open_tickets_checked_for_time_entries": 1,
+                        "open_tickets_checked_empty_time_entries": 1,
+                        "open_tickets_unchecked_time_entries": 0,
+                        "open_ticket_time_entry_rows": 3,
+                        "open_ticket_labor_hours": 1.5,
+                    }
+                )
+            return FakeResult(rows=[])
+
+    monkeypatch.setattr(ticket_health_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_health_module, "db_connection", lambda: FakeConnection())
+
+    report = ticket_health_module.labor_coverage_report(limit=5, authorized_company_ids=[123])
+
+    assert report["authorized_company_scope_applied"] is True
+    assert report["summary"]["open_tickets"] == 2
+    assert len(captured_queries) == 3
+    assert all("t.company_id = ANY(%s)" in sql for sql, _params in captured_queries)
+    assert captured_queries[0][1] == (list(ticket_health_module.CLOSED_STATUS_IDS), [123])
+    assert captured_queries[1][1] == (list(ticket_health_module.CLOSED_STATUS_IDS), [123])
+    assert captured_queries[2][1] == (list(ticket_health_module.CLOSED_STATUS_IDS), [123], 5)
+
+
+def test_field_certification_fetches_labor_coverage_with_authorized_scope(monkeypatch):
+    captured = {}
+    coverage = {
+        "ready_for_ticket_health": True,
+        "counts": {"tickets": 2},
+        "blockers": [],
+        "fields": [
+            {"key": "ticket_status", "status": "available", "source": "status"},
+            {"key": "ticket_status_history", "status": "available", "source": "history"},
+            {"key": "waiting_states", "status": "available", "source": "waiting"},
+            {"key": "time_entries", "status": "available", "source": "time entries"},
+            {"key": "labor_hours", "status": "available", "source": "hours"},
+            {"key": "sla_information", "status": "available", "source": "sla"},
+        ],
+    }
+    diagnostics = {
+        "source_capability": {"has_exact_status_transition_timestamp": True},
+        "open_ticket_history_context": {
+            "open_tickets": 2,
+            "open_tickets_with_history": 2,
+            "open_tickets_without_history": 0,
+        },
+        "status_sample_coverage": {"sampled_status_candidate_rows": 1},
+    }
+    transition_summary = {
+        "parsed_status_transitions": 1,
+        "timestamped_status_transitions": 1,
+    }
+
+    def fake_labor_coverage_report(limit=10, authorized_company_ids=None):
+        captured["limit"] = limit
+        captured["authorized_company_ids"] = authorized_company_ids
+        return {
+            "summary": {
+                "open_tickets": 2,
+                "open_tickets_checked_for_time_entries": 2,
+                "open_tickets_checked_empty_time_entries": 1,
+                "open_tickets_unchecked_time_entries": 0,
+            },
+            "warnings": [],
+            "authorized_company_scope_applied": authorized_company_ids is not None,
+        }
+
+    monkeypatch.setattr(ticket_health_module, "labor_coverage_report", fake_labor_coverage_report)
+
+    report = ticket_health_module.field_certification_report(
+        coverage,
+        diagnostics,
+        transition_summary,
+        source_candidates={"policy": {"live_autotask_probe_ran": False}},
+        authorized_company_ids=[123],
+    )
+
+    assert captured["authorized_company_ids"] == [123]
+    assert report["predictive_policy"]["authorized_company_scope_applied"] is True
+    assert report["source_reports"]["labor_gap_context"]["summary"]["open_tickets"] == 2
+
+
 def test_ticket_predictive_review_signal_abstains_with_low_sample_size():
     signal = ticket_health_module._ticket_predictive_review_signal(
         {"health_score": 40, "age_days": 3, "labor_hours": 1},
