@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `b2b9faa65963f1dad280195150bb5128cc0d855c`, which merged PR `newbie10122/autotask-ai#78` (`Record scoped labor lineage merge`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#78` run `29937551176`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation on the active PR #79 candidate passed with API/worker Python compilation, full pytest `143 passed`, static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check`.
+- Canonical `main` is `b504622a828379434e91a41f40c0247cd5dbebf9`, which merged PR `newbie10122/autotask-ai#79` (`Add SLA lineage certification`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#79` run `29938144886`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation passed with API/worker Python compilation, full pytest `143 passed`, static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check`.
 - Second Brain projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after recording Autotask AI progress through PR #70 at projection branch head `4306bcc`; local `python3 tools/validate_knowledge.py` passed before merge.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -118,21 +118,20 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 ## Active execution queue
 
 1. Treat status-duration/waiting as source-limited unless parser-compatible status transitions are backfilled or another read-only Autotask source becomes available.
-2. Validate and merge the current Milestone 2 SLA lineage certification slice.
-3. Continue Milestone 2 field/source-lineage certification for status-duration, waiting state, and TicketHistory content shape.
-4. Continue production-auth deployment evidence only when explicitly approved for that protected action.
-5. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+2. Continue Milestone 2 field/source-lineage certification for status-duration, waiting state, and TicketHistory content shape.
+3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
+4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 SLA lineage certification
+## Historical receipt — Milestone 2 SLA lineage certification
 
-- **Slice:** Add scoped SLA lineage evidence to field certification on branch `agent/m2-sla-lineage-certification` from canonical `main` `b2b9faa65963f1dad280195150bb5128cc0d855c`.
+- **Slice:** Add scoped SLA lineage evidence to field certification on branch `agent/m2-sla-lineage-certification` from canonical `main` `b2b9faa65963f1dad280195150bb5128cc0d855c`; merged as PR #79 into canonical `main` `b504622a828379434e91a41f40c0247cd5dbebf9`.
 - **State:** `partial`; SLA evidence is more explicit and scoped, but Milestone 2 still requires full sync/recovery streak evidence, status-duration/waiting certification, and production certification.
 - **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
 - **Implemented:** `sla_lineage_report()` reports scoped local counts for SLA identifiers, met flags, generic due dates, first-response due targets, resolution-plan due targets, resolved due targets, pause context, by-status SLA coverage, warnings, and scope application. Field certification now embeds the SLA lineage report and keeps SLA certification `partial` when SLA identifiers/met flags exist without complete due/response/resolution target timestamps.
-- **Validation:** Focused container validation passed: `docker compose run --rm -T --no-deps -v "$PWD":/workspace -w /workspace api pytest apps/api/tests/test_ingestion_rag.py -q` returned `77 passed`. Full API compile/pytest validation passed with `143 passed`; static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check` passed.
+- **Validation:** Focused container validation passed: `docker compose run --rm -T --no-deps -v "$PWD":/workspace -w /workspace api pytest apps/api/tests/test_ingestion_rag.py -q` returned `77 passed`. Full API compile/pytest validation passed with `143 passed`; static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check` passed; PR #79 CI run `29938144886` passed before merge.
 - **Read-only evidence:** No sync jobs, production deployment, live Autotask probe, model workflow change, or Autotask write capability was run or added.
 - **Rollback:** Revert this branch commit; no migration is included and SLA field certification returns to the prior aggregate field row.
-- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `9ebafae751455669da145675e1215bdbe15b1a4f` and does not include this branch until after merge.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `ed311a9166088aebce7cf1ece1d30a76017e1697` and records this PR #79 evidence with local knowledge validation passing.
 
 ## Historical receipt — Milestone 2 scoped labor lineage
 
@@ -785,7 +784,7 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `9ebafae751455669da145675e1215bdbe15b1a4f`. It records Autotask AI progress through PR #77, including PR #75 labor gap lineage, PR #76 documentation reconciliation, and PR #77 scoped labor lineage evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `ed311a9166088aebce7cf1ece1d30a76017e1697`. It records Autotask AI progress through PR #79, including PR #75 labor gap lineage, PR #77 scoped labor lineage, and PR #79 scoped SLA lineage evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
 
 ## Exact next action
 

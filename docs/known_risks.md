@@ -58,7 +58,7 @@
 **Severity:** Medium
 **State:** Partially mitigated
 **Impact:** Ticket-health, prediction, and routing calculations may be incomplete or misleading.
-**Existing controls:** PR `newbie10122/autotask-ai#10` restored read-only TimeEntries and TicketHistory automation, including recent-sync TimeEntries, open-ticket gap repair, estate-wide gap sweeps, and operations coverage reporting. Branch `agent/m2-related-data-catchup-cadence` raises bounded estate TimeEntries/TicketHistory gap batch defaults to `100`, upgrades persisted old-default `25` values only, and exposes estimated bounded catch-up runs in Operations. PR #75 carries TimeEntries checked-empty versus unchecked gap-check evidence into field certification. PR #77 applies authorized company scope to labor coverage and field-certification labor context. Branch `agent/m2-sla-lineage-certification` adds scoped SLA ID/met/due-target/pause lineage evidence.
+**Existing controls:** PR `newbie10122/autotask-ai#10` restored read-only TimeEntries and TicketHistory automation, including recent-sync TimeEntries, open-ticket gap repair, estate-wide gap sweeps, and operations coverage reporting. Branch `agent/m2-related-data-catchup-cadence` raises bounded estate TimeEntries/TicketHistory gap batch defaults to `100`, upgrades persisted old-default `25` values only, and exposes estimated bounded catch-up runs in Operations. PR #75 carries TimeEntries checked-empty versus unchecked gap-check evidence into field certification. PR #77 applies authorized company scope to labor coverage and field-certification labor context. PR #79 adds scoped SLA ID/met/due-target/pause lineage evidence.
 **Next mitigation:** Complete field inventory, source-lineage certification, SLA/status/waiting fields, freshness policy, restart/recovery tests, and explicit distinctions among synchronized, checked-empty, unchecked, failed, unavailable, and authorization-filtered data.
 
 ### R18 — Scheduler heartbeat can drift from actual job execution
@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `b2b9faa65963f1dad280195150bb5128cc0d855c` through PR #78; Second Brain PR #13 is open at head `9ebafae751455669da145675e1215bdbe15b1a4f` with local knowledge validation passing.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `b504622a828379434e91a41f40c0247cd5dbebf9` through PR #79; Second Brain PR #13 is open at head `ed311a9166088aebce7cf1ece1d30a76017e1697` with local knowledge validation passing.
 
 ### R16 — CI runner environment differences
 
@@ -151,4 +151,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `9ebafae751455669da145675e1215bdbe15b1a4f` with local validation passing; pending merge there does not block independent Autotask AI engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `ed311a9166088aebce7cf1ece1d30a76017e1697` with local validation passing; pending merge there does not block independent Autotask AI engineering.
