@@ -53,6 +53,11 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(page.locator("#fieldCertificationState")).toHaveText("partial_field_certification");
   await expect(page.locator("#fieldCertificationBlockers")).toContainText("status_duration");
   await expect(page.locator("#fieldCertificationParser")).toHaveText("0 status / 0 timestamped");
+  const diagnosticPanel = page.locator("#fieldCertificationDiagnostics");
+  await expect(diagnosticPanel).toContainText("coverage_backfill");
+  await expect(diagnosticPanel).toContainText("source_shape_limited");
+  await expect(diagnosticPanel).toContainText("Source limited");
+  await expect(diagnosticPanel).toContainText("Continue bounded scheduled TicketHistory gap checks");
   const fieldPanel = page.locator("#fieldCertificationTargets");
   await expect(fieldPanel).toContainText("TicketHistory coverage");
   await expect(fieldPanel).toContainText("source_limited");
