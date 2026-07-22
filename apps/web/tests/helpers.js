@@ -128,6 +128,57 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
         })
       });
     }
+    if (pathname === "/api/ticket-health/review-queue") {
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          summary: {
+            review_candidates: 2,
+            returned: 2,
+            needs_review_feedback_tickets: 1,
+            predictive_ranked_tickets: 1,
+            predictive_abstentions: 1
+          },
+          guidance: [
+            "This queue is local and review-only.",
+            "Statistical ranking abstains when scoped local historical samples are too small."
+          ],
+          items: [
+            {
+              ticket_id: 88,
+              ticket_number: "T20260421.0014",
+              title: "Printer offline again",
+              risk_bucket: "critical",
+              review_priority: 76,
+              predictive_review_priority: 99,
+              predictive_signal: {
+                review_only: true,
+                abstained: false,
+                confidence: "strong",
+                sample_size: 5980,
+                reason_codes: ["open_age_exceeds_similar_resolution_average", "labor_exceeds_similar_average"]
+              }
+            },
+            {
+              ticket_id: 89,
+              ticket_number: "T20260715.0042",
+              title: "Rare device failure",
+              risk_bucket: "watch",
+              review_priority: 32,
+              predictive_review_priority: 32,
+              predictive_signal: {
+                review_only: true,
+                abstained: true,
+                confidence: "low",
+                sample_size: 2,
+                reason_codes: ["insufficient_local_history"]
+              }
+            }
+          ]
+        })
+      });
+    }
     if (pathname === "/api/admin/curated-memory") {
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ items: [] }) });
     }

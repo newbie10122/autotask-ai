@@ -58,6 +58,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Conversational UI branch `agent/answer-ticket-links` makes ticket IDs inside rendered assistant answer text open the same scoped ticket-detail modal.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
+- Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
 
 ## Verified gaps blocking production readiness
 
@@ -106,7 +107,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Predictive ticket review ranking
+## Latest receipt — Predictive review UI
+
+- **Slice:** Surface review-only predictive ticket ranking in the web UI on branch `agent/predictive-review-ui` from canonical `main` `ab65f9390ac3ad69f44648a564b6830dfd906bf5`.
+- **State:** `partial_foundation`; technicians can now inspect predictive ranking and abstention evidence in the browser, but Milestone 7 still requires holdout evaluation, leakage controls, bias/concentration review, and production certification.
+- **Files changed:** `apps/web/index.html`, `apps/web/styles.css`, `apps/web/tests/helpers.js`, `apps/web/tests/accessibility.spec.js`, `apps/web/tests/ticket-health.spec.js`, and project status docs.
+- **Implemented:** The static web app now has a Ticket Health navigation section that loads `/api/ticket-health/review-queue`, shows review candidate, predictive-ranked, and abstention counts, displays review-only guidance, lists ticket risk/priority/predictive score/confidence/sample/reasons, and lets ticket numbers open the existing scoped local detail modal.
+- **Validation:** `npm run test:web -- ticket-health.spec.js` passed with `1 passed`; `npm run test:web` passed with `11 passed`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added; the UI renders local read-only review-queue evidence and existing local ticket detail evidence.
+- **Rollback:** Revert this branch commit; the predictive review queue remains available by API, but the static UI no longer shows the Ticket Health predictive table.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Predictive ticket review ranking
 
 - **Slice:** Add review-only statistical ticket ranking on branch `agent/predictive-ticket-review-ranking` from canonical `main` `844d0330ad703d1744fc4837ce042c13122b52e9`.
 - **State:** `partial_foundation`; ticket review ranking now includes Bayesian-smoothed local historical signals and abstention, but Milestone 7 still requires documented prediction targets, holdout evaluation, bias/concentration review, and production certification.

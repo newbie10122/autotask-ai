@@ -315,6 +315,11 @@ th, td {
   vertical-align: top;
   overflow-wrap: anywhere;
 }
+.table-note {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
 .memory-list, .issue-list { display: grid; gap: 8px; }
 .memory-item, .issue-item {
   border: 1px solid var(--line);

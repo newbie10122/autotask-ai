@@ -13,6 +13,7 @@
         <a href="#dashboard">Dashboard</a>
         <a href="#ask">Ask Assistant</a>
         <a href="#analytics">Analytics</a>
+        <a href="#ticket-health">Ticket Health</a>
         <a href="#operations">Operations</a>
         <a href="#sync">Sync Status</a>
         <a href="#knowledge">Saved Knowledge</a>
@@ -104,6 +105,25 @@
         </div>
         <div id="analyticsWarnings" class="result">No analytics warnings loaded.</div>
         <div id="recurringIssues" class="issue-list">Loading recurring issue groups.</div>
+      </section>
+
+      <section id="ticket-health">
+        <div class="section-row">
+          <h2>Ticket Health</h2>
+          <button id="refreshTicketHealth" type="button">Refresh</button>
+        </div>
+        <div class="connection-grid">
+          <div><span>Review Candidates</span><strong id="ticketReviewCandidates">Loading</strong></div>
+          <div><span>Predictive Ranked</span><strong id="ticketPredictiveRanked">Loading</strong></div>
+          <div><span>Abstentions</span><strong id="ticketPredictiveAbstentions">Loading</strong></div>
+        </div>
+        <div id="ticketHealthGuidance" class="result">Loading review guidance.</div>
+        <table>
+          <thead>
+            <tr><th>Ticket</th><th>Risk</th><th>Priority</th><th>Predictive</th><th>Confidence</th><th>Sample</th><th>Reasons</th></tr>
+          </thead>
+          <tbody id="ticketHealthReviewQueue"></tbody>
+        </table>
       </section>
 
       <section id="operations">
@@ -646,6 +666,55 @@
         });
       }
 
+      async function loadTicketHealth() {
+        const data = await api("/api/ticket-health/review-queue?limit=10");
+        const summary = data.summary || {};
+        document.getElementById("ticketReviewCandidates").textContent = summary.review_candidates || 0;
+        document.getElementById("ticketPredictiveRanked").textContent = summary.predictive_ranked_tickets || 0;
+        document.getElementById("ticketPredictiveAbstentions").textContent = summary.predictive_abstentions || 0;
+        document.getElementById("ticketHealthGuidance").textContent =
+          (data.guidance && data.guidance.length ? data.guidance.join("\n") : "Review-only local ticket ranking.");
+        const body = document.getElementById("ticketHealthReviewQueue");
+        body.innerHTML = "";
+        (data.items || []).forEach((item) => {
+          const signal = item.predictive_signal || {};
+          const tr = document.createElement("tr");
+          const ticketCell = document.createElement("td");
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "link-button";
+          button.textContent = item.ticket_number || item.ticket_id;
+          button.addEventListener("click", () => openTicketDetail(item.ticket_number || String(item.ticket_id)));
+          ticketCell.appendChild(button);
+          const title = document.createElement("div");
+          title.className = "table-note";
+          title.textContent = item.title || "";
+          ticketCell.appendChild(title);
+          tr.appendChild(ticketCell);
+          [
+            item.risk_bucket,
+            item.review_priority,
+            item.predictive_review_priority,
+            signal.abstained ? "Abstained" : signal.confidence,
+            signal.sample_size,
+            (signal.reason_codes || item.reasons || []).join(", "),
+          ].forEach((value) => {
+            const td = document.createElement("td");
+            td.textContent = value == null ? "" : value;
+            tr.appendChild(td);
+          });
+          body.appendChild(tr);
+        });
+        if (!body.children.length) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.colSpan = 7;
+          td.textContent = "No ticket-health review candidates returned.";
+          tr.appendChild(td);
+          body.appendChild(tr);
+        }
+      }
+
       async function loadAudit() {
         const data = await api("/audit-log");
         document.getElementById("auditLog").textContent = data.entries.map((entry) => `${entry.created_at} ${entry.action} ${entry.target || ""}`).join("\n") || "No audit entries.";
@@ -899,9 +968,10 @@
       });
       document.getElementById("refreshSync").addEventListener("click", loadSync);
       document.getElementById("refreshAnalytics").addEventListener("click", loadAnalytics);
+      document.getElementById("refreshTicketHealth").addEventListener("click", loadTicketHealth);
       document.getElementById("refreshOperations").addEventListener("click", loadOperations);
       document.getElementById("refreshMemory").addEventListener("click", loadMemory);
-      Promise.all([loadAuthState(), loadSettings(), loadSync(), loadAnalytics(), loadOperations(), loadMemory(), loadAudit()]).catch((error) => {
+      Promise.all([loadAuthState(), loadSettings(), loadSync(), loadAnalytics(), loadTicketHealth(), loadOperations(), loadMemory(), loadAudit()]).catch((error) => {
         document.getElementById("apiStatus").textContent = error.message;
       });
     </script>

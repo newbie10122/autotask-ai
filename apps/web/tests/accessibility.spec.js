@@ -59,6 +59,7 @@ test("keyboard focus reaches navigation, auth, and ask workflow controls", async
     page.getByRole("link", { name: "Dashboard" }),
     page.getByRole("link", { name: "Ask Assistant" }),
     page.getByRole("link", { name: "Analytics" }),
+    page.getByRole("link", { name: "Ticket Health" }),
     page.getByRole("link", { name: "Operations" }),
     page.getByRole("link", { name: "Sync Status" }),
     page.getByRole("link", { name: "Saved Knowledge" }),
