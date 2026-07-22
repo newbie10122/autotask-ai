@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `55f3d9804427ae79b3e8b532597282f950f76cc1`, which merged PR `newbie10122/autotask-ai#84` (`Record response lineage merge`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#84` run `29945153422`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation on the current reference-lineage branch passed with API/worker Python compilation, full pytest `151 passed`, Playwright browser smoke `13 passed`, focused field-certification/reference-lineage tests `85 passed`, and real local Postgres field-certification smoke.
+- Canonical `main` is `d295d6a6ad1168f3cbd2deb717422936ef5c34aa`, which merged PR `newbie10122/autotask-ai#85` (`Certify reference field lineage`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#85` run `29945930552`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation for PR #85 passed with API/worker Python compilation, full pytest `151 passed`, Playwright browser smoke `13 passed`, focused field-certification/reference-lineage tests `85 passed`, and real local Postgres field-certification smoke.
 - Second Brain projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after recording Autotask AI progress through PR #70 at projection branch head `4306bcc`; local `python3 tools/validate_knowledge.py` passed before merge.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -69,7 +69,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 2 SLA lineage branch `agent/m2-sla-lineage-certification` adds scoped SLA ID/met/due-target/pause lineage evidence and keeps SLA certification partial when due target timestamps are incomplete.
 - Milestone 2 status-duration/waiting lineage branch `agent/m2-status-duration-waiting-lineage` adds aggregate-only TicketHistory source-shape inventory, current waiting-state snapshot taxonomy, and a no-proxy-duration contract so current status timestamps are not treated as historical waiting duration evidence.
 - PR #83 adds aggregate-only scoped customer/technician response lineage from local ticket-note author identifiers and normalized/raw note timestamps; runtime evidence shows note author IDs and raw `createDateTime` timestamps are present, while the normalized timestamp column will populate on future sync/upsert/backfill.
-- Milestone 2 reference-lineage branch `agent/m2-reference-field-lineage` adds aggregate-only scoped reference-field lineage for current priority, category/issue/subissue, queue, and status fields and feeds priority/category/queue reference completeness into field certification.
+- PR #85 adds aggregate-only scoped reference-field lineage for current priority, category/issue/subissue, queue, and status fields and feeds priority/category/queue reference completeness into field certification.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -103,7 +103,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - TicketHistory content-certification is merged through PRs #58 and #59. Canonical `main` runtime validation on `bcc1b433b4a0124c833f131d28227a57eb6e1df2` returned `ok=true` for `/api/ticket-health/ticket-history-content-certification` after qualifying joined `h.raw` JSON references. The aggregate-only evidence found `30186` TicketHistory rows, `100%` timestamp coverage, `1` status-like row, and no `field`/`oldValue`/`newValue` raw keys, without exposing raw history detail text or enabling parser/model/workflow changes.
 - Post-merge Milestone 2 evidence on canonical `main` `27b0bd7e502a0b9ef74b60238f0e9f362ece422b`: PR #81 field certification executed locally through the API container against existing Postgres and returned `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, and `waiting_states`. The aggregate-only TicketHistory source-shape inventory found `38648` scoped local rows, `4804` tickets represented, `100%` timestamp coverage, `0` structured status-transition rows, `1` status-like parser-incompatible row, `164` duplicate timestamp groups, and `33489` non-monotonic timestamp rows by local ID order. The current waiting-state snapshot taxonomy reported `67726` tickets, `67625` mapped tickets, and `101` unknown/unmapped tickets; historical waiting-duration remains unavailable.
 - Post-merge PR #83 response-lineage runtime evidence: local read-only field certification returned blockers `ticket_status_history`, `status_duration`, and `waiting_states`. The response lineage report found `675531` scoped ticket notes, `8091` customer-attributed notes, `667440` technician-attributed notes, `0` ambiguous notes, `100%` raw-backed timestamp coverage for both customer and technician response notes, and `0` normalized timestamp rows until future sync/upsert/backfill refreshes the normalized column. Response lineage is available as local read-only evidence.
-- Current branch reference-lineage runtime evidence: local read-only reference lineage returned `partial_reference_lineage`, tickets `67726`, and three partial targets. Priority has `67726` present rows, queue has `67665` present rows, and category/issue/subissue has `187528` present rows across the three fields, but each has `0%` meaningful mapped-label coverage because current local reference labels are inferred placeholders. Field certification remains `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, `waiting_states`, `priority`, `category`, and `queue`.
+- Post-merge PR #85 reference-lineage runtime evidence: local read-only reference lineage returned `partial_reference_lineage`, tickets `67726`, and three partial targets. Priority has `67726` present rows, queue has `67665` present rows, and category/issue/subissue has `187528` present rows across the three fields, but each has `0%` meaningful mapped-label coverage because current local reference labels are inferred placeholders. Field certification remains `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, `waiting_states`, `priority`, `category`, and `queue`.
 
 ## Milestone table
 
@@ -123,14 +123,14 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge `agent/m2-reference-field-lineage` after PR CI passes, then update Second Brain PR #13 with sanitized reference-lineage evidence.
+1. Record the PR #85 merge and updated Second Brain PR #13 reference-lineage projection in canonical project documents.
 2. Continue the next independent Milestone 2 field/source-lineage or sync/recovery evidence slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
 ## Current receipt — Milestone 2 reference-field lineage
 
-- **Slice:** Add scoped priority/category/queue reference-field lineage on branch `agent/m2-reference-field-lineage` from canonical `main` `55f3d9804427ae79b3e8b532597282f950f76cc1`.
+- **Slice:** Add scoped priority/category/queue reference-field lineage on branch `agent/m2-reference-field-lineage`; merged as PR #85 into canonical `main` `d295d6a6ad1168f3cbd2deb717422936ef5c34aa`.
 - **State:** `partial_foundation`; current local priority, category/issue/subissue, and queue values are present, but the local reference-value rows are inferred placeholders and therefore not fully certified as meaningful/authoritative labels.
 - **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
 - **Implemented:** `reference_field_lineage_report()` returns aggregate-only scoped field presence, raw-value coverage, distinct-value counts, local reference coverage, meaningful-label coverage, source counts, and bucketed top-value evidence for priority, category, issue type, subissue type, queue, and status. `field_certification_report()` now includes priority, category, and queue reference-lineage targets plus `source_reports.reference_lineage`, keeping those inputs excluded from model training until certified.
@@ -138,7 +138,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - **Validation:** Focused container validation passed with `85 passed`. API/worker Python compilation and full pytest passed with `151 passed`; Playwright browser smoke passed with `13 passed`. Real local Postgres smoke for `reference_field_lineage_report()` and `field_certification_report()` passed.
 - **Read-only evidence:** No sync jobs, production deployment, live Autotask probe, model threshold/workflow change, reference-data sync, or Autotask write capability was run or added.
 - **Rollback:** Revert this branch commit; field certification returns to the prior target set without explicit priority/category/queue reference-lineage targets.
-- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `eeddb9296c48c0c023f6796b5a2c0f607f133c7d` and should be updated after this branch merges.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `f9dadc062035896823a3614230c49f9c3acf6f1c` and records this PR #85 reference-lineage evidence with local knowledge validation passing.
 
 ## Historical receipt — Milestone 2 customer/technician response lineage
 
@@ -150,7 +150,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - **Validation:** Focused container validation passed with `84 passed`. API/worker Python compilation and full pytest passed with `150 passed`; static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check` passed.
 - **Read-only evidence:** No sync jobs, production deployment, live Autotask probe, model threshold/workflow change, or Autotask write capability was run or added.
 - **Rollback:** Revert this branch commit; field certification returns to the prior target set without explicit customer/technician response lineage targets.
-- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `eeddb9296c48c0c023f6796b5a2c0f607f133c7d` and records this PR #83 response-lineage evidence with local knowledge validation passing.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` records this PR #83 response-lineage evidence with local knowledge validation passing and has since advanced to the current head documented in the Second Brain state section.
 
 ## Historical receipt — Milestone 2 status-duration and waiting source-lineage
 
@@ -826,8 +826,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `eeddb9296c48c0c023f6796b5a2c0f607f133c7d`. It records Autotask AI progress through PR #83, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, and PR #83 response-lineage evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `f9dadc062035896823a3614230c49f9c3acf6f1c`. It records Autotask AI progress through PR #85, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, and PR #85 reference-field lineage evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
 
 ## Exact next action
 
-Commit and merge the reference-field lineage branch, update Second Brain PR #13, then continue the next safe Milestone 2 source-lineage or sync/recovery evidence slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
+Commit and merge this documentation reconciliation, then continue the next safe Milestone 2 source-lineage or sync/recovery evidence slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
