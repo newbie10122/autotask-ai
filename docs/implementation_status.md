@@ -11,9 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `d369e05`, which merged PR `newbie10122/autotask-ai#106` (`Record reference metadata source contract merge evidence`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#106` run `29958067967`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #106 passed `git diff --check` and full repository validation with `159` API tests plus `13` Playwright tests.
-- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `dda245b` after recording Autotask AI progress through PR #105; local `python3 tools/validate_knowledge.py` passed with `109` Markdown files, `109` unique IDs, and `230` internal links.
+- Canonical `main` is `a07774c`, which merged PR `newbie10122/autotask-ai#107` (`Add reference metadata availability probe`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#107` run `29958500758`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #107 passed focused bounded reference/status probe tests with `6 passed`, focused route authority/success-audit tests with `2 passed`, `git diff --check`, and full repository validation with `161` API tests plus `13` Playwright tests.
+- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `6797b80` after recording Autotask AI progress through PR #107; local `python3 tools/validate_knowledge.py` passed with `110` Markdown files, `110` unique IDs, and `236` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -79,7 +79,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #101 separates meaningful local reference labels from authoritative Autotask-sourced labels in reference lineage, field certification, and Operations field-certification cards.
 - PR #103 adds aggregate-only raw candidate label-key evidence to reference lineage and field certification, including the corrected category raw source key `ticketCategory`.
 - PR #105 adds a read-only reference metadata source contract for authoritative reference-label certification.
-- Current branch `agent/m2-reference-metadata-probe` adds an Admin-only manual bounded read-only reference metadata source probe.
+- PR #107 adds an Admin-only manual bounded read-only reference metadata source probe.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -138,21 +138,21 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge bounded reference metadata source-probe evidence.
+1. Record bounded reference metadata source-probe merge evidence.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 reference metadata source-probe evidence
+## Current receipt — Milestone 2 reference metadata source-probe merge evidence
 
-- **Slice:** Add Admin-only manual bounded read-only reference metadata source probe on branch `agent/m2-reference-metadata-probe` from canonical `main` `d369e05`.
+- **Slice:** Record reference metadata source-probe merge evidence after PR #107 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; the app can now manually test candidate reference metadata entities, but the branch does not execute the live probe or certify reference labels.
-- **Files changed:** `apps/api/app/autotask.py`, `apps/api/app/main.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
-- **Implemented:** `AutotaskReadOnlyClient.probe_reference_metadata_sources()` probes candidate metadata entities with `MaxRecords=1`, `id >= 0` read filters, per-entity error isolation, sanitized availability results, and policy flags preventing automatic reference sync/model workflow changes. `POST /api/autotask/probe/reference-metadata-sources` is Admin-only and records success-audit metadata.
-- **Validation:** Focused bounded reference/status probe tests passed with `6 passed`; focused route authority/success-audit tests passed with `2 passed`; full repository validation passed with `161` API tests and `13` Playwright tests; `git diff --check` passed. GitHub CI is still required before merge.
-- **Read-only/authority evidence:** This branch does not schedule probes, execute the live probe, run reference sync, run sync jobs, deploy production code, change model threshold/workflow behavior, change routing/assignment, or write to Autotask.
-- **Rollback:** Revert this branch commit; the metadata source contract remains but there is no manual reference metadata availability probe.
-- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+- **Files changed:** Project status docs only.
+- **Implemented by PR #107:** `AutotaskReadOnlyClient.probe_reference_metadata_sources()` probes candidate metadata entities with `MaxRecords=1`, `id >= 0` read filters, per-entity error isolation, sanitized availability results, and policy flags preventing automatic reference sync/model workflow changes. `POST /api/autotask/probe/reference-metadata-sources` is Admin-only and records success-audit metadata.
+- **Validation:** PR #107 CI run `29958500758` passed; focused bounded reference/status probe tests passed with `6 passed`; focused route authority/success-audit tests passed with `2 passed`; full repository validation passed with `161` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only reconciliation requires docs whitespace validation and CI before merge.
+- **Read-only/authority evidence:** This docs-only branch does not schedule probes, execute the live probe, run reference sync, run sync jobs, deploy production code, change model threshold/workflow behavior, change routing/assignment, or write to Autotask.
+- **Rollback:** Revert this docs-only commit; application behavior remains the PR #107 behavior on canonical main.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `6797b80` and records PR #107 reference metadata source-probe evidence with local knowledge validation passing.
 
 ## Historical receipt — Milestone 2 reference metadata source-contract merge evidence
 
@@ -1023,8 +1023,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `dda245b`. It records Autotask AI progress through PR #105, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, PR #99 reference-label provenance evidence, PR #101 reference-lineage source-authority evidence, PR #103 reference-label source-candidate evidence, and PR #105 reference metadata source-contract evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `109` Markdown files, `109` unique IDs, and `230` internal links.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `6797b80`. It records Autotask AI progress through PR #107, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, PR #99 reference-label provenance evidence, PR #101 reference-lineage source-authority evidence, PR #103 reference-label source-candidate evidence, PR #105 reference metadata source-contract evidence, and PR #107 reference metadata source-probe evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `110` Markdown files, `110` unique IDs, and `236` internal links.
 
 ## Exact next action
 
-Commit and merge this reference metadata source-contract merge-evidence reconciliation, then continue the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
+Commit and merge this reference metadata source-probe merge-evidence reconciliation, then continue the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
