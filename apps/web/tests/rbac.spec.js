@@ -26,6 +26,7 @@ test("admin browser state enables admin and technician controls", async ({ page 
   await stubApi(page, { routeAuthRequired: true, user: { username: "admin", roles: ["Admin"] } });
   await page.goto(pageUrl);
   await expect(page.locator("#authStatus")).toContainText("admin: Admin");
+  await expect(page.locator("#referenceSources")).toHaveText("bootstrap: 1 / inferred: 2");
   await expect(page.locator("#pauseOperations")).toBeEnabled();
   await expect(page.locator("[data-action='/api/sync/reference-data/start']")).toBeEnabled();
   await expect(page.locator("[data-rating='Good']")).toBeEnabled();

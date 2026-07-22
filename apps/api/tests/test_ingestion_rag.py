@@ -22,6 +22,7 @@ import app.realtime as realtime_module
 import app.routing as routing_module
 import app.sync as sync_module
 from app.sync import sync_companies, sync_ticket_notes, sync_tickets
+import app.ticket_analytics as ticket_analytics_module
 from app.ticket_analytics import format_recurring_issues_answer, issue_group_label
 import app.ticket_health as ticket_health_module
 from app.ticket_classifier import classify_ticket
@@ -1910,6 +1911,89 @@ def test_ticket_note_sync_recognizes_autotask_create_date_time_key():
     assert '"createDateTime", "createdDateTime", "createDate"' in source
     assert '"createDateTime", "createdDateTime", "createDate"' in helper_source
 
+
+def test_reference_sync_preserves_bootstrap_source_for_known_values(monkeypatch):
+    captured_upserts = []
+
+    class FakeResult:
+        def __init__(self, rows=None, row=None):
+            self.rows = rows or []
+            self.row = row or {"count": 0}
+
+        def fetchall(self):
+            return self.rows
+
+        def fetchone(self):
+            return self.row
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            if "INSERT INTO autotask_reference_values" in sql:
+                captured_upserts.append(params)
+                return FakeResult()
+            if "SELECT DISTINCT priority AS value" in sql:
+                return FakeResult(rows=[{"value": "2"}, {"value": "7"}])
+            if "SELECT DISTINCT raw->>%s AS value" in sql:
+                return FakeResult(rows=[])
+            if "SELECT DISTINCT" in sql:
+                return FakeResult(rows=[])
+            if "count(*) AS count" in sql:
+                return FakeResult(row={"count": len(captured_upserts)})
+            return FakeResult(rows=[])
+
+    monkeypatch.setattr(ticket_analytics_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_analytics_module, "db_connection", lambda: FakeConnection())
+
+    result = ticket_analytics_module.sync_reference_data()
+
+    priority_upserts = [params[:4] for params in captured_upserts if params[0] == "priority"]
+    assert ("priority", "2", "Priority 2", "bootstrap") in priority_upserts
+    assert ("priority", "7", "Priority 7", "inferred") in priority_upserts
+    assert result["ok"] is True
+    assert "by_source" in result
+
+
+def test_reference_data_status_reports_source_counts(monkeypatch):
+    class FakeResult:
+        def __init__(self, rows=None, row=None):
+            self.rows = rows or []
+            self.row = row or {}
+
+        def fetchall(self):
+            return self.rows
+
+        def fetchone(self):
+            return self.row
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql):
+            if "count(*) AS count FROM autotask_reference_values" in sql:
+                return FakeResult(row={"count": 3})
+            if "GROUP BY field_name" in sql:
+                return FakeResult(rows=[{"field_name": "priority", "count": 2}])
+            if "GROUP BY 1" in sql:
+                return FakeResult(rows=[{"source": "bootstrap", "count": 1}, {"source": "inferred", "count": 2}])
+            raise AssertionError(sql)
+
+    monkeypatch.setattr(ticket_analytics_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_analytics_module, "db_connection", lambda: FakeConnection())
+
+    result = ticket_analytics_module.reference_data_status()
+
+    assert result["total_reference_values"] == 3
+    assert result["by_source"] == [{"source": "bootstrap", "count": 1}, {"source": "inferred", "count": 2}]
 
 def test_reference_field_lineage_report_applies_scope_and_avoids_raw_labels(monkeypatch):
     captured_queries = []

@@ -75,6 +75,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #91 adds an Admin-only local archive action for stale orphaned scheduler run metadata. It only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job.
 - PR #95 adds read-only scheduler recovery-streak evidence to Operations status and the Operations UI. It inspects the latest three scheduler-triggered runs for each required scheduler job without running jobs or exposing raw errors.
 - PR #97 records local pause/resume provenance in Operations settings/status and success audits: action, actor, reason, timestamp, and policy flags proving local metadata only, no job execution, and no Autotask writes.
+- Current branch `agent/m2-reference-label-provenance` preserves bootstrap reference-label provenance during reference sync, reports reference label counts by source, and displays bootstrap/inferred source counts in the UI.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -133,12 +134,23 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record PR #97 merge evidence and Second Brain PR #13 head in canonical docs.
+1. Merge reference-label provenance after full validation and CI pass.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 scheduler pause/resume provenance merge evidence
+## Current receipt — Milestone 2 reference-label provenance
+
+- **Slice:** Preserve and expose reference-label provenance on branch `agent/m2-reference-label-provenance` from canonical `main` `d8e70b95139143283b435f958dd377cd362f17ca`.
+- **State:** `partial_foundation`; source counts are clearer and bootstrap labels are no longer downgraded to inferred, but authoritative Autotask reference-label completeness remains open.
+- **Files changed:** `apps/api/app/ticket_analytics.py`, `apps/api/tests/test_ingestion_rag.py`, `apps/web/index.html`, `apps/web/tests/helpers.js`, `apps/web/tests/rbac.spec.js`, and project status docs.
+- **Implemented:** Reference sync now preserves `source=bootstrap` for known bootstrap values when ticket-observed values are upserted, keeps unknown values `source=inferred`, returns `reference_data_status().by_source`, and displays source counts in the web app.
+- **Validation:** Focused reference provenance tests passed with `3 passed`.
+- **Read-only/authority evidence:** This branch only changes local reference metadata provenance and display. It does not run reference sync, sync jobs, live Autotask probes, production deployment, model threshold/workflow changes, routing/assignment changes, or Autotask writes.
+- **Rollback:** Revert this branch commit; reference sync returns to previous source labeling and the UI hides source counts.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+
+## Historical receipt — Milestone 2 scheduler pause/resume provenance merge evidence
 
 - **Slice:** Record scheduler pause/resume provenance merge evidence after PR #97 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; local scheduler visibility is stronger, but production restart/recovery certification and broader field/source-lineage completion remain open.

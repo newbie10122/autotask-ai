@@ -59,6 +59,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `c604049dacc767b7d1e103a50b8fbfd6e1d4d405`: PR #94 records PR #93 merge evidence and Second Brain PR #13 head `7cd186cb9777025770ce5bc27cbe7e77e2408a16`.
 - Post-merge Milestone 2 evidence on canonical `main` `9c1e6cc11845a90bd24e9a1d3c9a90289c144072`: PR #95 adds read-only scheduler recovery-streak evidence. Local runtime after rebuild and scheduler tick returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, recovery streak `scheduler_recovery_streak_available`, `9` clean-streak jobs, `0` partial-streak jobs, and `3` required clean runs per job.
 - Post-merge Milestone 2 evidence on canonical `main` `5368aa96582e7480e4709355ca0ffa2707d7ae5e`: PR #97 records local pause/resume actor, reason, action, timestamp, and local-metadata-only policy provenance without running jobs or allowing Autotask writes.
+- Current active branch validation: `agent/m2-reference-label-provenance` has focused reference provenance tests passing with `3 passed`. The branch preserves bootstrap source provenance for known reference labels, exposes reference counts by source, and displays bootstrap/inferred counts in the UI without running sync jobs or writing to Autotask.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -74,7 +75,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record PR #97 merge evidence and Second Brain PR #13 head in canonical docs.
+1. Merge reference-label provenance after full validation and CI pass.
 2. Continue the next safe Milestone 2 source-lineage slice without Autotask writes, production deployment, or model workflow changes.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 
