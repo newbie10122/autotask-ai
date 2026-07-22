@@ -63,6 +63,29 @@ def test_status_transition_source_probe_is_bounded_read_only(monkeypatch):
     assert all(call[2]["MaxRecords"] == 1 for call in calls)
 
 
+def test_status_transition_source_probe_isolates_repeated_unavailable_entities(monkeypatch):
+    calls = []
+
+    def fake_request(_self, method, endpoint, json=None):
+        calls.append((method, endpoint, json))
+        raise RuntimeError("entity unavailable")
+
+    monkeypatch.setattr(AutotaskReadOnlyClient, "_request", fake_request)
+
+    report = AutotaskReadOnlyClient(delay_seconds=0).probe_status_transition_sources(
+        ("TicketStatusHistory", "TicketStatusHistories", "TicketChangeHistory")
+    )
+
+    assert len(calls) == 3
+    assert report["available_entities"] == []
+    assert [item["entity"] for item in report["results"]] == [
+        "TicketStatusHistory",
+        "TicketStatusHistories",
+        "TicketChangeHistory",
+    ]
+    assert all(item["availability"] == "unavailable" for item in report["results"])
+
+
 def test_next_page_query_urls_use_post(monkeypatch):
     calls = []
     monkeypatch.setattr(

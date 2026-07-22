@@ -175,6 +175,7 @@ class AutotaskReadOnlyClient:
     ) -> dict[str, Any]:
         results: list[dict[str, Any]] = []
         for entity in entities:
+            self._consecutive_errors = 0
             try:
                 payload = self.query_entity(
                     entity,
@@ -194,6 +195,7 @@ class AutotaskReadOnlyClient:
                     }
                 )
             except Exception as exc:
+                self._consecutive_errors = 0
                 results.append(
                     {
                         "entity": entity,
