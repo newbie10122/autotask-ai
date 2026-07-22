@@ -55,6 +55,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 1 cache/export consumer certification branch `agent/m1-cache-export-consumer-certification` asserts current active cache consumers use scoped cache contracts and no export/download routes exist.
 - Milestone 1 security/isolation Quality Streak branch `agent/m1-security-isolation-quality-streak` adds a repeatable three-run harness for auth, route RBAC, audit, scope, scoped-cache, realtime, feedback, and verifier evidence.
 - Conversational UI branch `agent/ask-ticket-detail-modal` makes Ask Assistant ticket evidence inspectable by turning `Based on Tickets` entries into scoped ticket-detail modal links.
+- Conversational UI branch `agent/answer-ticket-links` makes ticket IDs inside rendered assistant answer text open the same scoped ticket-detail modal.
 
 ## Verified gaps blocking production readiness
 
@@ -102,7 +103,18 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Ask Assistant ticket detail modal
+## Latest receipt — Ask Assistant answer ticket links
+
+- **Slice:** Make ticket IDs inside assistant answer text clickable on branch `agent/answer-ticket-links` from canonical `main` `65a42bbdc4fa6689ad2fb67fea00d3aa0a375783`.
+- **State:** `partial`; answer evidence is easier to inspect in the UI, but live production-auth deployment evidence remains open.
+- **Files changed:** `apps/web/index.html`, `apps/web/tests/ask-status.spec.js`, and project status docs.
+- **Implemented:** Rendered assistant answer paragraphs and bullet lines now detect `T########.####` ticket IDs and turn them into buttons that open the existing scoped local ticket-health detail modal.
+- **Validation:** `npm run test:web` passed with `9 passed`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added; the links read existing local scoped API evidence only.
+- **Rollback:** Revert this branch commit; answer-body ticket IDs return to plain text while the `Based on Tickets` modal remains intact.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Ask Assistant ticket detail modal
 
 - **Slice:** Make assistant ticket evidence inspectable on branch `agent/ask-ticket-detail-modal` from canonical `main` `695d58b22e4f764e0f07e282d44aaffb3c46fb13`.
 - **State:** `partial`; Ask Assistant ticket evidence is easier to inspect in the UI, but live production-auth deployment evidence remains open.

@@ -97,3 +97,53 @@ test("based-on ticket opens scoped ticket detail modal", async ({ page }) => {
   await expect(page.getByRole("dialog")).toContainText("Created as New");
   await expect(page.getByRole("dialog")).toContainText("Initial triage");
 });
+
+test("ticket IDs inside answer evidence open the same detail modal", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem("autotaskAiToken", "test-token"));
+  await stubApi(page, {
+    routeAuthRequired: true,
+    user: { username: "tech", roles: ["Technician"] },
+    askHandler: async (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        answer_id: 43,
+        answer: "Confidence: Medium\n\nFrom CompuOne Ticket History\n- T20230715.0125: Outlook offline and OST rebuild fixed it.\n\nSuggested Next Steps\n- Compare against T20230715.0125 before applying the fix.",
+        confidence: "Medium",
+        based_on_tickets: ["T20230715.0125"],
+        warnings: []
+      })
+    }),
+    ticketDetailHandler: async (route) => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        ticket: {
+          ticket_number: "T20230715.0125",
+          title: "Outlook cached mode issue",
+          status_label: "Complete",
+          priority_label: "Normal",
+          queue_label: "Help Desk",
+          assigned_resource_name: "Sam",
+          health_score: 91,
+          risk_bucket: "good"
+        },
+        status_duration_summary: { current_status: "Complete", current_duration_hours: 1.25 },
+        transitions: [],
+        history_events: [{ happened_at: "2026-07-21T13:00:00Z", action: "Completed", detail: "Resolved" }],
+        labor_entries: [],
+        warnings: []
+      })
+    })
+  });
+  await page.goto(`${pageUrl}#ask`);
+  await expect(page.locator("#apiStatus")).toHaveText("API ready");
+
+  await page.locator("#question").fill("The outlook says it's offline");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await expect(page.locator("#askStatus")).toContainText("complete");
+
+  await page.locator("#answerText").getByRole("button", { name: "T20230715.0125" }).first().click();
+
+  await expect(page.getByRole("dialog", { name: "Ticket T20230715.0125" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toContainText("Outlook cached mode issue");
+});

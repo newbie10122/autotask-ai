@@ -109,6 +109,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: `./scripts/security-isolation-quality-streak.sh` passed 3/3 runs, each with `46 passed`. This is local synthetic Quality Streak evidence only; live production-auth deployment evidence remains required.
 - Current branch evidence on `agent/ask-ticket-detail-modal`: Ask Assistant `Based on Tickets` entries render as clickable buttons that open a local ticket-health detail modal using the existing scoped `/api/ticket-health/ticket-number/{ticket_number}` route; the modal shows ticket summary, status-duration, recent history, recent labor, and warnings.
 - Current branch validation: `npm run test:web` passed with `8 passed`; full `./scripts/validate-ci.sh` passed with production-auth preflight, 10 ordered migrations, full pytest `112 passed`, static web JavaScript syntax, Playwright browser smoke `8 passed`, and `git diff --check`. This is conversational UI evidence only; live production-auth deployment evidence remains required.
+- Current branch evidence on `agent/answer-ticket-links`: Ask Assistant ticket IDs embedded inside rendered answer paragraphs and bullet evidence render as clickable buttons that open the same scoped ticket-health detail modal.
+- Current branch validation: `npm run test:web` passed with `9 passed`. This is conversational UI evidence only; live production-auth deployment evidence remains required.
 
 ## Milestone 2
 
