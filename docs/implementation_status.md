@@ -11,9 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `c604049dacc767b7d1e103a50b8fbfd6e1d4d405`, which merged PR `newbie10122/autotask-ai#94` (`Record cleanup execution merge evidence`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#94` run `29950689934`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation for scheduler recovery-streak evidence passed focused scheduler recovery tests with `3 passed`, focused Operations browser smoke with `1 passed`, local runtime scheduler-recovery smoke, Nginx ready/UI smoke, full repository validation with `155 passed`, and Playwright browser smoke with `13 passed`.
-- Second Brain projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after recording Autotask AI progress through PR #70 at projection branch head `4306bcc`; local `python3 tools/validate_knowledge.py` passed before merge.
+- Canonical `main` is `9c1e6cc11845a90bd24e9a1d3c9a90289c144072`, which merged PR `newbie10122/autotask-ai#95` (`Add scheduler recovery streak evidence`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#95` run `29951300057`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for scheduler recovery-streak evidence passed focused scheduler recovery tests with `3 passed`, focused Operations browser smoke with `1 passed`, local runtime scheduler-recovery smoke, Nginx ready/UI smoke, full repository validation with `155 passed`, and Playwright browser smoke with `13 passed`.
+- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `1c1c63857fcb4907529c5eb7997f3fe0bb27f561` after recording Autotask AI progress through PR #95; local `python3 tools/validate_knowledge.py` passed with `104` Markdown files, `104` unique IDs, and `204` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -73,7 +73,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #87 adds read-only scheduler automation certification to Operations status, including required-job recent scheduler-run evidence, stale running-run detection, and safe no-raw-error reporting.
 - PR #89 adds read-only stale running-run provenance to scheduler automation certification and the Operations UI without cleanup or raw error/config/checkpoint output.
 - PR #91 adds an Admin-only local archive action for stale orphaned scheduler run metadata. It only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job.
-- Current branch `agent/m2-scheduler-streak-evidence` adds read-only scheduler recovery-streak evidence to Operations status and the Operations UI. It inspects the latest three scheduler-triggered runs for each required scheduler job without running jobs or exposing raw errors.
+- PR #95 adds read-only scheduler recovery-streak evidence to Operations status and the Operations UI. It inspects the latest three scheduler-triggered runs for each required scheduler job without running jobs or exposing raw errors.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -112,7 +112,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Post-merge PR #89 stale-run provenance runtime evidence: local read-only scheduler certification returned `1` stale running row, `classify_tickets` run `4143`, no active lock, newer completed run `4391`, and stale state `orphaned_running_row_candidate`. This explains the blocker as likely stale local run metadata, not evidence that the scheduler is failing to run classification.
 - Post-merge PR #91 cleanup capability evidence: `archive_stale_orphaned_run()` is local metadata only and returns policy flags proving it does not run jobs or allow Autotask writes. The archive SQL requires `running`, older than 30 minutes, no active lock, and newer completed run evidence before updating a row to `stale_orphaned`; PR #91 did not execute cleanup against the live database.
 - Post-merge cleanup execution evidence on PR #93: local Admin route `POST /api/operations/jobs/4143/archive-stale` returned `ok=true`, `archived=true`, policy `local_metadata_only=true`, `runs_jobs=false`, and `autotask_writes_allowed=false`. Follow-up local scheduler certification returned `certification_state=scheduler_automation_available`, `ok=true`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, no blockers, and `0` stale provenance rows. Local Nginx `/ready` and UI root returned `HTTP 200`.
-- Current branch scheduler recovery-streak runtime evidence: after local API/web rebuild and the next scheduler tick, read-only scheduler certification returned `certification_state=scheduler_automation_available`, scheduler `healthy`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, and recovery streak `scheduler_recovery_streak_available` with `9` clean-streak jobs, `0` partial-streak jobs, and `3` required clean runs per job. The recovery-streak policy reports `read_only=true`, `runs_jobs=false`, `autotask_writes_allowed=false`, and `returns_raw_error_text=false`.
+- Post-merge PR #95 scheduler recovery-streak runtime evidence: after local API/web rebuild and the next scheduler tick, read-only scheduler certification returned `certification_state=scheduler_automation_available`, scheduler `healthy`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, and recovery streak `scheduler_recovery_streak_available` with `9` clean-streak jobs, `0` partial-streak jobs, and `3` required clean runs per job. The recovery-streak policy reports `read_only=true`, `runs_jobs=false`, `autotask_writes_allowed=false`, and `returns_raw_error_text=false`.
 
 ## Milestone table
 
@@ -132,22 +132,22 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge scheduler recovery-streak evidence after full validation and CI pass.
+1. Record PR #95 merge evidence and Second Brain PR #13 head in canonical docs.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 scheduler recovery-streak evidence
+## Current receipt — Milestone 2 scheduler recovery-streak merge evidence
 
-- **Slice:** Add read-only scheduler recovery-streak evidence on branch `agent/m2-scheduler-streak-evidence` from canonical `main` `c604049dacc767b7d1e103a50b8fbfd6e1d4d405`.
+- **Slice:** Record scheduler recovery-streak merge evidence after PR #95 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; local runtime evidence now shows scheduler automation and recovery streaks available, but production certification and broader field/source-lineage completion remain open.
-- **Files changed:** `apps/api/app/operations.py`, `apps/api/tests/test_ingestion_rag.py`, `apps/web/index.html`, `apps/web/tests/helpers.js`, `apps/web/tests/operations-automation.spec.js`, and project status docs.
-- **Implemented:** `scheduler_automation_certification_report()` now includes a `recovery_streak` section that inspects the latest three scheduler-triggered runs per required job, counts clean/problematic runs, reports per-job streak status, and keeps raw error text out of the response. Operations UI displays the recovery-streak state and clean-job count.
+- **Files changed:** Project status docs only.
+- **Implemented by PR #95:** `scheduler_automation_certification_report()` now includes a `recovery_streak` section that inspects the latest three scheduler-triggered runs per required job, counts clean/problematic runs, reports per-job streak status, and keeps raw error text out of the response. Operations UI displays the recovery-streak state and clean-job count.
 - **Runtime evidence:** Local scheduler certification returned scheduler `healthy`, `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, recovery streak `scheduler_recovery_streak_available`, `9` clean-streak jobs, `0` partial-streak jobs, and `3` required clean runs per job.
-- **Validation:** Focused scheduler recovery tests passed with `3 passed`; focused Operations browser smoke passed with `1 passed`; Nginx `/ready` and UI root returned `HTTP 200`; full repository validation passed with `155` API tests and `13` Playwright tests; `git diff --check` passed.
-- **Read-only/authority evidence:** The report is read-only, does not run jobs, does not expose raw error text, and does not allow Autotask writes, production deployment, model threshold/workflow change, routing/assignment change, or reference-data sync.
-- **Rollback:** Revert this branch commit; scheduler automation certification returns to availability/provenance evidence without explicit three-run recovery-streak reporting.
-- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+- **Validation:** PR #95 CI run `29951300057` passed; focused scheduler recovery tests passed with `3 passed`; focused Operations browser smoke passed with `1 passed`; Nginx `/ready` and UI root returned `HTTP 200`; full repository validation passed with `155` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only reconciliation requires docs whitespace validation and CI before merge.
+- **Read-only/authority evidence:** This docs-only branch does not run jobs, expose raw error text, allow Autotask writes, deploy production code, change model threshold/workflow behavior, change routing/assignment, or run reference-data sync.
+- **Rollback:** Revert this docs-only commit; application behavior remains the PR #95 behavior on canonical main.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `1c1c63857fcb4907529c5eb7997f3fe0bb27f561` and records PR #95 recovery-streak evidence with local knowledge validation passing.
 
 ## Historical receipt — Milestone 2 stale scheduler-run cleanup execution merge evidence
 
@@ -924,8 +924,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `7cd186cb9777025770ce5bc27cbe7e77e2408a16`. It records Autotask AI progress through PR #93, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, and PR #93 cleanup-execution evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `1c1c63857fcb4907529c5eb7997f3fe0bb27f561`. It records Autotask AI progress through PR #95, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, and PR #95 recovery-streak evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
 
 ## Exact next action
 
-Commit and merge this cleanup-execution merge-evidence reconciliation, then continue sync/recovery streak evidence or the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
+Commit and merge this recovery-streak merge-evidence reconciliation, then continue the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
