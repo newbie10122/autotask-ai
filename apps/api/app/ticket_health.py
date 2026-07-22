@@ -650,6 +650,62 @@ def ticket_history_transition_diagnostics(limit: int = 5000) -> dict[str, Any]:
     }
 
 
+def ticket_history_transition_parse_summary(
+    limit: int = 20000,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    row_limit = min(max(limit, 1), 50000)
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    with db_connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT h.action, h.detail, h.happened_at
+            FROM autotask_ticket_history h
+            JOIN autotask_tickets t ON t.id=h.ticket_id
+            WHERE true {company_scope_sql}
+            ORDER BY h.happened_at DESC NULLS LAST, h.id DESC
+            LIMIT %s
+            """,
+            (*company_scope_params, row_limit),
+        ).fetchall()
+
+    field_counts: Counter[str] = Counter()
+    category_counts: Counter[str] = Counter()
+    parsed_transitions = 0
+    parsed_status_transitions = 0
+    timestamped_status_transitions = 0
+    for row in rows:
+        parsed = parse_history_transition(row.get("action"), row.get("detail"))
+        if not parsed["is_transition"]:
+            continue
+        parsed_transitions += 1
+        field = str(parsed.get("field") or "").strip() or "[Blank]"
+        category = classify_history_transition_field(field)
+        field_counts[field] += 1
+        category_counts[category] += 1
+        if category == "status":
+            parsed_status_transitions += 1
+            if row.get("happened_at"):
+                timestamped_status_transitions += 1
+
+    inspected = len(rows)
+    return {
+        "inspected_history": inspected,
+        "parsed_transitions": parsed_transitions,
+        "parsed_status_transitions": parsed_status_transitions,
+        "timestamped_status_transitions": timestamped_status_transitions,
+        "parsed_transition_percent": _percent(parsed_transitions, inspected),
+        "parsed_status_transition_percent": _percent(parsed_status_transitions, inspected),
+        "timestamped_status_transition_percent": _percent(timestamped_status_transitions, inspected),
+        "parsed_transition_categories": [
+            {"category": category, "count": count} for category, count in category_counts.most_common()
+        ],
+        "top_parsed_fields": [{"field": field, "count": count} for field, count in field_counts.most_common(10)],
+        "source_limited": parsed_status_transitions == 0 or timestamped_status_transitions == 0,
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+    }
+
+
 def ticket_history_coverage_report(limit: int = 10) -> dict[str, Any]:
     row_limit = min(max(limit, 1), 100)
     init_schema()
@@ -1521,11 +1577,15 @@ def _certification_status(*statuses: str, source_limited: bool = False) -> str:
 def field_certification_report(
     coverage_report: dict[str, Any] | None = None,
     status_diagnostics: dict[str, Any] | None = None,
+    transition_parse_summary: dict[str, Any] | None = None,
     authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     coverage = coverage_report or field_coverage_report(authorized_company_ids=authorized_company_ids)
     status_diag = status_diagnostics or ticket_status_source_diagnostics(authorized_company_ids=authorized_company_ids)
+    transition_summary = transition_parse_summary or ticket_history_transition_parse_summary(
+        authorized_company_ids=authorized_company_ids
+    )
     source_capability = status_diag.get("source_capability") or {}
     open_history = status_diag.get("open_ticket_history_context") or {}
     status_sample = status_diag.get("status_sample_coverage") or {}
@@ -1534,7 +1594,15 @@ def field_certification_report(
         int(open_history.get("open_tickets") or 0) > 0 and int(open_history.get("open_tickets_without_history") or 0) == 0
     )
     sampled_status_candidates = int(status_sample.get("sampled_status_candidate_rows") or 0)
-    status_duration_source_limited = not exact_status_transition or not open_history_complete or sampled_status_candidates == 0
+    parsed_status_transitions = int(transition_summary.get("parsed_status_transitions") or 0)
+    timestamped_status_transitions = int(transition_summary.get("timestamped_status_transitions") or 0)
+    status_duration_source_limited = (
+        not exact_status_transition
+        or not open_history_complete
+        or sampled_status_candidates == 0
+        or parsed_status_transitions == 0
+        or timestamped_status_transitions == 0
+    )
 
     ticket_history = _field_row_status(coverage, "ticket_status_history")
     time_entries = _field_row_status(coverage, "time_entries")
@@ -1645,6 +1713,7 @@ def field_certification_report(
                     key: value for key, value in status_sample.items() if key != "by_status"
                 },
             },
+            "transition_parser": transition_summary,
         },
         "predictive_policy": {
             "review_only": True,

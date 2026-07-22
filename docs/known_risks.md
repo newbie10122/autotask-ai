@@ -135,6 +135,14 @@
 **Evidence:** On canonical `main` `c688c6d622e60e866ee63302a1f577f498635741`, the local 100-ticket holdout for `/api/ticket-health/predictive-evaluation?limit=100&delayed_days_threshold=7` returned default statistical `accuracy=0.94`, `precision=null`, `recall=0.0`, and `f1=0.0`; the advisory best-F1 threshold `0.05` returned `accuracy=0.3`, `precision=0.068`, `recall=0.833`, and `f1=0.125`.
 **Mitigation:** Keep predictive ranking and threshold-sweep output review-only. Do not auto-select the highest-F1 threshold and do not deploy threshold, model, routing, escalation, notification, assignment, or workflow changes from this evidence. Branch `agent/predictive-calibration-policy` adds target/label semantics, Brier score, calibration bands, PR/ROC secondary metrics, threshold coverage/abstention, sanitized client/category concentration, a human-review threshold policy, and a read-only shadow-evaluation contract. Branch `agent/predictive-leakage-bias-review` adds temporal leakage review, model comparison, and sanitized stratified company/category bucket metrics. Branch `agent/predictive-source-lineage` marks current model input lineage and explicitly keeps current queue/priority/category fields uncertified for prediction. Branch `agent/m2-field-certification` adds scoped field-certification evidence and carries current Milestone 2 blockers into predictive source lineage; runtime evidence remains `partial_field_certification` with TicketHistory/status-duration/waiting blockers. Branch `agent/predictive-model-variants` compares additional read-only variants and confirms the default-threshold zero-recall problem remains across simple priority, global-prior, queue-only, priority-only, and queue+priority signals. Milestone 2 status-duration/waiting certification, three-run evaluation evidence, and production certification remain required before predictive claims are trusted.
 
+### R16 — TicketHistory status-duration source limitation
+
+**Severity:** Medium
+**State:** Confirmed source limitation
+**Impact:** Local TicketHistory may be present for tickets while still lacking parseable status-transition events. Treating those rows as exact status-duration evidence would overstate waiting/customer/vendor/technician duration accuracy.
+**Evidence:** Branch `agent/status-transition-certification` adds scoped parser certification and local runtime evidence returned `parsed_status_transitions=0`, `timestamped_status_transitions=0`, and `source_limited=true` for the inspected TicketHistory sample.
+**Mitigation:** Keep status-duration and waiting-state analytics source-limited until parser-compatible status transitions are backfilled or another read-only Autotask source exposes timestamped status changes. Do not feed these fields into predictive models or certified ticket-health calculations until Milestone 2 source-lineage evidence improves.
+
 ### R15 — Future Autotask writeback
 
 **Severity:** Prohibited future risk
