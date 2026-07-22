@@ -60,6 +60,12 @@
           <button id="askButton" type="button">Ask</button>
           <span id="askStatus" class="ask-status" aria-live="polite">Ready. Local CPU model: normal answers can take up to a minute; Deep Dive may take longer.</span>
         </div>
+        <ol id="askProgress" class="ask-progress" aria-label="Ask request progress" hidden>
+          <li data-phase="search">Search scoped ticket history</li>
+          <li data-phase="evidence">Prepare evidence</li>
+          <li data-phase="llm">Wait on local CPU model</li>
+          <li data-phase="final">Render answer</li>
+        </ol>
         <div class="answer-shell">
           <div class="section-row">
             <h3>Answer</h3>
@@ -295,20 +301,39 @@
       let askStatusTimer = null;
       let askStartedAt = 0;
       const askStatus = document.getElementById("askStatus");
+      const askProgress = document.getElementById("askProgress");
       const setAskStatus = (state, message) => {
         askStatus.dataset.state = state;
         askStatus.textContent = message;
+      };
+      const setAskProgressPhase = (phase, complete = false) => {
+        askProgress.hidden = false;
+        askProgress.querySelectorAll("li").forEach((item) => {
+          const active = item.dataset.phase === phase;
+          item.dataset.state = complete ? "complete" : active ? "active" : "";
+          item.setAttribute("aria-current", active && !complete ? "step" : "false");
+        });
       };
       const stopAskTimer = () => {
         if (askStatusTimer) window.clearInterval(askStatusTimer);
         askStatusTimer = null;
       };
-      const startAskTimer = () => {
+      const askPhaseForElapsed = (elapsedSeconds, mode) => {
+        if (elapsedSeconds < 3) return { phase: "search", label: "Searching scoped ticket history" };
+        if (elapsedSeconds < 8) return { phase: "evidence", label: "Preparing retrieved evidence" };
+        if (mode === "deep_dive" && elapsedSeconds >= 45) {
+          return { phase: "llm", label: "Deep Dive is still waiting on the local CPU model" };
+        }
+        return { phase: "llm", label: "Waiting on the local CPU model" };
+      };
+      const startAskTimer = (mode) => {
         stopAskTimer();
         askStartedAt = Date.now();
         const update = () => {
           const elapsedSeconds = Math.max(1, Math.round((Date.now() - askStartedAt) / 1000));
-          setAskStatus("running", `Waiting for assistant response... ${elapsedSeconds}s elapsed.`);
+          const phase = askPhaseForElapsed(elapsedSeconds, mode);
+          setAskProgressPhase(phase.phase);
+          setAskStatus("running", `${phase.label}... ${elapsedSeconds}s elapsed. Request is active.`);
         };
         update();
         askStatusTimer = window.setInterval(update, 1000);
@@ -879,6 +904,7 @@
 
       document.getElementById("askButton").addEventListener("click", async () => {
         const button = document.getElementById("askButton");
+        const mode = document.getElementById("askMode").value;
         button.disabled = true;
         button.textContent = "Asking";
         currentAnswerId = null;
@@ -886,13 +912,13 @@
         renderAnswer("Waiting for assistant response...");
         writeList(document.getElementById("basedOnTickets"), [], "No related tickets selected yet.");
         writeList(document.getElementById("warnings"), [], "Request still running.");
-        startAskTimer();
+        startAskTimer(mode);
         try {
           const data = await api("/api/assistant/ask", {
             method: "POST",
             body: JSON.stringify({
               question: document.getElementById("question").value,
-              mode: document.getElementById("askMode").value,
+              mode,
               limit: 5,
             }),
           });
@@ -901,7 +927,8 @@
           document.getElementById("confidence").textContent = `Confidence: ${data.confidence}`;
           renderBasedOnTickets(data.based_on_tickets);
           writeList(document.getElementById("warnings"), data.warnings, "None");
-          setAskStatus("done", "Assistant response complete.");
+          setAskProgressPhase("final", true);
+          setAskStatus("done", "Assistant response complete. No request is active.");
           await loadAudit();
         } catch (error) {
           renderAnswer(`Warnings\n- ${error.message}`);
@@ -909,7 +936,7 @@
           writeList(document.getElementById("basedOnTickets"), [], "No related tickets selected.");
           writeList(document.getElementById("warnings"), [error.message], "None");
           const timedOut = /timed out|still working/i.test(error.message);
-          setAskStatus(timedOut ? "timeout" : "error", timedOut ? "Assistant request timed out or is still working server-side. Retry, use Deep Dive, or narrow the question." : `Assistant request failed: ${error.message}`);
+          setAskStatus(timedOut ? "timeout" : "error", timedOut ? "Assistant request timed out or is still working server-side. No browser request is active; retry, use Deep Dive, or narrow the question." : `Assistant request failed: ${error.message}. No request is active.`);
         } finally {
           stopAskTimer();
           button.disabled = false;
