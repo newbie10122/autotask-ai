@@ -306,6 +306,20 @@
         askStatus.dataset.state = state;
         askStatus.textContent = message;
       };
+      const askReadyMessageForMode = (mode) => {
+        if (mode === "ticket_history_only") {
+          return "Ready. Ticket History Only uses retrieved ticket evidence without the local CPU model.";
+        }
+        if (mode === "deep_dive") {
+          return "Ready. Deep Dive can spend longer waiting on the local CPU model.";
+        }
+        return "Ready. General + Ticket History can take up to a minute on the local CPU model.";
+      };
+      const refreshAskReadyStatus = () => {
+        if (askStatusTimer) return;
+        const mode = document.getElementById("askMode").value;
+        setAskStatus("ready", askReadyMessageForMode(mode));
+      };
       const setAskProgressPhase = (phase, complete = false) => {
         askProgress.hidden = false;
         askProgress.querySelectorAll("li").forEach((item) => {
@@ -348,6 +362,8 @@
         update();
         askStatusTimer = window.setInterval(update, 1000);
       };
+      document.getElementById("askMode").addEventListener("change", refreshAskReadyStatus);
+      refreshAskReadyStatus();
       async function loadAuthState() {
         if (!authToken) {
           authUser = null;
