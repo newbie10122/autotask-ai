@@ -1557,6 +1557,116 @@ def ticket_status_source_diagnostics(authorized_company_ids: list[int] | None = 
     }
 
 
+def status_transition_source_candidates_report(
+    status_diagnostics: dict[str, Any] | None = None,
+    transition_parse_summary: dict[str, Any] | None = None,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    started = time.monotonic()
+    status_diag = status_diagnostics or ticket_status_source_diagnostics(authorized_company_ids=authorized_company_ids)
+    transition_summary = transition_parse_summary or ticket_history_transition_parse_summary(
+        authorized_company_ids=authorized_company_ids
+    )
+    source_capability = status_diag.get("source_capability") or {}
+    open_history = status_diag.get("open_ticket_history_context") or {}
+    status_sample = status_diag.get("status_sample_coverage") or {}
+    exact_fields = list(source_capability.get("exact_status_transition_timestamp_fields") or [])
+    proxy_fields = list(source_capability.get("proxy_timestamp_fields") or [])
+    parsed_status_transitions = int(transition_summary.get("parsed_status_transitions") or 0)
+    timestamped_status_transitions = int(transition_summary.get("timestamped_status_transitions") or 0)
+    sampled_status_candidate_rows = int(status_sample.get("sampled_status_candidate_rows") or 0)
+    open_tickets = int(open_history.get("open_tickets") or 0)
+    open_tickets_with_history = int(open_history.get("open_tickets_with_history") or 0)
+    open_tickets_without_history = int(open_history.get("open_tickets_without_history") or 0)
+
+    local_history_certified = (
+        open_tickets > 0
+        and open_tickets_without_history == 0
+        and sampled_status_candidate_rows > 0
+        and parsed_status_transitions > 0
+        and timestamped_status_transitions > 0
+    )
+    candidates = [
+        {
+            "key": "local_ticket_history",
+            "label": "Local TicketHistory action/detail rows",
+            "source": "autotask_ticket_history from TicketHistory",
+            "access": "local_read_only",
+            "certification_status": "certified" if local_history_certified else "source_limited",
+            "evidence": {
+                "open_tickets": open_tickets,
+                "open_tickets_with_history": open_tickets_with_history,
+                "open_tickets_without_history": open_tickets_without_history,
+                "sampled_status_candidate_rows": sampled_status_candidate_rows,
+                "parsed_status_transitions": parsed_status_transitions,
+                "timestamped_status_transitions": timestamped_status_transitions,
+            },
+            "next_step": (
+                "Use parsed timestamped status transitions for deterministic duration review."
+                if local_history_certified
+                else "Continue bounded history coverage and parser calibration; current rows do not certify exact status-duration."
+            ),
+        },
+        {
+            "key": "ticket_current_status",
+            "label": "Current ticket status",
+            "source": "autotask_tickets.status / raw.status",
+            "access": "local_read_only",
+            "certification_status": "current_state_only",
+            "evidence": {
+                "current_status_field_available": bool(source_capability.get("current_status_field_available")),
+            },
+            "next_step": "Use for present state filters only; do not infer time spent in prior statuses.",
+        },
+        {
+            "key": "ticket_proxy_timestamps",
+            "label": "Ticket activity and lifecycle timestamps",
+            "source": "autotask_tickets raw date/time fields",
+            "access": "local_read_only",
+            "certification_status": "proxy_only" if proxy_fields else "missing",
+            "evidence": {"proxy_timestamp_fields": proxy_fields},
+            "next_step": "Keep these as freshness/lifecycle context; they are not exact status-transition timestamps.",
+        },
+        {
+            "key": "candidate_status_history_entities",
+            "label": "Autotask status-history candidate entities",
+            "source": "read-only Autotask entity metadata/query probe required",
+            "access": "not_queried_by_this_report",
+            "certification_status": "not_certified",
+            "candidate_entities": [
+                "TicketStatusHistory",
+                "TicketStatusHistories",
+                "TicketHistory",
+                "TicketChangeHistory",
+            ],
+            "next_step": "Run a bounded read-only entity availability probe before adding any new sync path.",
+        },
+    ]
+    blockers = [
+        candidate["key"]
+        for candidate in candidates
+        if candidate["certification_status"] in {"source_limited", "missing", "not_certified"}
+    ]
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "certification_state": "certified" if not blockers else "source_candidates_partial",
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "candidates": candidates,
+        "blockers": blockers,
+        "policy": {
+            "review_only": True,
+            "autotask_writes_allowed": False,
+            "live_autotask_probe_ran": False,
+            "automatic_sync_path_changes_allowed": False,
+        },
+        "warnings": [
+            "This report classifies available local evidence and candidate read-only sources; it does not call or write to Autotask.",
+            "Status-duration and waiting analytics remain source-limited until timestamped status transitions are certified.",
+        ],
+    }
+
+
 def _field_row_status(coverage_report: dict[str, Any], key: str) -> dict[str, Any]:
     for row in coverage_report.get("fields") or []:
         if row.get("key") == key:
@@ -1578,6 +1688,7 @@ def field_certification_report(
     coverage_report: dict[str, Any] | None = None,
     status_diagnostics: dict[str, Any] | None = None,
     transition_parse_summary: dict[str, Any] | None = None,
+    source_candidates: dict[str, Any] | None = None,
     authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
@@ -1585,6 +1696,11 @@ def field_certification_report(
     status_diag = status_diagnostics or ticket_status_source_diagnostics(authorized_company_ids=authorized_company_ids)
     transition_summary = transition_parse_summary or ticket_history_transition_parse_summary(
         authorized_company_ids=authorized_company_ids
+    )
+    source_candidate_report = source_candidates or status_transition_source_candidates_report(
+        status_diagnostics=status_diag,
+        transition_parse_summary=transition_summary,
+        authorized_company_ids=authorized_company_ids,
     )
     source_capability = status_diag.get("source_capability") or {}
     open_history = status_diag.get("open_ticket_history_context") or {}
@@ -1714,6 +1830,7 @@ def field_certification_report(
                 },
             },
             "transition_parser": transition_summary,
+            "status_transition_source_candidates": source_candidate_report,
         },
         "predictive_policy": {
             "review_only": True,

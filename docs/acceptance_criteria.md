@@ -193,6 +193,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused container validation passed for field-certification/parser tests with `2 passed`, runtime local Postgres field-certification smoke passed, and full governed validation passed with `126` API tests plus `11` Playwright browser tests.
 - Current branch evidence on `agent/operations-field-certification-ui`: the Operations UI now displays scoped field-certification state, blockers, parser counts, and target certification cards from `/api/ticket-health/field-certification`.
 - Current branch validation: focused Playwright validation passed for `apps/web/tests/operations-automation.spec.js` with `1 passed`, static web JavaScript syntax validation passed, and full governed validation passed with `126` API tests plus `11` Playwright browser tests.
+- Current branch evidence on `agent/status-transition-source-candidates`: `/api/ticket-health/status-transition-sources` returns a scoped, read-only source-candidate contract for local TicketHistory, current ticket status, proxy ticket timestamps, and unprobed candidate Autotask status-history entities. Field certification embeds the same report. The report explicitly states that no live Autotask probe ran, no Autotask writes are allowed, and no automatic sync-path/model/workflow changes are authorized.
+- Current branch validation: focused container validation passed for field-certification/source-candidate/parser tests with `3 passed`, scoped route authority/scope propagation tests with `2 passed`, and full governed validation passed with `127` API tests plus `11` Playwright browser tests.
 
 ## Milestone 8
 
