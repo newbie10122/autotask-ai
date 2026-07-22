@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `5368aa96582e7480e4709355ca0ffa2707d7ae5e`
-- Latest merged PR: `newbie10122/autotask-ai#97`, `Add scheduler pause provenance`
-- Latest PR #97 CI: GitHub Actions run `29952434655`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local validation for scheduler pause provenance passed focused pause/provenance API tests with `2 passed`, focused Admin route audit tests with `2 passed`, focused Operations browser smoke with `1 passed`, full repository validation with `156 passed`, and Playwright browser smoke with `13 passed`.
+- Canonical `main`: `ef848a778d2ffddc53a4c9163260cd7817ad7c68`
+- Latest merged PR: `newbie10122/autotask-ai#99`, `Preserve reference label provenance`
+- Latest PR #99 CI: GitHub Actions run `29953209879`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation for reference-label provenance passed focused reference provenance tests with `3 passed`, focused browser validation with `3 passed`, full repository validation with `158 passed`, and Playwright browser smoke with `13 passed`.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -59,7 +59,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `c604049dacc767b7d1e103a50b8fbfd6e1d4d405`: PR #94 records PR #93 merge evidence and Second Brain PR #13 head `7cd186cb9777025770ce5bc27cbe7e77e2408a16`.
 - Post-merge Milestone 2 evidence on canonical `main` `9c1e6cc11845a90bd24e9a1d3c9a90289c144072`: PR #95 adds read-only scheduler recovery-streak evidence. Local runtime after rebuild and scheduler tick returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, recovery streak `scheduler_recovery_streak_available`, `9` clean-streak jobs, `0` partial-streak jobs, and `3` required clean runs per job.
 - Post-merge Milestone 2 evidence on canonical `main` `5368aa96582e7480e4709355ca0ffa2707d7ae5e`: PR #97 records local pause/resume actor, reason, action, timestamp, and local-metadata-only policy provenance without running jobs or allowing Autotask writes.
-- Current active branch validation: `agent/m2-reference-label-provenance` has focused reference provenance tests passing with `3 passed`. The branch preserves bootstrap source provenance for known reference labels, exposes reference counts by source, and displays bootstrap/inferred counts in the UI without running sync jobs or writing to Autotask.
+- Post-merge Milestone 2 evidence on canonical `main` `ef848a778d2ffddc53a4c9163260cd7817ad7c68`: PR #99 preserves bootstrap source provenance for known reference labels, exposes reference counts by source, and displays bootstrap/inferred/source counts in the UI without running sync jobs or writing to Autotask.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -75,7 +75,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge reference-label provenance after full validation and CI pass.
+1. Record reference-label provenance merge evidence after PR #99 and Second Brain PR #13 update.
 2. Continue the next safe Milestone 2 source-lineage slice without Autotask writes, production deployment, or model workflow changes.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 
@@ -100,4 +100,4 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Projection PR `newbie10122/helix-second-brain#6` is merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`. Projection branch head `4306bcc` recorded Autotask AI progress through PR #70, including calibrated predictive ranking evidence, related-data catch-up visibility, admin inspection read audit coverage, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, PR #66 control-document reconciliation, current validation counts, prior predictive evidence, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py` before merge.
 
-Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `e4ed5db2a68c414950a4e6e1ecc68ecf7d00fdb9`. It records Autotask AI progress through PR #97, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, and PR #97 pause/resume provenance evidence. Local validation passed with `python3 tools/validate_knowledge.py`: `105` Markdown files, `105` unique IDs, and `209` internal links. Do not mark it merged until the PR is actually merged.
+Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `3c3a78bd93420932ed1a0bd8b0cb7490416bb61c`. It records Autotask AI progress through PR #99, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, and PR #99 reference-label provenance evidence. Local validation passed with `python3 tools/validate_knowledge.py`: `106` Markdown files, `106` unique IDs, and `214` internal links. Do not mark it merged until the PR is actually merged.
