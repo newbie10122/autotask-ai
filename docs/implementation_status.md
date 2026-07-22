@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `8e031d1`, which merged PR `newbie10122/autotask-ai#121` (`Guide status source candidates to schema probe`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#121` run `29964318197`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #121 passed focused source-candidate validation with `1 passed`, `git diff --check`, and full repository validation with `164` API tests plus `13` Playwright tests.
+- Canonical `main` is `00cf377`, which merged PR `newbie10122/autotask-ai#122` (`Record status guidance projection evidence`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#122` run `29964713996`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #122 passed `git diff --check` and full repository validation with `164` API tests plus `13` Playwright tests.
 - Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `977d6be` after recording Autotask AI progress through PR #121 and the status source-candidate schema guidance evidence; local `python3 tools/validate_knowledge.py` passed with `116` Markdown files, `116` unique IDs, and `271` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -144,10 +144,21 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge this docs-only projection reconciliation after CI passes.
-2. Continue the next safe Milestone 2 source-lineage slice now that TicketHistory schema evidence is recorded and surfaced in the status-source report.
+1. Merge Operations status source-candidate UI visibility after validation and CI pass.
+2. Continue the next safe Milestone 2 source-lineage slice now that TicketHistory schema evidence is recorded and surfaced in the status-source report and Operations UI.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+
+## Current receipt — Milestone 2 Operations status source-candidate UI
+
+- **Slice:** Surface status-transition source candidates in the Operations field-certification panel.
+- **State:** `partial_foundation`; operator visibility only. This does not certify status-duration, waiting-duration, or queue-history analytics.
+- **Files changed:** static Operations UI, Playwright fixture/test, and project status docs.
+- **Implemented:** Operations now renders `source_reports.status_transition_source_candidates.candidates` from `/api/ticket-health/field-certification`, including status, source, access mode, candidate route, required evidence, and next-step guidance. The Playwright fixture includes `ticket_history_schema_metadata` with `/api/autotask/probe/ticket-history-schema` so UI coverage proves the governed probe route is visible without a separate API call.
+- **Validation:** Focused Operations Playwright validation passed with `1 passed`; static web JavaScript syntax validation passed; `git diff --check` passed; full `./scripts/validate-ci.sh` passed with `164` API tests and `13` Playwright tests. GitHub CI is still required before merge.
+- **Read-only/authority evidence:** The UI consumes existing local field-certification payload data only. It does not run probes, call the TicketHistory schema route, query TicketHistory rows, run sync jobs, write to Autotask, deploy production code, or change model/routing/assignment behavior.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this Autotask AI PR is merged.
+- **Rollback:** Revert this branch commit; Operations stops rendering source-candidate cards while backend source-candidate reports remain available.
 
 ## Current receipt — PR #121 Second Brain projection reconciliation
 
