@@ -12,6 +12,18 @@ test.afterAll(async () => {
   await stopStaticServer(server);
 });
 
+test("ask mode ready status reflects local model usage", async ({ page }) => {
+  await stubApi(page);
+  await page.goto(`${pageUrl}#ask`);
+  await expect(page.locator("#apiStatus")).toHaveText("API ready");
+
+  await expect(page.locator("#askStatus")).toContainText("without the local CPU model");
+  await page.locator("#askMode").selectOption("general_plus_ticket_history");
+  await expect(page.locator("#askStatus")).toContainText("can take up to a minute");
+  await page.locator("#askMode").selectOption("deep_dive");
+  await expect(page.locator("#askStatus")).toContainText("Deep Dive can spend longer");
+});
+
 test("ask workflow shows running and timeout states clearly", async ({ page }) => {
   await page.addInitScript(() => window.localStorage.setItem("autotaskAiToken", "test-token"));
   await stubApi(page, {
