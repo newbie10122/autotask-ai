@@ -30,6 +30,7 @@ from .routing import store_routing_feedback, technician_skill_profiles, ticket_r
 from .sync import sync_companies, sync_recent, sync_runs, sync_status as get_sync_status, sync_ticket_notes, sync_tickets
 from .ticket_analytics import classify_tickets, recurring_issues_report, reference_data_status, sync_reference_data, ticket_class_report
 from .ticket_health import (
+    field_certification_report,
     store_ticket_health_risk_feedback,
     ticket_health_detail_by_number_scoped,
     ticket_health_detail_scoped,
@@ -638,6 +639,23 @@ def api_ticket_health_predictive_evaluation(
         getattr(request.state, "user", None),
         audit_scope(authorized_company_ids),
         {"limit": limit, "delayed_days_threshold": delayed_days_threshold},
+    )
+    return result
+
+
+@app.get("/api/ticket-health/field-certification")
+def api_ticket_health_field_certification(
+    request: Request,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = field_certification_report(authorized_company_ids=authorized_company_ids)
+    result["authorized_company_scope_applied"] = authorized_company_ids is not None
+    record_success_audit(
+        AuditAction.search,
+        "ticket_health.field_certification",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"authorized_company_scope_applied": authorized_company_ids is not None},
     )
     return result
 
