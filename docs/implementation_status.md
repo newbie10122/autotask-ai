@@ -85,6 +85,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #114 adds read-only `Tickets/entityInformation/fields` picklist ingestion for priority, category, issue type, subissue type, queue, and status labels. Post-merge local runtime executed the reference-data sync once, upserted `231` ticket picklist rows across `issueType`, `priority`, `queueID`, `status`, `subIssueType`, and `ticketCategory`, and field certification now reports all six reference fields at `100.0%` authoritative label coverage with zero metadata-source gaps. Remaining blockers are `ticket_status_history`, `status_duration`, `waiting_states`, and queue-at-creation/history lineage.
 - Branch `agent/m2-status-history-source-lineage-next` adds field-certification remaining-blocker diagnostics and Operations UI visibility. Local runtime evidence after API rebuild showed one automation-improvable coverage blocker (`ticket_status_history`) and three source/lineage blockers (`status_duration`, `waiting_states`, and `queue`) with no jobs run and no Autotask writes.
 - Branch `agent/m2-ticket-history-schema-probe` adds an Admin-only bounded read-only TicketHistory schema probe. Local runtime evidence found the TicketHistory schema exposes `action`, `date`, `detail`, `id`, `resourceID`, and queryable `ticketID`; it does not expose structured old/new status transition fields.
+- Branch `agent/m2-status-source-candidate-schema-guidance` carries the new TicketHistory schema probe into the status-transition source-candidates report so operators can see the governed route and evidence required before adding any sync path.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -143,9 +144,21 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Continue the next safe Milestone 2 source-lineage slice now that TicketHistory schema evidence is recorded.
-2. Continue production-auth deployment evidence only when explicitly approved for that protected action.
-3. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+1. Merge status-transition source-candidate schema guidance after CI passes.
+2. Continue the next safe Milestone 2 source-lineage slice now that TicketHistory schema evidence is recorded.
+3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
+4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+
+## Current receipt — Milestone 2 status source-candidate schema guidance
+
+- **Slice:** Carry the TicketHistory schema probe into the status-transition source-candidates report.
+- **State:** `partial_foundation`; this is source-discovery guidance and does not certify status-duration or waiting-duration analytics.
+- **Files changed:** `apps/api/app/ticket_health.py`, focused API tests, and project status docs.
+- **Implemented:** `/api/ticket-health/status-transition-sources` now includes a `ticket_history_schema_metadata` candidate with `candidate_route=/api/autotask/probe/ticket-history-schema`, the evidence required for certification, and read-only next-step guidance. The existing candidate status-history entity guidance now points to both the bounded status-transition source probe and the TicketHistory schema probe before any sync path is added.
+- **Runtime evidence:** Local API rebuild returned `/ready` `HTTP 200`. `/api/ticket-health/status-transition-sources` returned the new `ticket_history_schema_metadata` candidate and the updated status-history entity next step.
+- **Validation:** Focused status-transition source-candidate validation passed with `1 passed`; `git diff --check` passed; full `./scripts/validate-ci.sh` passed with `164` API tests and `13` Playwright tests. This branch still requires GitHub CI before merge.
+- **Read-only/authority evidence:** The report update reads local aggregate evidence only and does not run probes, query TicketHistory rows, run sync jobs, write to Autotask, deploy production code, or change model/routing/assignment behavior.
+- **Rollback:** Revert this branch commit; the TicketHistory schema probe endpoint remains available from PR #119, but the source-candidates report no longer points to it.
 
 ## Current receipt — Milestone 2 TicketHistory schema probe
 
