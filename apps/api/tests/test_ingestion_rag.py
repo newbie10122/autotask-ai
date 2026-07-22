@@ -27,6 +27,48 @@ import app.ticket_health as ticket_health_module
 from app.ticket_classifier import classify_ticket
 
 
+def _reference_lineage_fixture(status: str = "certified") -> dict:
+    return {
+        "certification_state": "reference_lineage_available" if status == "certified" else "partial_reference_lineage",
+        "summary": {"tickets": 10, status: 3},
+        "targets": [
+            {
+                "key": "priority",
+                "certification_status": status,
+                "fields": ["priority"],
+                "present_rows": 10,
+                "mapped_rows": 10 if status == "certified" else 5,
+                "meaningful_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "generic_or_inferred_rows": 0 if status == "certified" else 5,
+                "missing_reference_rows": 0,
+            },
+            {
+                "key": "category",
+                "certification_status": status,
+                "fields": ["category", "issue_type", "subissue_type"],
+                "present_rows": 10,
+                "mapped_rows": 10 if status == "certified" else 5,
+                "meaningful_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "generic_or_inferred_rows": 0 if status == "certified" else 5,
+                "missing_reference_rows": 0,
+            },
+            {
+                "key": "queue",
+                "certification_status": status,
+                "fields": ["queue"],
+                "present_rows": 10,
+                "mapped_rows": 10 if status == "certified" else 5,
+                "meaningful_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "generic_or_inferred_rows": 0 if status == "certified" else 5,
+                "missing_reference_rows": 0,
+            },
+        ],
+        "fields": [],
+        "policy": {"aggregate_only": True, "returns_raw_ticket_text": False},
+        "warnings": [],
+    }
+
+
 def test_autotask_headers_include_required_names_without_logging_secret():
     headers = AutotaskHeaders("user@example.com", "super-secret", "integration").as_http_headers()
     assert headers["Username"] == "user@example.com"
@@ -1506,6 +1548,70 @@ def test_ticket_note_sync_recognizes_autotask_create_date_time_key():
 
     assert '"createDateTime", "createdDateTime", "createDate"' in source
     assert '"createDateTime", "createdDateTime", "createDate"' in helper_source
+
+
+def test_reference_field_lineage_report_applies_scope_and_avoids_raw_labels(monkeypatch):
+    captured_queries = []
+
+    class FakeResult:
+        def __init__(self, row=None, rows=None):
+            self.row = row or {}
+            self.rows = rows or []
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            captured_queries.append((sql, params))
+            if "count(*) AS tickets" in sql:
+                return FakeResult({"tickets": 4})
+            field_name = params[1]
+            if field_name == "priority":
+                return FakeResult(
+                    rows=[
+                        {
+                            "value": "1",
+                            "row_count": 3,
+                            "raw_value_rows": 3,
+                            "reference_label": "Critical",
+                            "reference_source": "bootstrap",
+                        },
+                        {
+                            "value": "2",
+                            "row_count": 1,
+                            "raw_value_rows": 1,
+                            "reference_label": "Priority 2",
+                            "reference_source": "inferred",
+                        },
+                    ]
+                )
+            return FakeResult(rows=[])
+
+    monkeypatch.setattr(ticket_health_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_health_module, "db_connection", lambda: FakeConnection())
+
+    report = ticket_health_module.reference_field_lineage_report(authorized_company_ids=[123])
+    priority = next(field for field in report["fields"] if field["key"] == "priority")
+
+    assert report["authorized_company_scope_applied"] is True
+    assert priority["present_rows"] == 4
+    assert priority["mapped_rows"] == 3
+    assert priority["generic_or_inferred_rows"] == 1
+    assert priority["top_values"][0]["value_bucket"] == "priority_value_1"
+    assert "reference_label" not in priority["top_values"][0]
+    assert report["policy"]["returns_raw_ticket_text"] is False
+    assert any("t.company_id = ANY(%s)" in sql for sql, _params in captured_queries)
+    assert captured_queries[1][1] == ("priority", "priority", [123])
 
 
 def test_field_certification_includes_response_lineage_targets():
