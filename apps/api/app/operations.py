@@ -185,7 +185,18 @@ RAW_BACKFILL_JOBS = {
     "raw_backfill_companies",
 }
 MUTATES_CHUNKS = {"build_documents", "reclassify_chunks"}
-OPERATIONS_STATUS_CACHE_VERSION = 3
+OPERATIONS_STATUS_CACHE_VERSION = 4
+SYNC_RECOVERY_REQUIRED_JOBS: tuple[str, ...] = (
+    "recent_sync",
+    "open_ticket_time_entry_gaps",
+    "open_ticket_history_gaps",
+    "ticket_time_entry_gaps",
+    "ticket_history_gaps",
+    "sync_reference_data",
+    "classify_tickets",
+    "reclassify_chunks",
+    "nightly_pipeline",
+)
 
 
 def operations_status_cache_key(
@@ -1095,6 +1106,196 @@ def job_runs(limit: int = 50) -> dict[str, Any]:
     return {"ok": True, "runs": rows}
 
 
+def _job_recovery_status(row: dict[str, Any], now: datetime) -> str:
+    if not row.get("enabled"):
+        return "partial"
+    latest_status = str(row.get("latest_run_status") or "")
+    if not latest_status:
+        return "missing"
+    if latest_status == "failed" or row.get("latest_has_error"):
+        return "partial"
+    last_finished = row.get("last_finished_at") or row.get("latest_run_finished_at")
+    if not last_finished:
+        return "partial"
+    cadence = int(row.get("cadence_seconds") or 0)
+    stale_after = max(cadence * 3, 30 * 60)
+    if cadence > 0 and (now - last_finished).total_seconds() > stale_after:
+        return "partial"
+    return "available"
+
+
+def scheduler_automation_certification_report() -> dict[str, Any]:
+    ensure_operations_defaults()
+    now = datetime.now(UTC)
+    required_values = ", ".join(["(%s)"] * len(SYNC_RECOVERY_REQUIRED_JOBS))
+    with db_connection() as conn:
+        scheduler = _scheduler_status(conn, now)
+        rows = list(
+            conn.execute(
+                f"""
+                WITH required(job_name) AS (VALUES {required_values}),
+                latest AS (
+                    SELECT DISTINCT ON (job_name)
+                        job_name,
+                        status AS latest_run_status,
+                        started_at AS latest_run_started_at,
+                        finished_at AS latest_run_finished_at,
+                        triggered_by AS latest_triggered_by,
+                        failed_count AS latest_failed_count,
+                        last_error IS NOT NULL AS latest_has_error
+                    FROM job_runs
+                    ORDER BY job_name, started_at DESC, id DESC
+                )
+                SELECT
+                    r.job_name,
+                    COALESCE(sj.enabled, false) AS enabled,
+                    sj.cadence_seconds,
+                    sj.schedule,
+                    sj.status AS scheduled_status,
+                    sj.last_started_at,
+                    sj.last_finished_at,
+                    latest.latest_run_status,
+                    latest.latest_run_started_at,
+                    latest.latest_run_finished_at,
+                    latest.latest_triggered_by,
+                    latest.latest_failed_count,
+                    COALESCE(latest.latest_has_error, false) AS latest_has_error,
+                    count(jr.id) FILTER (
+                        WHERE jr.triggered_by='scheduler'
+                          AND jr.started_at >= now() - interval '24 hours'
+                    ) AS scheduler_runs_24h,
+                    count(jr.id) FILTER (
+                        WHERE jr.triggered_by='scheduler'
+                          AND jr.status='completed'
+                          AND jr.started_at >= now() - interval '24 hours'
+                    ) AS scheduler_completed_24h,
+                    count(jr.id) FILTER (
+                        WHERE jr.triggered_by='scheduler'
+                          AND jr.status='failed'
+                          AND jr.started_at >= now() - interval '24 hours'
+                    ) AS scheduler_failed_24h,
+                    count(jr.id) FILTER (
+                        WHERE jr.triggered_by='scheduler'
+                          AND jr.status='skipped'
+                          AND jr.started_at >= now() - interval '24 hours'
+                    ) AS scheduler_skipped_24h,
+                    count(jr.id) FILTER (
+                        WHERE jr.triggered_by='scheduler'
+                          AND jr.status='completed'
+                          AND jr.started_at >= now() - interval '7 days'
+                    ) AS scheduler_completed_7d
+                FROM required r
+                LEFT JOIN scheduled_jobs sj ON sj.job_name=r.job_name
+                LEFT JOIN latest ON latest.job_name=r.job_name
+                LEFT JOIN job_runs jr ON jr.job_name=r.job_name
+                GROUP BY
+                    r.job_name,
+                    sj.enabled,
+                    sj.cadence_seconds,
+                    sj.schedule,
+                    sj.status,
+                    sj.last_started_at,
+                    sj.last_finished_at,
+                    latest.latest_run_status,
+                    latest.latest_run_started_at,
+                    latest.latest_run_finished_at,
+                    latest.latest_triggered_by,
+                    latest.latest_failed_count,
+                    latest.latest_has_error
+                ORDER BY r.job_name
+                """,
+                tuple(SYNC_RECOVERY_REQUIRED_JOBS),
+            ).fetchall()
+        )
+        running_summary = conn.execute(
+            """
+            SELECT
+                count(*) AS running_jobs,
+                count(*) FILTER (WHERE started_at < now() - interval '30 minutes') AS stale_running_jobs
+            FROM job_runs
+            WHERE status='running'
+            """
+        ).fetchone()
+
+    jobs: list[dict[str, Any]] = []
+    for row in rows:
+        row_dict = dict(row)
+        status = _job_recovery_status(row_dict, now)
+        jobs.append(
+            {
+                "job_name": row_dict["job_name"],
+                "enabled": bool(row_dict.get("enabled")),
+                "cadence_seconds": row_dict.get("cadence_seconds"),
+                "schedule": row_dict.get("schedule"),
+                "last_started_at": row_dict.get("last_started_at"),
+                "last_finished_at": row_dict.get("last_finished_at"),
+                "latest_run_status": row_dict.get("latest_run_status"),
+                "latest_triggered_by": row_dict.get("latest_triggered_by"),
+                "latest_has_error": bool(row_dict.get("latest_has_error")),
+                "scheduler_runs_24h": int(row_dict.get("scheduler_runs_24h") or 0),
+                "scheduler_completed_24h": int(row_dict.get("scheduler_completed_24h") or 0),
+                "scheduler_failed_24h": int(row_dict.get("scheduler_failed_24h") or 0),
+                "scheduler_skipped_24h": int(row_dict.get("scheduler_skipped_24h") or 0),
+                "scheduler_completed_7d": int(row_dict.get("scheduler_completed_7d") or 0),
+                "certification_status": status,
+            }
+        )
+
+    status_counts: dict[str, int] = {}
+    for job in jobs:
+        status_counts[job["certification_status"]] = status_counts.get(job["certification_status"], 0) + 1
+    blockers = [
+        job["job_name"]
+        for job in jobs
+        if job["certification_status"] in {"missing", "partial"}
+    ]
+    running_jobs = int(running_summary["running_jobs"] or 0)
+    stale_running_jobs = int(running_summary["stale_running_jobs"] or 0)
+    if stale_running_jobs:
+        blockers.append("stale_running_jobs")
+    warnings = []
+    if scheduler.get("state") != "healthy":
+        warnings.append("Scheduler heartbeat is not currently healthy.")
+    if stale_running_jobs:
+        warnings.append("One or more job runs have been running longer than 30 minutes.")
+    job_blockers = [
+        job["job_name"]
+        for job in jobs
+        if job["certification_status"] in {"missing", "partial"}
+    ]
+    if job_blockers:
+        warnings.append("Some required scheduled jobs lack recent clean scheduler-run evidence.")
+
+    return {
+        "ok": True,
+        "generated_at": now,
+        "certification_state": (
+            "scheduler_automation_available"
+            if not blockers and scheduler.get("state") == "healthy" and stale_running_jobs == 0
+            else "partial_scheduler_automation_evidence"
+        ),
+        "scheduler_state": scheduler.get("state"),
+        "summary": {
+            "required_jobs": len(SYNC_RECOVERY_REQUIRED_JOBS),
+            "certified_jobs": status_counts.get("available", 0),
+            "partial_jobs": status_counts.get("partial", 0),
+            "missing_jobs": status_counts.get("missing", 0),
+            "running_jobs": running_jobs,
+            "stale_running_jobs": stale_running_jobs,
+        },
+        "blockers": blockers,
+        "jobs": jobs,
+        "policy": {
+            "read_only": True,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+            "returns_raw_error_text": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+        },
+        "warnings": warnings,
+    }
+
+
 def request_stop(run_id: int) -> dict[str, Any]:
     ensure_operations_defaults()
     with db_connection() as conn:
@@ -1393,6 +1594,7 @@ def operations_status(cache_context: dict[str, Any] | None = None) -> dict[str, 
             global_pause=bool(settings["global_pause"]),
         ),
         "scheduler": scheduler,
+        "scheduler_automation": scheduler_automation_certification_report(),
         "running_jobs": running,
     }
     encoded_result = jsonable_encoder(result)
