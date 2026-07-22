@@ -115,7 +115,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 ## Active execution queue
 
 1. Treat status-duration/waiting as source-limited unless parser-compatible status transitions are backfilled or another read-only Autotask source becomes available.
-2. Validate and merge this post-merge audit inspection reconciliation branch, then create a new governed Second Brain projection PR for the material audit state change.
+2. Validate and merge this Second Brain PR #13 state reconciliation branch, then continue the next safe Milestone 2 field/source-lineage slice.
 3. Continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work using existing local TimeEntries/TicketHistory coverage and bounded scheduled jobs.
 4. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 5. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
@@ -130,7 +130,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - **Read-only evidence:** No sync jobs, production deployment, live Autotask probe, model workflow change, or Autotask write capability was run or added.
 - **Rollback:** Revert this branch commit; no migration is included and audit-log reads/Operations reads return to prior behavior.
 - **Verifier:** Read-only sidecar recommended Operations inspection read audit coverage as the highest-value safe Milestone 1 slice; coordinator integrated it with the audit-log filtering slice.
-- **Second Brain state:** `pending-update`; create a new governed Second Brain projection branch/PR after this post-merge reconciliation PR is merged.
+- **Second Brain state:** `pull-request-open`; projection PR `newbie10122/helix-second-brain#13` records this audit inspection update at head `b1bf8505ea7e1eb0ff0f623799abc746997f5582` with local knowledge validation passing.
 
 Parallel-safe work after roadmap merge:
 
@@ -749,8 +749,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pending-update` — projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`, recording Autotask AI progress through PR #70. PR #71 and PR #72 are recorded in project-local evidence on canonical `main`; after this post-merge reconciliation PR merges, create a new governed Second Brain projection branch/PR that includes the audit inspection update. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` before the PR #6 merge.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `b1bf8505ea7e1eb0ff0f623799abc746997f5582`. It records Autotask AI progress through PR #73, including PR #71 Second Brain merge-state reconciliation and PR #72 audit inspection filters. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
 
 ## Exact next action
 
-Validate and merge `agent/record-audit-inspection-merge`, create the next governed Second Brain projection PR for the material audit update, then continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
+Validate and merge this Second Brain PR #13 state reconciliation branch, then continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.

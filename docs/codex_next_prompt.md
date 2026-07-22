@@ -51,9 +51,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Finish, validate, open, and merge `agent/record-audit-inspection-merge` if exact-head CI passes.
-2. Create a new governed Second Brain projection branch/PR for PR #71 plus PR #72 audit inspection evidence.
-3. Continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work using existing local TimeEntries/TicketHistory coverage and bounded scheduled jobs.
+1. Finish, validate, open, and merge `agent/record-second-brain-pr13` if exact-head CI passes.
+2. Continue Milestone 2 field/source-lineage certification and deterministic Ticket Health work using existing local TimeEntries/TicketHistory coverage and bounded scheduled jobs.
+3. Continue the next safe Milestone 1 audit/scope closeout slice only where file ownership is isolated.
 
 ## Milestone status
 
@@ -75,4 +75,4 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Projection PR `newbie10122/helix-second-brain#6` is merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`. Projection branch head `4306bcc` recorded Autotask AI progress through PR #70, including calibrated predictive ranking evidence, related-data catch-up visibility, admin inspection read audit coverage, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, PR #66 control-document reconciliation, current validation counts, prior predictive evidence, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py` before merge.
 
-Create a new governed projection branch/PR after `agent/audit-log-filtering` merges.
+Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `b1bf8505ea7e1eb0ff0f623799abc746997f5582`. It records Autotask AI progress through PR #73, including PR #71 Second Brain merge-state reconciliation and PR #72 audit inspection filters. Local validation passed with `python3 tools/validate_knowledge.py`. Do not mark it merged until the PR is actually merged.
