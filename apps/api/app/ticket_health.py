@@ -138,6 +138,17 @@ CALIBRATION_MIN_REVIEWED_ENTITIES = 5
 PREDICTION_PRIOR_SAMPLE_SIZE = 5
 PREDICTION_MIN_SAMPLE_SIZE = 5
 PREDICTIVE_REVIEW_MODEL_VERSION = "bayesian_queue_priority_feedback_v1_review_only"
+WAITING_TAXONOMY_VERSION = "current_status_waiting_taxonomy_v1"
+WAITING_TAXONOMY_BUCKETS = {
+    "waiting_customer": "Waiting on customer/client",
+    "waiting_vendor": "Waiting on vendor",
+    "waiting_technician_internal": "Waiting on technician/internal",
+    "waiting_unspecified": "Waiting/on hold without specific owner",
+    "scheduled": "Scheduled",
+    "active_in_progress": "Active/in progress",
+    "completed_closed": "Completed/closed",
+    "unknown_unmapped": "Unknown/unmapped",
+}
 
 
 def invalidate_ticket_health_summary_cache() -> int:
@@ -192,6 +203,41 @@ def _round_optional(value: Any, digits: int = 2) -> float | None:
         return round(float(value), digits)
     except (TypeError, ValueError):
         return None
+
+
+def _safe_shape_identifier(value: Any, *, fallback: str = "[Blank]", max_length: int = 80) -> str:
+    clean = str(value or "").strip()
+    if not clean:
+        return fallback
+    if len(clean) > max_length:
+        return "[RedactedLongValue]"
+    if not re.fullmatch(r"[A-Za-z0-9 _./:+#()[\]-]+", clean):
+        return "[RedactedValue]"
+    return clean
+
+
+def _status_waiting_taxonomy_bucket(status_id: Any, status_label: Any) -> str:
+    status_id_clean = str(status_id or "").strip()
+    clean = str(status_label or status_id or "").strip().lower()
+    if not clean:
+        return "unknown_unmapped"
+    if status_id_clean in CLOSED_STATUS_IDS or any(
+        term in clean for term in ("complete", "completed", "closed", "resolved")
+    ):
+        return "completed_closed"
+    if "vendor" in clean:
+        return "waiting_vendor"
+    if "customer" in clean or "client" in clean:
+        return "waiting_customer"
+    if "technician" in clean or "tech" in clean or "internal" in clean:
+        return "waiting_technician_internal"
+    if "scheduled" in clean:
+        return "scheduled"
+    if "waiting" in clean or "hold" in clean:
+        return "waiting_unspecified"
+    if any(term in clean for term in ("new", "open", "progress", "assigned", "work")):
+        return "active_in_progress"
+    return "unknown_unmapped"
 
 
 def _priority_points(priority: Any) -> tuple[int, str | None]:
@@ -447,7 +493,9 @@ def status_duration_summary(
     reference_now = now or datetime.now(UTC)
     for index, transition in enumerate(status_transitions):
         started_at = transition["happened_at"]
-        ended_at = status_transitions[index + 1]["happened_at"] if index + 1 < len(status_transitions) else reference_now
+        ended_at = (
+            status_transitions[index + 1]["happened_at"] if index + 1 < len(status_transitions) else reference_now
+        )
         if started_at.tzinfo is None:
             started_at = started_at.replace(tzinfo=UTC)
         if ended_at.tzinfo is None:
@@ -463,15 +511,12 @@ def status_duration_summary(
     duration_source = "status_transitions" if status_transitions else "missing"
     if not status_transitions:
         current_status = fallback_status
-        bucket = _waiting_bucket(current_status)
-        if bucket and fallback_started_at:
+        if fallback_started_at:
             started_at = fallback_started_at
             if started_at.tzinfo is None:
                 started_at = started_at.replace(tzinfo=UTC)
-            hours = max((reference_now - started_at).total_seconds(), 0) / 3600
-            waiting_hours[bucket] += hours
             current_status_started_at = started_at
-            duration_source = "current_status_lower_bound"
+            duration_source = "current_status_snapshot_only"
 
     rounded = {key: round(value, 1) for key, value in waiting_hours.items()}
     total_waiting = round(sum(rounded.values()), 1)
@@ -485,8 +530,8 @@ def status_duration_summary(
         "warnings": [
             warning
             for warning in (
-                "No parsed local status transitions; current waiting duration is a lower-bound estimate from the latest local ticket timestamp."
-                if duration_source == "current_status_lower_bound"
+                "No parsed local status transitions; current status is a snapshot only and proxy timestamps are not used as waiting-duration evidence."
+                if duration_source == "current_status_snapshot_only"
                 else "No parsed local status transitions; waiting-duration analytics remain partial."
                 if not status_transitions
                 else "",
@@ -813,6 +858,316 @@ def ticket_history_content_certification_report(
         "warnings": [
             "This report returns aggregate action/raw-key evidence only; raw TicketHistory detail text is intentionally omitted.",
             "Status-duration and waiting analytics remain source-limited until timestamped status-change content is present and parser-certified.",
+        ],
+    }
+
+
+def ticket_history_source_shape_inventory(
+    limit: int = 20,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    started = time.monotonic()
+    row_limit = min(max(limit, 1), 50)
+    init_schema()
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    with db_connection() as conn:
+        counts = conn.execute(
+            f"""
+            WITH scoped_history AS (
+                SELECT h.*
+                FROM autotask_ticket_history h
+                JOIN autotask_tickets t ON t.id=h.ticket_id
+                WHERE true {company_scope_sql}
+            ),
+            ordered_history AS (
+                SELECT
+                    id,
+                    ticket_id,
+                    happened_at,
+                    lag(happened_at) OVER (PARTITION BY ticket_id ORDER BY id) AS previous_happened_at
+                FROM scoped_history
+            ),
+            duplicate_timestamps AS (
+                SELECT ticket_id, happened_at, count(*) AS duplicate_count
+                FROM scoped_history
+                WHERE happened_at IS NOT NULL
+                GROUP BY ticket_id, happened_at
+                HAVING count(*) > 1
+            )
+            SELECT
+                count(*) AS total_rows,
+                count(DISTINCT ticket_id) AS tickets_represented,
+                count(*) FILTER (WHERE ticket_id IS NOT NULL) AS rows_with_ticket_id,
+                count(*) FILTER (WHERE happened_at IS NOT NULL) AS rows_with_happened_at,
+                count(*) FILTER (WHERE NULLIF(action, '') IS NOT NULL) AS rows_with_action,
+                count(*) FILTER (WHERE NULLIF(detail, '') IS NOT NULL) AS rows_with_detail,
+                count(*) FILTER (WHERE raw IS NOT NULL AND raw <> '{{}}'::jsonb) AS rows_with_raw,
+                count(*) FILTER (
+                    WHERE raw ? 'field' OR raw ? 'oldValue' OR raw ? 'newValue'
+                ) AS rows_with_transition_like_raw_keys,
+                count(*) FILTER (
+                    WHERE lower(COALESCE(action, '') || ' ' || COALESCE(detail, '')) LIKE '%%status%%'
+                       OR raw::text ILIKE '%%status%%'
+                ) AS status_like_rows,
+                count(*) FILTER (
+                    WHERE happened_at IS NOT NULL
+                      AND (
+                        (lower(COALESCE(raw->>'field', '')) = 'status' AND (raw ? 'oldValue' OR raw ? 'newValue'))
+                        OR raw ? 'oldStatus'
+                        OR raw ? 'newStatus'
+                        OR raw ? 'fromStatus'
+                        OR raw ? 'toStatus'
+                      )
+                ) AS structured_status_transition_rows,
+                count(*) FILTER (
+                    WHERE happened_at IS NOT NULL
+                      AND lower(COALESCE(action, '')) LIKE '%%status%%'
+                      AND NULLIF(detail, '') IS NOT NULL
+                ) AS unstructured_parser_candidate_rows,
+                count(*) FILTER (
+                    WHERE NULLIF(detail, '') IS NOT NULL
+                      AND (
+                        lower(COALESCE(action, '') || ' ' || COALESCE(detail, '')) LIKE '%%status%%'
+                        OR lower(COALESCE(detail, '')) LIKE '%%waiting%%'
+                        OR lower(COALESCE(detail, '')) LIKE '%%hold%%'
+                        OR lower(COALESCE(detail, '')) LIKE '%%vendor%%'
+                        OR lower(COALESCE(detail, '')) LIKE '%%technician%%'
+                      )
+                      AND NOT (
+                        raw ? 'field' OR raw ? 'oldValue' OR raw ? 'newValue'
+                        OR raw ? 'oldStatus' OR raw ? 'newStatus'
+                        OR raw ? 'fromStatus' OR raw ? 'toStatus'
+                      )
+                ) AS only_unstructured_status_detail_rows,
+                (SELECT count(*) FROM duplicate_timestamps) AS duplicate_timestamp_groups,
+                (
+                    SELECT count(*)
+                    FROM ordered_history
+                    WHERE happened_at IS NOT NULL
+                      AND previous_happened_at IS NOT NULL
+                      AND happened_at < previous_happened_at
+                ) AS non_monotonic_timestamp_rows
+            FROM scoped_history
+            """,
+            tuple(company_scope_params),
+        ).fetchone()
+        raw_key_rows = conn.execute(
+            f"""
+            SELECT raw_key, count(*) AS row_count
+            FROM (
+                SELECT jsonb_object_keys(COALESCE(h.raw, '{{}}'::jsonb)) AS raw_key
+                FROM autotask_ticket_history h
+                JOIN autotask_tickets t ON t.id=h.ticket_id
+                WHERE true {company_scope_sql}
+            ) keys
+            GROUP BY raw_key
+            ORDER BY count(*) DESC, raw_key
+            LIMIT 50
+            """,
+            tuple(company_scope_params),
+        ).fetchall()
+        action_rows = conn.execute(
+            f"""
+            SELECT COALESCE(NULLIF(action, ''), '[Blank]') AS action, count(*) AS row_count
+            FROM autotask_ticket_history h
+            JOIN autotask_tickets t ON t.id=h.ticket_id
+            WHERE true {company_scope_sql}
+            GROUP BY COALESCE(NULLIF(action, ''), '[Blank]')
+            ORDER BY count(*) DESC, action
+            LIMIT 25
+            """,
+            tuple(company_scope_params),
+        ).fetchall()
+        shape_rows = conn.execute(
+            f"""
+            WITH shaped AS (
+                SELECT
+                    COALESCE(array_to_string(ARRAY(
+                        SELECT key
+                        FROM jsonb_object_keys(COALESCE(h.raw, '{{}}'::jsonb)) AS key
+                        ORDER BY key
+                    ), ','), '') AS raw_key_signature,
+                    COALESCE(NULLIF(action, ''), '[Blank]') AS action,
+                    NULLIF(detail, '') IS NOT NULL AS has_detail,
+                    happened_at IS NOT NULL AS has_timestamp,
+                    (
+                        lower(COALESCE(action, '') || ' ' || COALESCE(detail, '')) LIKE '%%status%%'
+                        OR h.raw::text ILIKE '%%status%%'
+                    ) AS status_like,
+                    (
+                        (lower(COALESCE(h.raw->>'field', '')) = 'status' AND (h.raw ? 'oldValue' OR h.raw ? 'newValue'))
+                        OR h.raw ? 'oldStatus'
+                        OR h.raw ? 'newStatus'
+                        OR h.raw ? 'fromStatus'
+                        OR h.raw ? 'toStatus'
+                    ) AS structured_status
+                FROM autotask_ticket_history h
+                JOIN autotask_tickets t ON t.id=h.ticket_id
+                WHERE true {company_scope_sql}
+            )
+            SELECT
+                action,
+                raw_key_signature,
+                has_detail,
+                has_timestamp,
+                status_like,
+                structured_status,
+                count(*) AS row_count
+            FROM shaped
+            GROUP BY action, raw_key_signature, has_detail, has_timestamp, status_like, structured_status
+            ORDER BY count(*) DESC, action
+            LIMIT %s
+            """,
+            (*company_scope_params, row_limit),
+        ).fetchall()
+
+    total_rows = int(counts["total_rows"] or 0)
+    structured_status_transition_rows = int(counts["structured_status_transition_rows"] or 0)
+    unstructured_parser_candidate_rows = int(counts["unstructured_parser_candidate_rows"] or 0)
+    status_like_rows = int(counts["status_like_rows"] or 0)
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "certification_state": (
+            "structured_transition_candidate_available"
+            if structured_status_transition_rows > 0
+            else "source_limited"
+        ),
+        "counts": {
+            "total_rows": total_rows,
+            "tickets_represented": int(counts["tickets_represented"] or 0),
+            "rows_with_ticket_id": int(counts["rows_with_ticket_id"] or 0),
+            "rows_with_happened_at": int(counts["rows_with_happened_at"] or 0),
+            "timestamp_coverage_percent": _percent(int(counts["rows_with_happened_at"] or 0), total_rows),
+            "rows_with_action": int(counts["rows_with_action"] or 0),
+            "rows_with_detail": int(counts["rows_with_detail"] or 0),
+            "rows_with_raw": int(counts["rows_with_raw"] or 0),
+            "rows_with_transition_like_raw_keys": int(counts["rows_with_transition_like_raw_keys"] or 0),
+            "status_like_rows": status_like_rows,
+            "structured_status_transition_rows": structured_status_transition_rows,
+            "unstructured_parser_candidate_rows": unstructured_parser_candidate_rows,
+            "status_like_parser_incompatible_rows": max(status_like_rows - structured_status_transition_rows, 0),
+            "only_unstructured_status_detail_rows": int(counts["only_unstructured_status_detail_rows"] or 0),
+            "duplicate_timestamp_groups": int(counts["duplicate_timestamp_groups"] or 0),
+            "non_monotonic_timestamp_rows": int(counts["non_monotonic_timestamp_rows"] or 0),
+        },
+        "raw_key_frequency": [
+            {"key": _safe_shape_identifier(row["raw_key"]), "row_count": int(row["row_count"] or 0)}
+            for row in raw_key_rows
+        ],
+        "safe_action_identifiers": [
+            {
+                "action": _safe_shape_identifier(row["action"]),
+                "category": classify_history_transition_field(row["action"]),
+                "row_count": int(row["row_count"] or 0),
+            }
+            for row in action_rows
+        ],
+        "shape_signatures": [
+            {
+                "action": _safe_shape_identifier(row["action"]),
+                "raw_keys": [
+                    _safe_shape_identifier(key)
+                    for key in str(row["raw_key_signature"] or "").split(",")
+                    if key
+                ],
+                "has_detail": bool(row["has_detail"]),
+                "has_timestamp": bool(row["has_timestamp"]),
+                "status_like": bool(row["status_like"]),
+                "structured_status": bool(row["structured_status"]),
+                "parser_compatible": bool(row["structured_status"] and row["has_timestamp"]),
+                "row_count": int(row["row_count"] or 0),
+            }
+            for row in shape_rows
+        ],
+        "policy": {
+            "aggregate_only": True,
+            "returns_raw_ticket_text": False,
+            "autotask_writes_allowed": False,
+            "proxy_timestamps_count_as_status_duration": False,
+            "automatic_parser_changes_allowed": False,
+        },
+        "warnings": [
+            "This inventory returns aggregate shape evidence only; raw TicketHistory detail text, titles, company names, and private IDs are intentionally omitted.",
+            "Structured status-transition rows are required before status-duration or historical waiting-duration analytics can be certified.",
+        ],
+    }
+
+
+def current_waiting_state_snapshot_report(
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    started = time.monotonic()
+    init_schema()
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    with db_connection() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT
+                NULLIF(t.status, '') AS status,
+                COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]') AS status_label,
+                count(*) AS ticket_count,
+                count(*) FILTER (WHERE t.completed_at_autotask IS NULL) AS open_ticket_count
+            FROM autotask_tickets t
+            LEFT JOIN autotask_reference_values ref
+              ON ref.field_name='status' AND ref.value=t.status
+            WHERE true {company_scope_sql}
+            GROUP BY NULLIF(t.status, ''), COALESCE(ref.label, NULLIF(t.status, ''), '[Blank]')
+            ORDER BY count(*) DESC, status_label
+            """,
+            tuple(company_scope_params),
+        ).fetchall()
+
+    buckets: Counter[str] = Counter()
+    statuses = []
+    for row in rows:
+        row_dict = dict(row)
+        bucket = _status_waiting_taxonomy_bucket(row_dict.get("status"), row_dict.get("status_label"))
+        ticket_count = int(row_dict.get("ticket_count") or 0)
+        buckets[bucket] += ticket_count
+        statuses.append(
+            {
+                "status": _safe_shape_identifier(row_dict.get("status"), fallback="[BlankStatus]", max_length=40),
+                "safe_label": _safe_shape_identifier(
+                    row_dict.get("status_label"), fallback="[BlankStatus]", max_length=60
+                ),
+                "taxonomy_bucket": bucket,
+                "ticket_count": ticket_count,
+                "open_ticket_count": int(row_dict.get("open_ticket_count") or 0),
+            }
+        )
+
+    total = sum(int(row["ticket_count"]) for row in statuses)
+    unknown = int(buckets.get("unknown_unmapped", 0))
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "taxonomy_version": WAITING_TAXONOMY_VERSION,
+        "certification_state": "current_snapshot_available",
+        "snapshot_only": True,
+        "historical_duration_available": False,
+        "duration_source": "current_ticket_status_snapshot_only",
+        "bucket_definitions": WAITING_TAXONOMY_BUCKETS,
+        "summary": {
+            "tickets": total,
+            "mapped_tickets": total - unknown,
+            "unknown_unmapped_tickets": unknown,
+            "unknown_unmapped_percent": _percent(unknown, total),
+            "bucket_counts": dict(buckets),
+        },
+        "statuses": statuses,
+        "policy": {
+            "uses_ticket_prose": False,
+            "uses_proxy_timestamps_for_duration": False,
+            "current_state_only": True,
+            "reviewable_reversible_mapping": True,
+            "autotask_writes_allowed": False,
+        },
+        "warnings": [
+            "Current waiting-state taxonomy is a present-state snapshot only; it does not certify historical status-duration or waiting-duration analytics.",
+            "Unmapped or changed status reference values remain unknown until reviewed; ticket prose is not used for this mapping.",
         ],
     }
 
@@ -1923,9 +2278,22 @@ def field_certification_report(
     source_candidates: dict[str, Any] | None = None,
     labor_coverage: dict[str, Any] | None = None,
     sla_lineage: dict[str, Any] | None = None,
+    ticket_history_shape_inventory: dict[str, Any] | None = None,
+    waiting_snapshot: dict[str, Any] | None = None,
     authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
+    injected_context = any(
+        item is not None
+        for item in (
+            coverage_report,
+            status_diagnostics,
+            transition_parse_summary,
+            source_candidates,
+            labor_coverage,
+            sla_lineage,
+        )
+    )
     coverage = coverage_report or field_coverage_report(authorized_company_ids=authorized_company_ids)
     status_diag = status_diagnostics or ticket_status_source_diagnostics(authorized_company_ids=authorized_company_ids)
     transition_summary = transition_parse_summary or ticket_history_transition_parse_summary(
@@ -1938,15 +2306,45 @@ def field_certification_report(
     )
     labor_gap_context = labor_coverage or labor_coverage_report(authorized_company_ids=authorized_company_ids)
     sla_lineage_context = sla_lineage or sla_lineage_report(authorized_company_ids=authorized_company_ids)
+    if ticket_history_shape_inventory is not None:
+        history_shape_context = ticket_history_shape_inventory
+    elif injected_context:
+        history_shape_context = {
+            "certification_state": "source_limited",
+            "counts": {"structured_status_transition_rows": 0},
+            "warnings": ["Injected certification context did not include structured TicketHistory shape evidence."],
+            "policy": {"aggregate_only": True, "returns_raw_ticket_text": False},
+            "authorized_company_scope_applied": authorized_company_ids is not None,
+        }
+    else:
+        history_shape_context = ticket_history_source_shape_inventory(authorized_company_ids=authorized_company_ids)
+    if waiting_snapshot is not None:
+        waiting_snapshot_context = waiting_snapshot
+    elif injected_context:
+        waiting_snapshot_context = {
+            "taxonomy_version": WAITING_TAXONOMY_VERSION,
+            "certification_state": "current_snapshot_available",
+            "snapshot_only": True,
+            "historical_duration_available": False,
+            "duration_source": "current_ticket_status_snapshot_only",
+            "summary": {"tickets": 0, "unknown_unmapped_tickets": 0},
+            "policy": {"current_state_only": True, "uses_proxy_timestamps_for_duration": False},
+            "warnings": ["Injected certification context did not include current waiting-state snapshot evidence."],
+            "authorized_company_scope_applied": authorized_company_ids is not None,
+        }
+    else:
+        waiting_snapshot_context = current_waiting_state_snapshot_report(authorized_company_ids=authorized_company_ids)
     source_capability = status_diag.get("source_capability") or {}
     open_history = status_diag.get("open_ticket_history_context") or {}
     status_sample = status_diag.get("status_sample_coverage") or {}
     labor_summary = labor_gap_context.get("summary") or {}
     sla_summary = sla_lineage_context.get("summary") or {}
+    history_shape_counts = history_shape_context.get("counts") or {}
+    waiting_snapshot_summary = waiting_snapshot_context.get("summary") or {}
     exact_status_transition = bool(source_capability.get("has_exact_status_transition_timestamp"))
-    open_history_complete = (
-        int(open_history.get("open_tickets") or 0) > 0 and int(open_history.get("open_tickets_without_history") or 0) == 0
-    )
+    open_history_complete = int(open_history.get("open_tickets") or 0) > 0 and int(
+        open_history.get("open_tickets_without_history") or 0
+    ) == 0
     unchecked_labor_open_tickets = int(labor_summary.get("open_tickets_unchecked_time_entries") or 0)
     checked_empty_labor_open_tickets = int(labor_summary.get("open_tickets_checked_empty_time_entries") or 0)
     checked_labor_open_tickets = int(labor_summary.get("open_tickets_checked_for_time_entries") or 0)
@@ -1954,12 +2352,15 @@ def field_certification_report(
     sampled_status_candidates = int(status_sample.get("sampled_status_candidate_rows") or 0)
     parsed_status_transitions = int(transition_summary.get("parsed_status_transitions") or 0)
     timestamped_status_transitions = int(transition_summary.get("timestamped_status_transitions") or 0)
+    structured_status_transition_rows = int(history_shape_counts.get("structured_status_transition_rows") or 0)
+    has_status_transition_source = exact_status_transition or structured_status_transition_rows > 0
     status_duration_source_limited = (
-        not exact_status_transition
+        not has_status_transition_source
         or not open_history_complete
         or sampled_status_candidates == 0
         or parsed_status_transitions == 0
         or timestamped_status_transitions == 0
+        or structured_status_transition_rows == 0
     )
 
     ticket_history = _field_row_status(coverage, "ticket_status_history")
@@ -2014,9 +2415,11 @@ def field_certification_report(
             "coverage_percent": open_history.get("coverage_percent"),
             "available_count": open_history.get("open_tickets_with_history"),
             "total_count": open_history.get("open_tickets"),
+            "structured_status_transition_rows": structured_status_transition_rows,
+            "historical_duration_available": not status_duration_source_limited,
             "prediction_use": "excluded_until_certified",
             "note": (
-                "Status-duration analytics remain source-limited until exact transition timestamps, open-ticket history coverage, and parsed status candidates are certified."
+                "Status-duration analytics remain source-limited until structured timestamped status transitions, open-ticket history coverage, and parser compatibility are certified."
                 if status_duration_source_limited
                 else "Status-duration local evidence is structurally available for deterministic review."
             ),
@@ -2060,9 +2463,18 @@ def field_certification_report(
             "coverage_percent": waiting_states.get("coverage_percent"),
             "available_count": waiting_states.get("available_count"),
             "total_count": waiting_states.get("total_count"),
+            "taxonomy_version": waiting_snapshot_context.get("taxonomy_version"),
+            "current_snapshot_available": waiting_snapshot_context.get("certification_state")
+            == "current_snapshot_available",
+            "historical_duration_available": False if status_duration_source_limited else True,
+            "unknown_unmapped_tickets": waiting_snapshot_summary.get("unknown_unmapped_tickets"),
             "prediction_use": "excluded_until_status_duration_certified",
-            "note": waiting_states.get("note")
-            or "Waiting-state precision depends on current status labels and parsed TicketHistory transitions.",
+            "note": (
+                "Current waiting-state snapshot is available from scoped ticket status/reference labels, but historical waiting duration remains source-limited."
+                if status_duration_source_limited
+                else waiting_states.get("note")
+                or "Waiting-state precision depends on current status labels and parsed TicketHistory transitions."
+            ),
         },
     ]
     summary = Counter(target["certification_status"] for target in targets)
@@ -2106,6 +2518,27 @@ def field_certification_report(
                 "status_sample_coverage": {
                     key: value for key, value in status_sample.items() if key != "by_status"
                 },
+            },
+            "ticket_history_source_shape_inventory": {
+                "certification_state": history_shape_context.get("certification_state"),
+                "counts": history_shape_counts,
+                "raw_key_frequency": history_shape_context.get("raw_key_frequency") or [],
+                "safe_action_identifiers": history_shape_context.get("safe_action_identifiers") or [],
+                "shape_signatures": history_shape_context.get("shape_signatures") or [],
+                "policy": history_shape_context.get("policy"),
+                "warnings": history_shape_context.get("warnings") or [],
+                "authorized_company_scope_applied": history_shape_context.get("authorized_company_scope_applied"),
+            },
+            "current_waiting_state_snapshot": {
+                "taxonomy_version": waiting_snapshot_context.get("taxonomy_version"),
+                "certification_state": waiting_snapshot_context.get("certification_state"),
+                "snapshot_only": waiting_snapshot_context.get("snapshot_only"),
+                "historical_duration_available": waiting_snapshot_context.get("historical_duration_available"),
+                "duration_source": waiting_snapshot_context.get("duration_source"),
+                "summary": waiting_snapshot_summary,
+                "policy": waiting_snapshot_context.get("policy"),
+                "warnings": waiting_snapshot_context.get("warnings") or [],
+                "authorized_company_scope_applied": waiting_snapshot_context.get("authorized_company_scope_applied"),
             },
             "transition_parser": transition_summary,
             "status_transition_source_candidates": source_candidate_report,

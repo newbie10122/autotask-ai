@@ -1,4 +1,6 @@
 import inspect
+from datetime import UTC, datetime
+import json
 
 from app.answer_guardrails import has_required_answer_sections
 from app.audit import audit_sink
@@ -1415,6 +1417,149 @@ def test_sla_lineage_report_applies_authorized_company_scope(monkeypatch):
     assert captured_queries[1][1] == ([123],)
 
 
+def test_status_duration_summary_does_not_use_proxy_timestamp_as_waiting_duration():
+    summary = ticket_health_module.status_duration_summary(
+        [],
+        current_status="Waiting Customer",
+        fallback_started_at=datetime(2026, 7, 22, 10, 0, tzinfo=UTC),
+        now=datetime(2026, 7, 22, 14, 0, tzinfo=UTC),
+    )
+
+    assert summary["duration_source"] == "current_status_snapshot_only"
+    assert summary["current_status"] == "Waiting Customer"
+    assert summary["total_waiting_hours"] == 0.0
+    assert summary["waiting_hours"]["customer"] == 0.0
+    assert any("proxy timestamps are not used" in warning for warning in summary["warnings"])
+
+
+def test_ticket_history_source_shape_inventory_is_scoped_and_aggregate_only(monkeypatch):
+    captured_queries = []
+
+    class FakeResult:
+        def __init__(self, row=None, rows=None):
+            self.row = row or {}
+            self.rows = rows or []
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            captured_queries.append((sql, params))
+            if "count(*) AS total_rows" in sql:
+                return FakeResult(
+                    {
+                        "total_rows": 3,
+                        "tickets_represented": 2,
+                        "rows_with_ticket_id": 3,
+                        "rows_with_happened_at": 3,
+                        "rows_with_action": 3,
+                        "rows_with_detail": 2,
+                        "rows_with_raw": 3,
+                        "rows_with_transition_like_raw_keys": 0,
+                        "status_like_rows": 1,
+                        "structured_status_transition_rows": 0,
+                        "unstructured_parser_candidate_rows": 1,
+                        "only_unstructured_status_detail_rows": 1,
+                        "duplicate_timestamp_groups": 1,
+                        "non_monotonic_timestamp_rows": 1,
+                    }
+                )
+            if "SELECT raw_key, count(*) AS row_count" in sql:
+                return FakeResult(
+                    rows=[
+                        {"raw_key": "activityDate", "row_count": 3},
+                        {"raw_key": "detail", "row_count": 2},
+                    ]
+                )
+            if "COALESCE(NULLIF(action" in sql and "GROUP BY COALESCE" in sql:
+                return FakeResult(rows=[{"action": "Status Changed", "row_count": 1}])
+            if "WITH shaped AS" in sql:
+                return FakeResult(
+                    rows=[
+                        {
+                            "action": "Status Changed",
+                            "raw_key_signature": "activityDate,detail",
+                            "has_detail": True,
+                            "has_timestamp": True,
+                            "status_like": True,
+                            "structured_status": False,
+                            "row_count": 1,
+                        }
+                    ]
+                )
+            return FakeResult(rows=[])
+
+    monkeypatch.setattr(ticket_health_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_health_module, "db_connection", lambda: FakeConnection())
+
+    report = ticket_health_module.ticket_history_source_shape_inventory(authorized_company_ids=[123])
+    serialized = json.dumps(report)
+
+    assert report["authorized_company_scope_applied"] is True
+    assert report["certification_state"] == "source_limited"
+    assert report["counts"]["structured_status_transition_rows"] == 0
+    assert report["counts"]["status_like_parser_incompatible_rows"] == 1
+    assert report["shape_signatures"][0]["parser_compatible"] is False
+    assert "t.company_id = ANY(%s)" in captured_queries[0][0]
+    assert "printer not printing" not in serialized.lower()
+    assert report["policy"]["returns_raw_ticket_text"] is False
+
+
+def test_current_waiting_state_snapshot_maps_current_status_only(monkeypatch):
+    class FakeResult:
+        def __init__(self, rows=None):
+            self.rows = rows or []
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, _sql, _params=None):
+            return FakeResult(
+                rows=[
+                    {"status": "1", "status_label": "New", "ticket_count": 2, "open_ticket_count": 2},
+                    {
+                        "status": "9",
+                        "status_label": "Waiting Vendor",
+                        "ticket_count": 3,
+                        "open_ticket_count": 3,
+                    },
+                    {"status": "77", "status_label": "Custom Mystery", "ticket_count": 1, "open_ticket_count": 1},
+                ]
+            )
+
+    monkeypatch.setattr(ticket_health_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_health_module, "db_connection", lambda: FakeConnection())
+
+    report = ticket_health_module.current_waiting_state_snapshot_report(authorized_company_ids=[123])
+    by_status = {row["status"]: row for row in report["statuses"]}
+
+    assert report["taxonomy_version"] == ticket_health_module.WAITING_TAXONOMY_VERSION
+    assert report["snapshot_only"] is True
+    assert report["historical_duration_available"] is False
+    assert by_status["1"]["taxonomy_bucket"] == "active_in_progress"
+    assert by_status["9"]["taxonomy_bucket"] == "waiting_vendor"
+    assert by_status["77"]["taxonomy_bucket"] == "unknown_unmapped"
+    assert report["summary"]["unknown_unmapped_tickets"] == 1
+    assert report["policy"]["uses_ticket_prose"] is False
+
+
 def test_field_certification_keeps_sla_partial_until_due_targets_are_complete():
     coverage = {
         "ready_for_ticket_health": False,
@@ -1483,6 +1628,81 @@ def test_field_certification_keeps_sla_partial_until_due_targets_are_complete():
     assert "SLA identifiers or met flags exist without complete" in by_target["sla_information"]["note"]
     assert "sla_information" in report["predictive_policy"]["excluded_until_certified"]
     assert report["source_reports"]["sla_lineage"]["summary"]["with_due_target_fields"] == 1
+
+
+def test_field_certification_marks_status_duration_source_limited_with_snapshot_only_waiting():
+    coverage = {
+        "ready_for_ticket_health": False,
+        "counts": {"tickets": 2},
+        "blockers": [],
+        "fields": [
+            {"key": "ticket_status", "status": "available", "source": "status"},
+            {"key": "ticket_status_history", "status": "available", "source": "history"},
+            {"key": "waiting_states", "status": "available", "source": "current status plus history"},
+            {"key": "time_entries", "status": "available", "source": "time entries"},
+            {"key": "labor_hours", "status": "available", "source": "hours"},
+            {"key": "sla_information", "status": "available", "source": "sla"},
+        ],
+    }
+    diagnostics = {
+        "source_capability": {
+            "has_exact_status_transition_timestamp": False,
+            "proxy_timestamp_fields": ["lastActivityDate"],
+        },
+        "open_ticket_history_context": {
+            "open_tickets": 2,
+            "open_tickets_with_history": 2,
+            "open_tickets_without_history": 0,
+        },
+        "status_sample_coverage": {"sampled_status_candidate_rows": 0},
+    }
+    transition_summary = {"parsed_status_transitions": 0, "timestamped_status_transitions": 0}
+    labor_coverage = {
+        "summary": {
+            "open_tickets": 2,
+            "open_tickets_checked_for_time_entries": 2,
+            "open_tickets_checked_empty_time_entries": 0,
+            "open_tickets_unchecked_time_entries": 0,
+        },
+        "warnings": [],
+    }
+    shape_inventory = {
+        "certification_state": "source_limited",
+        "counts": {"structured_status_transition_rows": 0, "status_like_parser_incompatible_rows": 1},
+        "policy": {"aggregate_only": True, "returns_raw_ticket_text": False},
+        "warnings": [],
+    }
+    waiting_snapshot = {
+        "taxonomy_version": ticket_health_module.WAITING_TAXONOMY_VERSION,
+        "certification_state": "current_snapshot_available",
+        "snapshot_only": True,
+        "historical_duration_available": False,
+        "duration_source": "current_ticket_status_snapshot_only",
+        "summary": {"tickets": 2, "unknown_unmapped_tickets": 0},
+        "policy": {"uses_proxy_timestamps_for_duration": False},
+        "warnings": [],
+    }
+
+    report = ticket_health_module.field_certification_report(
+        coverage,
+        diagnostics,
+        transition_summary,
+        source_candidates={"policy": {"live_autotask_probe_ran": False}},
+        labor_coverage=labor_coverage,
+        sla_lineage={"summary": {"with_any_sla_fields": 0, "with_due_target_fields": 0}, "warnings": []},
+        ticket_history_shape_inventory=shape_inventory,
+        waiting_snapshot=waiting_snapshot,
+    )
+    by_target = {target["key"]: target for target in report["targets"]}
+
+    assert by_target["status_duration"]["certification_status"] == "source_limited"
+    assert by_target["status_duration"]["historical_duration_available"] is False
+    assert by_target["waiting_states"]["current_snapshot_available"] is True
+    assert by_target["waiting_states"]["historical_duration_available"] is False
+    assert report["source_reports"]["ticket_history_source_shape_inventory"]["counts"][
+        "structured_status_transition_rows"
+    ] == 0
+    assert report["source_reports"]["current_waiting_state_snapshot"]["snapshot_only"] is True
 
 
 def test_ticket_predictive_review_signal_abstains_with_low_sample_size():

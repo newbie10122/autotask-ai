@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `b504622a828379434e91a41f40c0247cd5dbebf9`, which merged PR `newbie10122/autotask-ai#79` (`Add SLA lineage certification`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#79` run `29938144886`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation passed with API/worker Python compilation, full pytest `143 passed`, static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check`.
+- Canonical `main` is `16aee8b0ccb1393ca52be2e86790f94220052150`, which merged PR `newbie10122/autotask-ai#80` (`Record SLA lineage merge`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#80` run `29938480756`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest material local validation on PR #79 passed with API/worker Python compilation, full pytest `143 passed`, static web JavaScript syntax, direct Playwright browser smoke `13 passed`, and clean `git diff --check`; PR #80 recorded that evidence in canonical docs.
 - Second Brain projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after recording Autotask AI progress through PR #70 at projection branch head `4306bcc`; local `python3 tools/validate_knowledge.py` passed before merge.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -67,6 +67,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #75 carries open-ticket TimeEntries gap-check context into field certification so checked-empty labor evidence is distinguished from unchecked tickets before labor is certified.
 - Milestone 2 scoped labor lineage branch `agent/m2-scoped-labor-lineage` applies authorized company scope to labor coverage summary/status/target queries and to field-certification labor context fetches.
 - Milestone 2 SLA lineage branch `agent/m2-sla-lineage-certification` adds scoped SLA ID/met/due-target/pause lineage evidence and keeps SLA certification partial when due target timestamps are incomplete.
+- Milestone 2 status-duration/waiting lineage branch `agent/m2-status-duration-waiting-lineage` adds aggregate-only TicketHistory source-shape inventory, current waiting-state snapshot taxonomy, and a no-proxy-duration contract so current status timestamps are not treated as historical waiting duration evidence.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -98,6 +99,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Status-probe sample-ticket branch `agent/status-probe-ticket-history-sample` makes the `TicketHistory` availability probe use one real local `autotask_tickets.autotask_id` with `ticketID eq <local ticket>` and `MaxRecords=1`, falling back to `ticketID >= 0` only when no local ticket exists.
 - Post-merge bounded read-only runtime probe on canonical `main` `9cc33aaf6ed3987d45a43e96713a7c39609bdcfc` found `TicketStatusHistory`, `TicketStatusHistories`, and `TicketChangeHistory` unavailable by those entity names, while `TicketHistory` was reachable with a sampled row and next page using `ticketID eq <local ticket>`. The status-duration/waiting blocker is now confirmed as TicketHistory row content/parser shape, not basic TicketHistory reachability.
 - TicketHistory content-certification is merged through PRs #58 and #59. Canonical `main` runtime validation on `bcc1b433b4a0124c833f131d28227a57eb6e1df2` returned `ok=true` for `/api/ticket-health/ticket-history-content-certification` after qualifying joined `h.raw` JSON references. The aggregate-only evidence found `30186` TicketHistory rows, `100%` timestamp coverage, `1` status-like row, and no `field`/`oldValue`/`newValue` raw keys, without exposing raw history detail text or enabling parser/model/workflow changes.
+- Current branch runtime evidence on `agent/m2-status-duration-waiting-lineage`: `/api/ticket-health/field-certification` executed locally through the API container against existing Postgres and returned `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, and `waiting_states`. The aggregate-only TicketHistory source-shape inventory found `38648` scoped local rows, `4804` tickets represented, `100%` timestamp coverage, `0` structured status-transition rows, `1` status-like parser-incompatible row, `164` duplicate timestamp groups, and `33489` non-monotonic timestamp rows by local ID order. The current waiting-state snapshot taxonomy reported `67726` tickets, `67625` mapped tickets, and `101` unknown/unmapped tickets; historical waiting-duration remains unavailable.
 
 ## Milestone table
 
@@ -117,10 +119,22 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Treat status-duration/waiting as source-limited unless parser-compatible status transitions are backfilled or another read-only Autotask source becomes available.
-2. Continue Milestone 2 field/source-lineage certification for status-duration, waiting state, and TicketHistory content shape.
+1. Merge the `agent/m2-status-duration-waiting-lineage` branch after PR CI passes, then update Second Brain PR #13 with sanitized source-limited status-duration/waiting evidence.
+2. Continue the next independent Milestone 2 field/source-lineage slice, prioritizing customer/technician response timestamps, category/queue/reference completeness, or sync/recovery streak evidence.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+
+## Current receipt — Milestone 2 status-duration and waiting source-lineage
+
+- **Slice:** Certify status-duration and waiting-state source limitations on branch `agent/m2-status-duration-waiting-lineage` from canonical `main` `16aee8b0ccb1393ca52be2e86790f94220052150`.
+- **State:** `partial_foundation`; current waiting-state snapshot taxonomy is available from scoped local current status/reference labels, but historical status-duration and waiting-duration remain `source_limited` because local TicketHistory has no structured timestamped status-transition rows.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `status_duration_summary()` no longer turns current ticket proxy timestamps into lower-bound waiting duration when no parsed status transitions exist. `ticket_history_source_shape_inventory()` adds aggregate-only, scoped TicketHistory shape counts for timestamp coverage, structured status-transition availability, parser-incompatible status-like rows, duplicate timestamps, non-monotonic timestamps, raw-key frequency, safe action identifiers, and sanitized shape signatures. `current_waiting_state_snapshot_report()` adds versioned current-status taxonomy buckets while leaving unknown/unmapped statuses unknown and avoiding ticket prose.
+- **Runtime evidence:** Local read-only field certification found `38648` TicketHistory rows, `100%` timestamp coverage, `0` structured status-transition rows, `1` status-like parser-incompatible row, and current waiting snapshot summary `67726` tickets with `101` unknown/unmapped; blockers remain `ticket_status_history`, `status_duration`, and `waiting_states`.
+- **Validation:** Focused container validation passed: `docker compose run --rm -T --no-deps -v "$PWD":/workspace -w /workspace api pytest apps/api/tests/test_ingestion_rag.py -q` returned `81 passed`. API/worker Python compilation and full pytest passed with `147 passed`; static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check` passed.
+- **Read-only evidence:** No sync jobs, production deployment, live Autotask probe, model threshold/workflow change, or Autotask write capability was run or added.
+- **Rollback:** Revert this branch commit; no migration is included and field certification returns to the prior parser/source-candidate-only status-duration evidence.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `ed311a9166088aebce7cf1ece1d30a76017e1697` and must be updated after this branch merges.
 
 ## Historical receipt — Milestone 2 SLA lineage certification
 
@@ -784,8 +798,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `ed311a9166088aebce7cf1ece1d30a76017e1697`. It records Autotask AI progress through PR #79, including PR #75 labor gap lineage, PR #77 scoped labor lineage, and PR #79 scoped SLA lineage evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `ed311a9166088aebce7cf1ece1d30a76017e1697`. It records Autotask AI progress through PR #79, including PR #75 labor gap lineage, PR #77 scoped labor lineage, and PR #79 scoped SLA lineage evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`. After the status-duration/waiting lineage branch merges, update the same PR with that source-limited evidence.
 
 ## Exact next action
 
-Continue Milestone 2 field/source-lineage certification for SLA, status-duration, waiting state, and TicketHistory content shape. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
+Merge the status-duration/waiting lineage branch after CI passes, update Second Brain PR #13, then continue the next safe Milestone 2 source-lineage field. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
