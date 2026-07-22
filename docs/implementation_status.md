@@ -76,6 +76,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Predictive leakage/bias branch `agent/predictive-leakage-bias-review` extends the evaluation report with explicit temporal leakage review, model comparison, and sanitized stratified metrics for company/category buckets.
 - Predictive source-lineage branch `agent/predictive-source-lineage` adds a `source_lineage` section to the evaluation report that marks created/completed timestamps and company scope as locally available while explicitly treating queue/priority current fields and category labels as not fully certified for prediction.
 - Milestone 2 field-certification branch `agent/m2-field-certification` adds scoped field-certification evidence to the API and predictive evaluation. Local runtime evidence returned `certification_state=partial_field_certification`, summary `certified=2`, `partial=1`, `source_limited=2`, and blockers `ticket_status_history`, `status_duration`, and `waiting_states`; no sync job, Autotask write, model threshold change, or workflow change was run or added.
+- Predictive model-variants branch `agent/predictive-model-variants` broadens the read-only holdout report with global-prior, queue-only, priority-only, and queue+priority Bayesian variants alongside the simple priority baseline. Local runtime evidence on the 100-ticket holdout showed all variants still have default recall `0.0`; queue+priority remains the strongest secondary signal by ROC AUC `0.613` and PR AUC `0.115`, but no model selection or threshold/workflow change is authorized.
 
 ## Milestone table
 
@@ -95,9 +96,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge `agent/m2-field-certification`, then update the existing Second Brain projection.
-2. Continue predictive work with broader model evaluation without changing thresholds automatically.
-3. Continue bounded TicketHistory estate catch-up certification and status-duration/waiting source-lineage work.
+1. Validate and merge `agent/predictive-model-variants`, then update the existing Second Brain projection.
+2. Continue bounded TicketHistory estate catch-up certification and status-duration/waiting source-lineage work.
+3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
 Parallel-safe work after roadmap merge:
@@ -114,7 +115,19 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Milestone 2 field-certification evidence
+## Latest receipt — Predictive model-variant evaluation evidence
+
+- **Slice:** Add read-only predictive model-variant comparison on branch `agent/predictive-model-variants` from canonical `main` `60923182c007fb9337bc7fc956c3cfbf4086c242`.
+- **State:** `partial_foundation`; predictive evaluation now compares additional variants, but no model is selected and Milestone 7 remains blocked by weak default delayed-ticket recall, Milestone 2 status-duration/waiting blockers, three-run evidence, and production certification.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `/api/ticket-health/predictive-evaluation` now returns `model_variants` with simple priority baseline, global prior, queue-only, priority-only, and queue+priority Bayesian variants. Each variant includes metrics, Brier/AUC where probability evidence exists, advisory threshold sweep, features, lineage status, `review_only=true`, and `selection_allowed=false`.
+- **Validation:** focused container validation passed for variant/model-comparison tests with `3 passed`; runtime local Postgres evaluation passed for 50-ticket and 100-ticket samples; full governed validation passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `125 passed`, static web JavaScript syntax validation, Playwright browser smoke `11 passed`, and clean `git diff --check`.
+- **Runtime evidence:** On `/api/ticket-health/predictive-evaluation?limit=100&delayed_days_threshold=7`, all variants retained default recall `0.0` and F1 `0.0`; global-prior and priority-only Brier score `0.057`, queue-only Brier `0.056`, queue+priority Brier `0.056`, queue+priority ROC AUC `0.613`, and queue+priority PR AUC `0.115`.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, Autotask writes, model selection, model threshold changes, routing, escalation, notification, assignment, status, priority, or workflow changes were run or added.
+- **Rollback:** Revert this branch commit; predictive evaluation falls back to PR #48 behavior with field-certification evidence and the original baseline/statistical comparison.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Milestone 2 field-certification evidence
 
 - **Slice:** Add scoped Milestone 2 field-certification evidence on branch `agent/m2-field-certification` from canonical `main` `99937d5113b0cc78270bf9a718f1cb4692ba2b28`.
 - **State:** `partial_foundation`; the app now exposes scoped certification status for TicketHistory, status-duration, TimeEntries/labor, SLA, and waiting-state lineage, but Milestone 2 is not complete because TicketHistory/status-duration/waiting evidence remains partial or source-limited.

@@ -2134,6 +2134,39 @@ def _threshold_sweep(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sweep
 
 
+def _smoothed_delay_rate(sample_size: int, delayed_count: int) -> float:
+    return (delayed_count + (0.5 * PREDICTION_PRIOR_SAMPLE_SIZE)) / (sample_size + PREDICTION_PRIOR_SAMPLE_SIZE)
+
+
+def _predictive_variant_report(
+    rows: list[dict[str, Any]],
+    *,
+    name: str,
+    model_type: str,
+    probability_key: str,
+    prediction_key: str,
+    features: list[str],
+    lineage_status: str,
+) -> dict[str, Any]:
+    probability_rows = [
+        {**row, "bayesian_delay_rate": row.get(probability_key)}
+        for row in rows
+        if row.get(probability_key) is not None
+    ]
+    return {
+        "name": name,
+        "type": model_type,
+        "features": features,
+        "lineage_status": lineage_status,
+        "metrics": _binary_classification_metrics(rows, prediction_key),
+        "brier_score": _brier_score(probability_rows),
+        "secondary_metrics": _probability_auc(probability_rows),
+        "threshold_sweep": _threshold_sweep(probability_rows),
+        "review_only": True,
+        "selection_allowed": False,
+    }
+
+
 def _brier_score(rows: list[dict[str, Any]], probability_key: str = "bayesian_delay_rate") -> float | None:
     scored = [row for row in rows if row.get(probability_key) is not None]
     if not scored:
@@ -2501,6 +2534,57 @@ def ticket_health_predictive_evaluation(
                     _binary_classification_metrics([], "statistical_predicted_delayed"),
                     {"brier_score": None, "secondary_metrics": _probability_auc([])},
                 ),
+                "model_variants": {
+                    "review_only": True,
+                    "selection_policy": "Compare variants as offline evidence only; do not select or deploy a model without human review, leakage/bias review, and Milestone 2 field certification.",
+                    "variants": [
+                        {
+                            "name": "simple_priority_baseline",
+                            "type": "deterministic_rule",
+                            "features": ["current_priority"],
+                            "lineage_status": "current priority field; historical priority-at-creation not certified",
+                            "metrics": _binary_classification_metrics([], "baseline_predicted_delayed"),
+                            "review_only": True,
+                            "selection_allowed": False,
+                        },
+                        _predictive_variant_report(
+                            [],
+                            name="global_prior_delay_rate",
+                            model_type="bayesian_prior",
+                            probability_key="global_prior_delay_rate",
+                            prediction_key="global_prior_predicted_delayed",
+                            features=["global_completed_ticket_delay_rate"],
+                            lineage_status="uses completed-ticket created/completed timestamps only",
+                        ),
+                        _predictive_variant_report(
+                            [],
+                            name="queue_only_delay_signal",
+                            model_type="lightweight_statistical",
+                            probability_key="queue_only_delay_rate",
+                            prediction_key="queue_only_predicted_delayed",
+                            features=["current_queue"],
+                            lineage_status="current queue field; queue-at-creation history is not certified",
+                        ),
+                        _predictive_variant_report(
+                            [],
+                            name="priority_only_delay_signal",
+                            model_type="lightweight_statistical",
+                            probability_key="priority_only_delay_rate",
+                            prediction_key="priority_only_predicted_delayed",
+                            features=["current_priority"],
+                            lineage_status="current priority field; priority-at-creation history is not certified",
+                        ),
+                        _predictive_variant_report(
+                            [],
+                            name="queue_priority_delay_signal",
+                            model_type="lightweight_statistical",
+                            probability_key="bayesian_delay_rate",
+                            prediction_key="statistical_predicted_delayed",
+                            features=["current_queue", "current_priority"],
+                            lineage_status="current queue/priority fields; queue/priority-at-creation history is not certified",
+                        ),
+                    ],
+                },
                 "leakage_review": _leakage_review(None, row_limit, 0),
                 "field_certification": field_certification,
                 "source_lineage": _predictive_source_lineage(field_certification),
@@ -2513,40 +2597,81 @@ def ticket_health_predictive_evaluation(
         holdout_start = min(row["created_at_autotask"] for row in holdout_rows if row.get("created_at_autotask"))
         training_rows = conn.execute(
             f"""
-            SELECT
-                COALESCE(t.queue, '') AS queue_key,
-                COALESCE(t.priority, '') AS priority_key,
-                count(*) AS sample_size,
-                count(*) FILTER (
-                    WHERE EXTRACT(EPOCH FROM (t.completed_at_autotask - t.created_at_autotask)) / 86400 > %s
-                ) AS delayed_count
-            FROM autotask_tickets t
-            WHERE t.completed_at_autotask IS NOT NULL
-              AND t.created_at_autotask IS NOT NULL
-              AND t.completed_at_autotask < %s
-              AND NOT t.analytics_exclude
-              {company_scope_sql}
-            GROUP BY COALESCE(t.queue, ''), COALESCE(t.priority, '')
+            WITH training AS (
+                SELECT
+                    COALESCE(t.queue, '') AS queue_key,
+                    COALESCE(t.priority, '') AS priority_key,
+                    EXTRACT(EPOCH FROM (t.completed_at_autotask - t.created_at_autotask)) / 86400 AS resolution_days
+                FROM autotask_tickets t
+                WHERE t.completed_at_autotask IS NOT NULL
+                  AND t.created_at_autotask IS NOT NULL
+                  AND t.completed_at_autotask < %s
+                  AND NOT t.analytics_exclude
+                  {company_scope_sql}
+            )
+            SELECT 'global_prior' AS model_name, '' AS queue_key, '' AS priority_key,
+                   count(*) AS sample_size,
+                   count(*) FILTER (WHERE resolution_days > %s) AS delayed_count
+            FROM training
+            UNION ALL
+            SELECT 'queue_only' AS model_name, queue_key, '' AS priority_key,
+                   count(*) AS sample_size,
+                   count(*) FILTER (WHERE resolution_days > %s) AS delayed_count
+            FROM training
+            GROUP BY queue_key
+            UNION ALL
+            SELECT 'priority_only' AS model_name, '' AS queue_key, priority_key,
+                   count(*) AS sample_size,
+                   count(*) FILTER (WHERE resolution_days > %s) AS delayed_count
+            FROM training
+            GROUP BY priority_key
+            UNION ALL
+            SELECT 'queue_priority' AS model_name, queue_key, priority_key,
+                   count(*) AS sample_size,
+                   count(*) FILTER (WHERE resolution_days > %s) AS delayed_count
+            FROM training
+            GROUP BY queue_key, priority_key
             """,
-            (threshold_days, holdout_start, *company_scope_params),
+            (holdout_start, *company_scope_params, threshold_days, threshold_days, threshold_days, threshold_days),
         ).fetchall()
-    training_stats = {
-        (str(row["queue_key"] or ""), str(row["priority_key"] or "")): {
+    training_stats_by_model = {
+        "global_prior": {},
+        "queue_only": {},
+        "priority_only": {},
+        "queue_priority": {},
+    }
+    for row in training_rows:
+        model_name = str(row["model_name"] or "")
+        key = (str(row["queue_key"] or ""), str(row["priority_key"] or ""))
+        training_stats_by_model.setdefault(model_name, {})[key] = {
             "sample_size": int(row.get("sample_size") or 0),
             "delayed_count": int(row.get("delayed_count") or 0),
         }
-        for row in training_rows
-    }
+    training_stats = training_stats_by_model["queue_priority"]
     evaluated: list[dict[str, Any]] = []
     abstentions = 0
     for row in holdout_rows:
         key = (str(row.get("queue_key") or ""), str(row.get("priority_key") or ""))
+        queue_key = (str(row.get("queue_key") or ""), "")
+        priority_key = ("", str(row.get("priority_key") or ""))
         stats = training_stats.get(key, {"sample_size": 0, "delayed_count": 0})
+        global_stats = training_stats_by_model["global_prior"].get(("", ""), {"sample_size": 0, "delayed_count": 0})
+        queue_stats = training_stats_by_model["queue_only"].get(queue_key, {"sample_size": 0, "delayed_count": 0})
+        priority_stats = training_stats_by_model["priority_only"].get(
+            priority_key, {"sample_size": 0, "delayed_count": 0}
+        )
         sample_size = int(stats.get("sample_size") or 0)
         delayed_count = int(stats.get("delayed_count") or 0)
-        smoothed_delay_rate = (
-            delayed_count + (0.5 * PREDICTION_PRIOR_SAMPLE_SIZE)
-        ) / (sample_size + PREDICTION_PRIOR_SAMPLE_SIZE)
+        smoothed_delay_rate = _smoothed_delay_rate(sample_size, delayed_count)
+        global_delay_rate = _smoothed_delay_rate(
+            int(global_stats.get("sample_size") or 0), int(global_stats.get("delayed_count") or 0)
+        )
+        queue_delay_rate = _smoothed_delay_rate(
+            int(queue_stats.get("sample_size") or 0), int(queue_stats.get("delayed_count") or 0)
+        )
+        priority_delay_rate = _smoothed_delay_rate(
+            int(priority_stats.get("sample_size") or 0), int(priority_stats.get("delayed_count") or 0)
+        )
         statistical_abstained = sample_size < PREDICTION_MIN_SAMPLE_SIZE
         abstentions += 1 if statistical_abstained else 0
         evaluated.append(
@@ -2559,6 +2684,12 @@ def ticket_health_predictive_evaluation(
                 "resolution_days": _round_optional(row.get("resolution_days")),
                 "actual_delayed": _num(row.get("resolution_days")) > threshold_days,
                 "baseline_predicted_delayed": str(row.get("priority_key") or "") in {"1", "4"},
+                "global_prior_delay_rate": round(global_delay_rate, 3),
+                "global_prior_predicted_delayed": global_delay_rate >= 0.5,
+                "queue_only_delay_rate": round(queue_delay_rate, 3),
+                "queue_only_predicted_delayed": queue_delay_rate >= 0.5,
+                "priority_only_delay_rate": round(priority_delay_rate, 3),
+                "priority_only_predicted_delayed": priority_delay_rate >= 0.5,
                 "statistical_predicted_delayed": (
                     False if statistical_abstained else smoothed_delay_rate >= 0.5
                 ),
@@ -2631,6 +2762,53 @@ def ticket_health_predictive_evaluation(
     if best_threshold and (best_threshold.get("precision") or 0) < 0.2:
         warnings.append("The best-F1 threshold has low precision in this holdout; human review must weigh false-positive burden.")
     baseline_metrics = _binary_classification_metrics(evaluated, "baseline_predicted_delayed")
+    model_variants = [
+        {
+            "name": "simple_priority_baseline",
+            "type": "deterministic_rule",
+            "features": ["current_priority"],
+            "lineage_status": "current priority field; historical priority-at-creation not certified",
+            "metrics": baseline_metrics,
+            "review_only": True,
+            "selection_allowed": False,
+        },
+        _predictive_variant_report(
+            evaluated,
+            name="global_prior_delay_rate",
+            model_type="bayesian_prior",
+            probability_key="global_prior_delay_rate",
+            prediction_key="global_prior_predicted_delayed",
+            features=["global_completed_ticket_delay_rate"],
+            lineage_status="uses completed-ticket created/completed timestamps only",
+        ),
+        _predictive_variant_report(
+            evaluated,
+            name="queue_only_delay_signal",
+            model_type="lightweight_statistical",
+            probability_key="queue_only_delay_rate",
+            prediction_key="queue_only_predicted_delayed",
+            features=["current_queue"],
+            lineage_status="current queue field; queue-at-creation history is not certified",
+        ),
+        _predictive_variant_report(
+            evaluated,
+            name="priority_only_delay_signal",
+            model_type="lightweight_statistical",
+            probability_key="priority_only_delay_rate",
+            prediction_key="priority_only_predicted_delayed",
+            features=["current_priority"],
+            lineage_status="current priority field; priority-at-creation history is not certified",
+        ),
+        _predictive_variant_report(
+            statistical_rows,
+            name="queue_priority_delay_signal",
+            model_type="lightweight_statistical",
+            probability_key="bayesian_delay_rate",
+            prediction_key="statistical_predicted_delayed",
+            features=["current_queue", "current_priority"],
+            lineage_status="current queue/priority fields; queue/priority-at-creation history is not certified",
+        ),
+    ]
     return {
         "ok": True,
         "review_only": True,
@@ -2650,6 +2828,11 @@ def ticket_health_predictive_evaluation(
         "concentration": concentration,
         "stratified_metrics": stratified_metrics,
         "model_comparison": _model_comparison(baseline_metrics, statistical_metrics, calibration),
+        "model_variants": {
+            "review_only": True,
+            "selection_policy": "Compare variants as offline evidence only; do not select or deploy a model without human review, leakage/bias review, and Milestone 2 field certification.",
+            "variants": model_variants,
+        },
         "leakage_review": _leakage_review(holdout_start, row_limit, len(training_stats)),
         "field_certification": field_certification,
         "source_lineage": _predictive_source_lineage(field_certification),
