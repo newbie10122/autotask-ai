@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `216e803296698febd0c869bacbce671dd5f60e50`, which merged PR `newbie10122/autotask-ai#91` (`Add stale scheduler run cleanup`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#91` run `29948960498`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation for stale-run cleanup passed focused scheduler/archive tests with `3 passed`, focused route/audit tests with `4 passed`, focused Operations browser smoke with `1 passed`, full repository validation with `154 passed`, and Playwright browser smoke with `13 passed`.
+- Canonical `main` is `8f9c2710e67ac135797b3b0c38f7f112e097ecb9`, which merged PR `newbie10122/autotask-ai#92` (`Record stale scheduler cleanup merge evidence`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#92` run `29949728507`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation for stale-run cleanup execution passed guarded local archive runtime smoke, Operations status runtime smoke, Nginx UI root smoke, focused docs whitespace validation, full repository validation with `154 passed`, and Playwright browser smoke with `13 passed`.
 - Second Brain projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after recording Autotask AI progress through PR #70 at projection branch head `4306bcc`; local `python3 tools/validate_knowledge.py` passed before merge.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -110,6 +110,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Post-merge PR #87 scheduler automation runtime evidence: local read-only scheduler certification returned `partial_scheduler_automation_evidence`, scheduler `healthy`, `9` required jobs, `9` certified jobs, `0` partial jobs, `0` missing jobs, `2` running jobs, and blocker `stale_running_jobs` because one old running row is older than 30 minutes. Required scheduled jobs had recent scheduler-completed runs, including `recent_sync` (`86` scheduler runs/`86` completed in 24h), `open_ticket_history_gaps` (`86` runs/`85` completed), `open_ticket_time_entry_gaps` (`85`/`85`), `ticket_history_gaps` (`23`/`23`), `ticket_time_entry_gaps` (`23`/`23`), `sync_reference_data` (`4`/`4`), `classify_tickets` (`46` runs/`44` completed), `reclassify_chunks` (`24`/`24`), and `nightly_pipeline` (`1`/`1`).
 - Post-merge PR #89 stale-run provenance runtime evidence: local read-only scheduler certification returned `1` stale running row, `classify_tickets` run `4143`, no active lock, newer completed run `4391`, and stale state `orphaned_running_row_candidate`. This explains the blocker as likely stale local run metadata, not evidence that the scheduler is failing to run classification.
 - Post-merge PR #91 cleanup capability evidence: `archive_stale_orphaned_run()` is local metadata only and returns policy flags proving it does not run jobs or allow Autotask writes. The archive SQL requires `running`, older than 30 minutes, no active lock, and newer completed run evidence before updating a row to `stale_orphaned`; PR #91 did not execute cleanup against the live database.
+- Post-merge cleanup execution evidence after PR #92: local Admin route `POST /api/operations/jobs/4143/archive-stale` returned `ok=true`, `archived=true`, policy `local_metadata_only=true`, `runs_jobs=false`, and `autotask_writes_allowed=false`. Follow-up local scheduler certification returned `certification_state=scheduler_automation_available`, `ok=true`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, no blockers, and `0` stale provenance rows. Local Nginx `/ready` and UI root returned `HTTP 200`.
 
 ## Milestone table
 
@@ -129,12 +130,24 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record PR #91 merge evidence in canonical project documents, then continue cleanup execution evidence if the stale row is still safely guarded.
+1. Record guarded stale scheduler-run cleanup execution evidence in canonical project documents.
 2. Continue the next independent Milestone 2 field/source-lineage or sync/recovery evidence slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 stale scheduler-run cleanup merge evidence
+## Current receipt — Milestone 2 stale scheduler-run cleanup execution evidence
+
+- **Slice:** Record guarded local stale scheduler-run cleanup execution after PR #92 from canonical `main` `8f9c2710e67ac135797b3b0c38f7f112e097ecb9`.
+- **State:** `partial_foundation`; the stale local scheduler metadata blocker was cleared and scheduler automation certification now reports available, but three-run scheduler/restart/recovery evidence and production certification remain open.
+- **Files changed:** Project status docs only.
+- **Runtime evidence:** Local route `POST /api/operations/jobs/4143/archive-stale` returned `ok=true`, `archived=true`, and run `4143` status `stale_orphaned` with current step `archived_stale_orphaned`.
+- **Post-cleanup verification:** Local read-only scheduler certification returned `certification_state=scheduler_automation_available`, `ok=true`, `9` required jobs, `9` certified jobs, `0` partial jobs, `0` missing jobs, `0` running jobs, `0` stale running jobs, no blockers, and `0` stale provenance rows. Operations API returned `HTTP 200`, scheduler state `healthy`, and the same scheduler automation summary. Nginx `/ready` and UI root returned `HTTP 200`.
+- **Validation:** This branch requires docs whitespace validation and CI before merge. The runtime action did not require application code changes.
+- **Read-only/authority evidence:** The executed action was local scheduler metadata cleanup only. It did not run sync jobs, reference-data sync, live Autotask probe, production deployment, model threshold/workflow change, routing/assignment change, or any Autotask write.
+- **Rollback:** The code rollback is not applicable because this branch is docs-only; the local metadata row can be inspected historically as `stale_orphaned` and future guarded cleanup remains controlled by PR #91 behavior.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+
+## Historical receipt — Milestone 2 stale scheduler-run cleanup merge evidence
 
 - **Slice:** Record stale scheduler-run cleanup merge evidence after PR #91 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; canonical docs now reflect PR #91 and Second Brain projection head `8235559d0dff9ba8225ebea3164123d8263db7d3`.
@@ -891,4 +904,4 @@ None currently identified for documentation and non-production implementation wo
 
 ## Exact next action
 
-Commit and merge this documentation reconciliation, then continue with guarded stale local scheduler-run cleanup execution evidence, sync/recovery streak evidence, or the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
+Commit and merge this cleanup-execution documentation reconciliation, update existing Second Brain PR #13 with sanitized cleanup-execution evidence, then continue sync/recovery streak evidence or the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
