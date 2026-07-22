@@ -1800,6 +1800,7 @@ def field_certification_report(
     status_diagnostics: dict[str, Any] | None = None,
     transition_parse_summary: dict[str, Any] | None = None,
     source_candidates: dict[str, Any] | None = None,
+    labor_coverage: dict[str, Any] | None = None,
     authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
@@ -1813,13 +1814,19 @@ def field_certification_report(
         transition_parse_summary=transition_summary,
         authorized_company_ids=authorized_company_ids,
     )
+    labor_gap_context = labor_coverage or labor_coverage_report()
     source_capability = status_diag.get("source_capability") or {}
     open_history = status_diag.get("open_ticket_history_context") or {}
     status_sample = status_diag.get("status_sample_coverage") or {}
+    labor_summary = labor_gap_context.get("summary") or {}
     exact_status_transition = bool(source_capability.get("has_exact_status_transition_timestamp"))
     open_history_complete = (
         int(open_history.get("open_tickets") or 0) > 0 and int(open_history.get("open_tickets_without_history") or 0) == 0
     )
+    unchecked_labor_open_tickets = int(labor_summary.get("open_tickets_unchecked_time_entries") or 0)
+    checked_empty_labor_open_tickets = int(labor_summary.get("open_tickets_checked_empty_time_entries") or 0)
+    checked_labor_open_tickets = int(labor_summary.get("open_tickets_checked_for_time_entries") or 0)
+    open_labor_tickets = int(labor_summary.get("open_tickets") or 0)
     sampled_status_candidates = int(status_sample.get("sampled_status_candidate_rows") or 0)
     parsed_status_transitions = int(transition_summary.get("parsed_status_transitions") or 0)
     timestamped_status_transitions = int(transition_summary.get("timestamped_status_transitions") or 0)
@@ -1837,6 +1844,16 @@ def field_certification_report(
     sla_information = _field_row_status(coverage, "sla_information")
     waiting_states = _field_row_status(coverage, "waiting_states")
     ticket_status = _field_row_status(coverage, "ticket_status")
+    labor_certification_status = _certification_status(
+        str(time_entries.get("status") or "missing"), str(labor_hours.get("status") or "missing")
+    )
+    if unchecked_labor_open_tickets > 0:
+        labor_certification_status = "partial"
+    labor_note = labor_hours.get("note") or "Labor evidence is local and read-only; model use still requires outcome/leakage review."
+    if unchecked_labor_open_tickets > 0:
+        labor_note = (
+            "TimeEntries gap checks still have unchecked open tickets; distinguish unchecked tickets from checked-empty tickets before certifying labor coverage."
+        )
 
     targets = [
         {
@@ -1873,15 +1890,17 @@ def field_certification_report(
         {
             "key": "time_entries",
             "label": "TimeEntries and labor-hour lineage",
-            "certification_status": _certification_status(
-                str(time_entries.get("status") or "missing"), str(labor_hours.get("status") or "missing")
-            ),
+            "certification_status": labor_certification_status,
             "source": "autotask_time_entries and normalized labor hours",
             "coverage_percent": labor_hours.get("coverage_percent"),
             "available_count": labor_hours.get("available_count"),
             "total_count": labor_hours.get("total_count"),
+            "open_tickets": open_labor_tickets,
+            "checked_open_tickets": checked_labor_open_tickets,
+            "checked_empty_open_tickets": checked_empty_labor_open_tickets,
+            "unchecked_open_tickets": unchecked_labor_open_tickets,
             "prediction_use": "excluded_until_certified_for_model_training",
-            "note": labor_hours.get("note") or "Labor evidence is local and read-only; model use still requires outcome/leakage review.",
+            "note": labor_note,
         },
         {
             "key": "sla_information",
@@ -1932,6 +1951,11 @@ def field_certification_report(
                 "ready_for_ticket_health": coverage.get("ready_for_ticket_health"),
                 "counts": coverage.get("counts"),
                 "blockers": coverage.get("blockers") or [],
+            },
+            "labor_gap_context": {
+                "summary": labor_summary,
+                "warnings": labor_gap_context.get("warnings") or [],
+                "interpretation": "Checked-empty TimeEntries are confirmed zero-result reads; unchecked tickets still need bounded gap checks before labor coverage is certified.",
             },
             "status_source": {
                 "source_capability": source_capability,
