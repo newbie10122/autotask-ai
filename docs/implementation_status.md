@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `6c7bec5`, which merged PR `newbie10122/autotask-ai#112` (`Record TicketCategories metadata sync runtime evidence`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#112` run `29960546534`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #112 passed `git diff --check` and full repository validation with `162` API tests plus `13` Playwright tests.
+- Canonical `main` is `92d21ff`, which merged PR `newbie10122/autotask-ai#114` (`Sync ticket picklist reference metadata`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#114` run `29961689594`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #114 passed focused reference-data/probe/contract validation with `6 passed`, `git diff --check`, and full repository validation with `163` API tests plus `13` Playwright tests.
 - Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `e367155` after recording Autotask AI progress through PR #112 and the TicketCategories metadata sync runtime evidence; local `python3 tools/validate_knowledge.py` passed with `112` Markdown files, `112` unique IDs, and `248` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -82,7 +82,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #107 adds an Admin-only manual bounded read-only reference metadata source probe.
 - Post-merge bounded read-only runtime probe on canonical `main` `9e17d22` returned `/ready` `HTTP 200`, `live_autotask_probe_ran=true`, `autotask_writes_allowed=false`, `MaxRecords=1` per candidate entity, and one available candidate, `TicketCategories`. `TicketPriorities`, `Priorities`, `TicketIssueTypes`, `TicketSubIssueTypes`, `Queues`, `TicketQueues`, and `TicketStatuses` were unavailable by those entity names. The result is availability evidence only; it does not authorize automatic reference sync, model/workflow changes, or Autotask writes.
 - PR #111 adds read-only `TicketCategories` metadata ingestion to the reference-data sync path. Post-merge local runtime executed the reference-data sync once, processed/upserted `14` `TicketCategories` metadata rows with `metadata_sync.ok=true`, `autotask_writes_allowed=false`, and no metadata-sync errors; category reference lineage then showed `100.0%` authoritative label coverage, while issue/subissue, priority, queue, status-duration, and waiting blockers remain.
-- Current branch `agent/m2-ticket-picklist-metadata-sync` adds read-only `Tickets/entityInformation/fields` picklist ingestion for priority, category, issue type, subissue type, queue, and status labels. It upserts supported picklist values as `source='autotask_metadata'` and reports picklist fields/counts without running the live sync or allowing Autotask writes.
+- PR #114 adds read-only `Tickets/entityInformation/fields` picklist ingestion for priority, category, issue type, subissue type, queue, and status labels. Post-merge local runtime executed the reference-data sync once, upserted `231` ticket picklist rows across `issueType`, `priority`, `queueID`, `status`, `subIssueType`, and `ticketCategory`, and field certification now reports all six reference fields at `100.0%` authoritative label coverage with zero metadata-source gaps. Remaining blockers are `ticket_status_history`, `status_duration`, `waiting_states`, and queue-at-creation/history lineage.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -141,21 +141,22 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge the ticket picklist metadata sync foundation.
-2. Execute and record bounded read-only runtime evidence for ticket picklist metadata, then continue status-duration and waiting blockers.
+1. Record ticket picklist metadata runtime evidence and update the open Second Brain projection.
+2. Continue status-duration, waiting, TicketHistory coverage, and queue-at-creation/history blockers.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 ticket picklist metadata sync foundation
+## Current receipt — Milestone 2 ticket picklist metadata sync runtime evidence
 
-- **Slice:** Add read-only ticket field picklist metadata ingestion using the live-proven `Tickets/entityInformation/fields` endpoint.
-- **State:** `partial_foundation`; the app can now sync authoritative labels for priority, category, issue type, subissue type, queue, and status picklists, but this branch does not execute the live sync and does not address status-duration/waiting transition timestamps.
-- **Files changed:** `apps/api/app/autotask.py`, `apps/api/app/ticket_analytics.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
-- **Implemented:** `AutotaskReadOnlyClient.ticket_entity_fields()` reads `/V1.0/Tickets/entityInformation/fields`. `sync_autotask_reference_metadata()` now maps supported ticket picklist fields into local reference fields and upserts picklist `value`/`label` pairs as `source='autotask_metadata'`, with raw metadata scoped to the field/picklist item. The `metadata_sync` report includes `ticket_picklist_fields` and `ticket_picklist_upserted`.
-- **Live discovery basis:** A bounded read-only manual check of `/V1.0/Tickets/entityInformation/fields` returned `75` field definitions and picklist metadata for `priority`, `ticketCategory`, `issueType`, `subIssueType`, `queueID`, and `status`.
-- **Validation:** Focused reference-data/probe/contract validation passed with `6 passed`; Python compile passed for the changed modules/tests; `git diff --check` passed. Full validation and CI are required before merge.
-- **Read-only/authority evidence:** This branch adds read-only Autotask metadata ingestion code only. It does not run the live sync, deploy production code, change model threshold/workflow behavior, change routing/assignment, or write to Autotask.
-- **Rollback:** Revert this branch commit; existing category metadata rows from PR #111 remain unless separately reviewed local database cleanup is approved.
+- **Slice:** Record post-merge runtime execution for the read-only ticket picklist metadata sync added by PR #114.
+- **State:** `partial_foundation`; reference-label source certification is now complete for priority, category, issue type, subissue type, queue, and status, but Milestone 2 remains partial because historical TicketHistory coverage, status-duration, waiting-duration, and queue-at-creation/history lineage remain incomplete.
+- **Files changed:** Project status docs only.
+- **Implemented by PR #114:** `AutotaskReadOnlyClient.ticket_entity_fields()` reads `/V1.0/Tickets/entityInformation/fields`. `sync_autotask_reference_metadata()` maps supported ticket picklist fields into local reference fields and upserts picklist `value`/`label` pairs as `source='autotask_metadata'`, with raw metadata scoped to the field/picklist item. The `metadata_sync` report includes `ticket_picklist_fields` and `ticket_picklist_upserted`.
+- **Runtime evidence:** Local API rebuild returned `/ready` `HTTP 200`. `POST /api/sync/reference-data/start` returned `ok=true`, total `upserted=470`, `metadata_sync.ok=true`, `attempted_entities=['TicketCategories']`, `available_entities=['TicketCategories']`, `ticket_picklist_fields=['issueType','priority','queueID','status','subIssueType','ticketCategory']`, `ticket_picklist_upserted=231`, `metadata_sync.processed=245`, no metadata-sync errors, `read_only=true`, and `autotask_writes_allowed=false`.
+- **Field-certification evidence:** `/api/ticket-health/field-certification` remained `partial_field_certification`, with summary `certified=6`, `partial=2`, `source_limited=2`; blockers are `ticket_status_history`, `status_duration`, `waiting_states`, and `queue`. Reference lineage summary is `certified=3`, metadata contract `fields_requiring_metadata_source=0`, and priority/category/issue_type/subissue_type/queue/status each report `100.0%` authoritative label coverage. Queue remains partial because queue-at-creation/history lineage is not certified, not because labels are missing.
+- **Validation:** PR #114 CI run `29961689594` passed; focused reference-data/probe/contract validation passed with `6 passed`; full validation passed with `163` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only runtime-evidence branch requires docs whitespace validation and CI before merge.
+- **Read-only/authority evidence:** The runtime sync used read-only Autotask metadata endpoints and did not write to Autotask, change model threshold/workflow behavior, change routing/assignment, or deploy production code.
+- **Rollback:** Revert the docs-only runtime evidence commit to remove the receipt. To remove local picklist metadata rows, a separately reviewed local database cleanup would be required; do not perform that cleanup as part of documentation rollback.
 - **Second Brain state:** `pull-request-open`; projection PR `newbie10122/helix-second-brain#13` remains open at head `e367155` and records PR #112 TicketCategories metadata sync runtime evidence with local knowledge validation passing.
 
 ## Historical receipt — Milestone 2 reference metadata source-contract merge evidence
