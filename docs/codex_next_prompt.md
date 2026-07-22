@@ -52,6 +52,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge Milestone 2 evidence on canonical `main` `2a3841b83ef336462eb162ec64bbe1531f776f9e`: PR #87 adds read-only scheduler automation certification to Operations status. Runtime local evidence found scheduler `healthy`, all `9` required scheduled jobs certified with recent scheduler-completed runs, `86` recent-sync scheduler runs in 24h, `85` open-ticket-history-gap runs, `85` open-ticket-TimeEntries-gap runs, `23` estate TicketHistory gap runs, `23` estate TimeEntries gap runs, `4` sync-reference-data runs, and blocker `stale_running_jobs` because one old running row is older than 30 minutes.
 - Post-merge documentation evidence on canonical `main` `2f7c577e131df0d3d03f2dd0b0434f978b0f3cd8`: PR #88 records the PR #87 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
 - Post-merge Milestone 2 evidence on canonical `main` `1827b5dd9ecfb55316a6716d671d9c22212f78a7`: PR #89 adds sanitized stale running-run provenance to scheduler automation certification and the Operations UI. Runtime local evidence classifies stale `classify_tickets` run `4143` as `orphaned_running_row_candidate` because it has no active lock and newer completed run `4391`.
+- Current active branch validation: `agent/m2-stale-run-cleanup` adds Admin-only local archival for stale orphaned scheduler run metadata. The route only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job; focused scheduler/archive tests passed with `3 passed`, route/audit tests with `4 passed`, Operations browser smoke with `1 passed`, full repository validation with `154 passed`, and Playwright browser smoke with `13 passed`.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -67,8 +68,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record PR #89 and Second Brain PR #13 head `06dacfb4fee52ee48edf11ba39bd07f1059c9ec9` in canonical project control documents.
-2. Continue authorized cleanup design or sync/recovery streak evidence.
+1. Merge `agent/m2-stale-run-cleanup` after CI passes, then update Second Brain PR #13 with sanitized cleanup evidence.
+2. Continue sync/recovery streak evidence.
 3. Continue the next safe Milestone 2 source-lineage or sync/recovery evidence slice without Autotask writes, production deployment, or model workflow changes.
 
 ## Milestone status

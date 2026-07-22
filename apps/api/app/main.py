@@ -16,6 +16,7 @@ from .documents import create_documents_from_tickets, noise_report
 from .embeddings import run_embedding_batch
 from .models import AuditAction, AuditLogEntry, LoginRequest, Role
 from .operations import (
+    archive_stale_orphaned_run,
     job_runs,
     operations_jobs,
     operations_settings,
@@ -1028,6 +1029,19 @@ def api_resume_operations(_user: dict | None = Depends(require_roles(Role.admin)
 def api_request_stop(run_id: int, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     result = request_stop(run_id)
     record_success_audit(AuditAction.admin_action, "operations.job.request_stop", _user, audit_scope(), {"run_id": run_id})
+    return result
+
+
+@app.post("/api/operations/jobs/{run_id}/archive-stale")
+def api_archive_stale_operation_job(run_id: int, _user: dict | None = Depends(require_roles(Role.admin))) -> dict:
+    result = archive_stale_orphaned_run(run_id)
+    record_success_audit(
+        AuditAction.admin_action,
+        "operations.job.archive_stale",
+        _user,
+        audit_scope(),
+        {"run_id": run_id, "archived": bool(result.get("archived"))},
+    )
     return result
 
 

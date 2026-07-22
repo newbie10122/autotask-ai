@@ -1386,6 +1386,51 @@ def request_stop(run_id: int) -> dict[str, Any]:
     return {"ok": bool(row), "run": row}
 
 
+def archive_stale_orphaned_run(run_id: int) -> dict[str, Any]:
+    ensure_operations_defaults()
+    with db_connection() as conn:
+        row = conn.execute(
+            """
+            UPDATE job_runs jr
+            SET status='stale_orphaned',
+                finished_at=now(),
+                duration_ms=GREATEST((EXTRACT(EPOCH FROM (now() - jr.started_at)) * 1000)::integer, 0),
+                current_step='archived_stale_orphaned'
+            WHERE jr.id=%s
+              AND jr.status='running'
+              AND jr.started_at < now() - interval '30 minutes'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM job_locks jl
+                  WHERE jl.run_id=jr.id
+              )
+              AND EXISTS (
+                  SELECT 1
+                  FROM job_runs newer
+                  WHERE newer.job_name=jr.job_name
+                    AND newer.status='completed'
+                    AND newer.finished_at > jr.started_at
+              )
+            RETURNING id, job_name, status, started_at, finished_at, current_step
+            """,
+            (run_id,),
+        ).fetchone()
+    invalidate_operations_status_cache()
+    return {
+        "ok": bool(row),
+        "archived": bool(row),
+        "run": dict(row) if row else None,
+        "policy": {
+            "local_metadata_only": True,
+            "requires_stale_running_row": True,
+            "requires_no_active_lock": True,
+            "requires_newer_completed_run": True,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+        },
+    }
+
+
 def operations_status(cache_context: dict[str, Any] | None = None) -> dict[str, Any]:
     ensure_operations_defaults()
     cache_key = operations_status_cache_key(**(cache_context or {}))

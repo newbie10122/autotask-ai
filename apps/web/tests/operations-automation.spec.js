@@ -33,6 +33,7 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(page.locator("#schedulerStaleProvenance")).toContainText("orphaned_running_row_candidate");
   await expect(page.locator("#schedulerStaleProvenance")).toContainText("Newer Completed");
   await expect(page.locator("#schedulerStaleProvenance")).toContainText("4391");
+  await expect(page.locator("#schedulerStaleProvenance button", { hasText: "Archive" })).toBeEnabled();
 
   const automationPanel = page.locator("#relatedDataAutomation");
   await expect(automationPanel).toContainText("open_ticket_history_gaps");

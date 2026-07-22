@@ -68,7 +68,7 @@
 **Impact:** Operations status can report a stale scheduler heartbeat even while jobs continue completing, weakening readiness evidence and making pause/restart diagnosis harder.
 **Evidence:** After PR #10, `recent_sync`, `open_ticket_history_gaps`, and `open_ticket_time_entry_gaps` completed, but `scheduler_heartbeats.heartbeat_at` remained at the rebuild-time tick and operations status showed `scheduler.state=stale`.
 **Existing controls:** The scheduler worker now records heartbeat at tick start, tick finish, and failure. Focused tests assert the worker heartbeat contract, and live runtime validation showed `scheduler.state=healthy` after restart with a fresh `heartbeat_at` and completed gap-job evidence. PR #87 adds read-only scheduler automation certification to Operations status; runtime local evidence found all `9` required jobs have recent scheduler-completed runs. PR #89 adds stale running-run provenance and classifies the stale `classify_tickets` row as `orphaned_running_row_candidate`.
-**Next mitigation:** Add authorized stale running-run cleanup or archival, add pause/resume actor/reason provenance, and include heartbeat/restart checks in Quality Streak certification.
+**Next mitigation:** Merge and validate the Admin-only stale running-run archive action, then add pause/resume actor/reason provenance and include heartbeat/restart checks in Quality Streak certification.
 
 ### R8 — Historical backfill resource and API pressure
 
