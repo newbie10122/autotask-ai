@@ -74,6 +74,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Predictive evaluation currently shows that the default Bayesian delay signal has high aggregate accuracy but zero delayed-ticket recall on the local 100-ticket holdout: `accuracy=0.94`, `recall=0.0`, `f1=0.0`. The advisory best-F1 threshold in that same report is `0.05`, with `precision=0.068`, `recall=0.833`, and `f1=0.125`; this is evidence for human review only and does not authorize automatic threshold, model, routing, escalation, or workflow changes.
 - Predictive calibration branch `agent/predictive-calibration-policy` extends the same read-only evaluation report with target/label semantics, Brier score, calibration bands, PR/ROC secondary metrics, threshold coverage/abstention, sanitized client/category concentration, a human-review threshold policy, and a local read-only shadow-evaluation contract.
 - Predictive leakage/bias branch `agent/predictive-leakage-bias-review` extends the evaluation report with explicit temporal leakage review, model comparison, and sanitized stratified metrics for company/category buckets.
+- Predictive source-lineage branch `agent/predictive-source-lineage` adds a `source_lineage` section to the evaluation report that marks created/completed timestamps and company scope as locally available while explicitly treating queue/priority current fields and category labels as not fully certified for prediction.
 
 ## Milestone table
 
@@ -86,15 +87,15 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 | 4. Redis and CPU performance | not_started | Scoped cache design and benchmarks |
 | 5. Real-time technician updates | not_started | Authorized event architecture |
 | 6. Technician Performance Assistant | partial_foundation | Current RAG exists; guided/draft workflows not certified |
-| 7. Predictive Service Intelligence | partial_foundation | Review-only statistical ticket ranking plus initial holdout/threshold/calibration/leakage/bias evidence exists; broader model evaluation, source-lineage certification, and production certification remain open |
+| 7. Predictive Service Intelligence | partial_foundation | Review-only statistical ticket ranking plus initial holdout/threshold/calibration/leakage/bias/source-lineage evidence exists; broader model evaluation, Milestone 2 field certification, and production certification remain open |
 | 8. Routing recommendations | not_started | Resource/workload data and evaluation |
 | 9. Customer Success Intelligence | not_started | Certified internal capabilities |
 | 10. Production certification/99% closeout | not_started | All target milestones and evidence |
 
 ## Active execution queue
 
-1. Validate and merge `agent/predictive-leakage-bias-review`, then update the existing Second Brain projection.
-2. Continue predictive work with broader model evaluation and source-lineage certification without changing thresholds automatically.
+1. Validate and merge `agent/predictive-source-lineage`, then update the existing Second Brain projection.
+2. Continue predictive work with broader model evaluation and Milestone 2 field certification without changing thresholds automatically.
 3. Continue bounded TimeEntries/TicketHistory estate catch-up certification and status-duration/SLA source-lineage work.
 4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
@@ -112,7 +113,19 @@ Shared schema and integration changes must be serialized by the coordinator.
 
 None currently identified for documentation and non-production implementation work. Production deployment, customer-data scope expansion, irreversible migrations, and any Autotask write capability remain approval-gated.
 
-## Latest receipt — Predictive leakage and bias review evidence
+## Latest receipt — Predictive source-lineage evidence
+
+- **Slice:** Add predictive source-lineage evidence on branch `agent/predictive-source-lineage` from canonical `main` `a2a2a3c98245307438d8d26005aecd6403fce0f6`.
+- **State:** `partial_foundation`; the evaluation report now identifies which local fields are certified enough for the current evaluation and which remain current-field proxies, but no threshold/model/routing/workflow behavior is changed and Milestone 7 still requires broader model evaluation, Milestone 2 field certification, and production certification.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `/api/ticket-health/predictive-evaluation` now returns `source_lineage` with per-field source, use, lineage status, and prediction-certification state. Created/completed timestamps and company scope are marked locally available; queue, priority, and category-derived fields remain not fully certified for prediction because historical queue/priority-at-creation and reference completeness are still open.
+- **Validation:** focused container validation passed for `apps/api/tests/test_ingestion_rag.py` with `60 passed`. Full governed validation passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `123 passed`, static web JavaScript syntax validation, Playwright browser smoke `11 passed`, and `git diff --check`.
+- **Runtime evidence:** After rebuilding the local API from this branch, `/ready` returned ready. The predictive evaluation endpoint returned `source_lineage.certification_state=partial_source_lineage`, marked `created_at_autotask`, `completed_at_autotask`, and `company_id` as locally available/certified for the current evaluation, and marked queue, priority, and category-derived fields as not fully certified for prediction.
+- **Read-only evidence:** No sync jobs, production deployment, live credential changes, local feedback writes, or Autotask write capability were run or added.
+- **Rollback:** Revert this branch commit; predictive evaluation falls back to the PR #45 leakage/bias report.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Predictive leakage and bias review evidence
 
 - **Slice:** Add predictive temporal leakage review, model comparison, and sanitized stratified bias evidence on branch `agent/predictive-leakage-bias-review` from canonical `main` `afb0bb1b9c4d26505b16078c547ec9b4f07ad66a`.
 - **State:** `partial_foundation`; the evaluation report now exposes broader review evidence, but no threshold/model/routing/workflow behavior is changed and Milestone 7 still requires broader model evaluation, source-lineage certification, and production certification.

@@ -1189,6 +1189,19 @@ def test_ticket_predictive_leakage_review_documents_temporal_split():
     assert any("queue/priority-at-creation" in item for item in review["known_limitations"])
 
 
+def test_ticket_predictive_source_lineage_marks_current_field_proxies():
+    lineage = ticket_health_module._predictive_source_lineage()
+    by_field = {item["field"]: item for item in lineage["fields"]}
+
+    assert lineage["certification_state"] == "partial_source_lineage"
+    assert by_field["created_at_autotask"]["certified_for_prediction"] is True
+    assert by_field["completed_at_autotask"]["certified_for_prediction"] is True
+    assert by_field["queue"]["certified_for_prediction"] is False
+    assert "queue-at-creation" in by_field["queue"]["lineage_status"]
+    assert "ticket_status_history" in lineage["not_used_for_current_model"]
+    assert any("does not authorize" in item for item in lineage["limitations"])
+
+
 def test_ticket_predictive_target_policy_blocks_automatic_actions():
     policy = ticket_health_module._prediction_target_policy(7, 100)
 
