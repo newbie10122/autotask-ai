@@ -623,7 +623,7 @@ def test_scheduler_automation_certification_reports_recent_scheduler_evidence(mo
 
         def execute(self, sql, params=None):
             captured_queries.append((sql, params))
-            if "WITH required(job_name)" in sql:
+            if "WITH required(job_name)" in sql and "latest AS" in sql:
                 rows = []
                 for job_name in operations_module.SYNC_RECOVERY_REQUIRED_JOBS:
                     failed = job_name == "ticket_history_gaps"
@@ -654,6 +654,19 @@ def test_scheduler_automation_certification_reports_recent_scheduler_evidence(mo
                 return FakeResult({"running_jobs": 0, "stale_running_jobs": 0})
             if "WITH stale AS" in sql:
                 return FakeResult(rows=[])
+            if "ranked_runs AS" in sql:
+                return FakeResult(
+                    rows=[
+                        {
+                            "job_name": job_name,
+                            "inspected_runs": 3,
+                            "clean_completed_runs": 3,
+                            "problematic_runs": 0,
+                            "latest_clean_finished_at": now,
+                        }
+                        for job_name in operations_module.SYNC_RECOVERY_REQUIRED_JOBS
+                    ]
+                )
             raise AssertionError(sql)
 
     monkeypatch.setattr(operations_module, "ensure_operations_defaults", lambda: None)
@@ -676,6 +689,10 @@ def test_scheduler_automation_certification_reports_recent_scheduler_evidence(mo
     assert by_job["ticket_history_gaps"]["latest_has_error"] is True
     assert "last_error" not in by_job["ticket_history_gaps"]
     assert report["stale_running_provenance"] == []
+    assert report["recovery_streak"]["state"] == "scheduler_recovery_streak_available"
+    assert report["recovery_streak"]["summary"]["clean_streak_jobs"] == len(
+        operations_module.SYNC_RECOVERY_REQUIRED_JOBS
+    )
     assert report["policy"]["runs_jobs"] is False
     assert report["policy"]["returns_raw_checkpoint_or_config"] is False
     assert any("WITH required(job_name)" in sql for sql, _params in captured_queries)
@@ -703,7 +720,7 @@ def test_scheduler_automation_certification_reports_stale_run_provenance(monkeyp
             return False
 
         def execute(self, sql, params=None):
-            if "WITH required(job_name)" in sql:
+            if "WITH required(job_name)" in sql and "latest AS" in sql:
                 rows = []
                 for job_name in operations_module.SYNC_RECOVERY_REQUIRED_JOBS:
                     rows.append(
@@ -746,6 +763,19 @@ def test_scheduler_automation_certification_reports_stale_run_provenance(monkeyp
                         }
                     ]
                 )
+            if "ranked_runs AS" in sql:
+                return FakeResult(
+                    rows=[
+                        {
+                            "job_name": job_name,
+                            "inspected_runs": 3,
+                            "clean_completed_runs": 3,
+                            "problematic_runs": 0,
+                            "latest_clean_finished_at": now,
+                        }
+                        for job_name in operations_module.SYNC_RECOVERY_REQUIRED_JOBS
+                    ]
+                )
             raise AssertionError(sql)
 
     monkeypatch.setattr(operations_module, "ensure_operations_defaults", lambda: None)
@@ -763,6 +793,91 @@ def test_scheduler_automation_certification_reports_stale_run_provenance(monkeyp
     assert "last_error" not in provenance[0]
     assert "config_snapshot" not in provenance[0]
     assert "last_checkpoint" not in provenance[0]
+
+
+def test_scheduler_automation_certification_reports_recovery_streak(monkeypatch):
+    now = datetime.now(UTC)
+
+    class FakeResult:
+        def __init__(self, row=None, rows=None):
+            self.row = row or {}
+            self.rows = rows or []
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            if "WITH required(job_name)" in sql and "latest AS" in sql:
+                return FakeResult(
+                    rows=[
+                        {
+                            "job_name": job_name,
+                            "enabled": True,
+                            "cadence_seconds": 900,
+                            "schedule": "every 15 minutes",
+                            "scheduled_status": "completed",
+                            "last_started_at": now,
+                            "last_finished_at": now,
+                            "latest_run_status": "completed",
+                            "latest_run_started_at": now,
+                            "latest_run_finished_at": now,
+                            "latest_triggered_by": "scheduler",
+                            "latest_failed_count": 0,
+                            "latest_has_error": False,
+                            "scheduler_runs_24h": 3,
+                            "scheduler_completed_24h": 3,
+                            "scheduler_failed_24h": 0,
+                            "scheduler_skipped_24h": 0,
+                            "scheduler_completed_7d": 3,
+                        }
+                        for job_name in operations_module.SYNC_RECOVERY_REQUIRED_JOBS
+                    ]
+                )
+            if "stale_running_jobs" in sql:
+                return FakeResult({"running_jobs": 0, "stale_running_jobs": 0})
+            if "WITH stale AS" in sql:
+                return FakeResult(rows=[])
+            if "ranked_runs AS" in sql:
+                rows = []
+                for job_name in operations_module.SYNC_RECOVERY_REQUIRED_JOBS:
+                    clean = job_name != "nightly_pipeline"
+                    rows.append(
+                        {
+                            "job_name": job_name,
+                            "inspected_runs": 3 if clean else 1,
+                            "clean_completed_runs": 3 if clean else 1,
+                            "problematic_runs": 0,
+                            "latest_clean_finished_at": now,
+                        }
+                    )
+                return FakeResult(rows=rows)
+            raise AssertionError(sql)
+
+    monkeypatch.setattr(operations_module, "ensure_operations_defaults", lambda: None)
+    monkeypatch.setattr(operations_module, "db_connection", lambda: FakeConnection())
+    monkeypatch.setattr(operations_module, "_scheduler_status", lambda _conn, _now: {"state": "healthy"})
+
+    report = operations_module.scheduler_automation_certification_report()
+    streak = report["recovery_streak"]
+
+    assert report["certification_state"] == "scheduler_automation_available"
+    assert streak["state"] == "partial_scheduler_recovery_streak"
+    assert streak["summary"]["clean_streak_jobs"] == len(operations_module.SYNC_RECOVERY_REQUIRED_JOBS) - 1
+    assert streak["summary"]["partial_streak_jobs"] == 1
+    assert streak["summary"]["required_clean_runs_per_job"] == 3
+    assert streak["blockers"] == ["nightly_pipeline"]
+    assert streak["policy"]["runs_jobs"] is False
+    assert streak["policy"]["autotask_writes_allowed"] is False
 
 
 def test_archive_stale_orphaned_run_requires_safe_local_metadata_guards(monkeypatch):
