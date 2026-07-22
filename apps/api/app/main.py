@@ -33,6 +33,7 @@ from .sync import sync_companies, sync_recent, sync_runs, sync_status as get_syn
 from .ticket_analytics import classify_tickets, recurring_issues_report, reference_data_status, sync_reference_data, ticket_class_report
 from .ticket_health import (
     field_certification_report,
+    reference_metadata_source_contract_report,
     status_transition_source_candidates_report,
     store_ticket_health_risk_feedback,
     ticket_history_content_certification_report,
@@ -726,6 +727,22 @@ def api_ticket_health_status_transition_sources(
     record_success_audit(
         AuditAction.search,
         "ticket_health.status_transition_sources",
+        getattr(request.state, "user", None),
+        audit_scope(authorized_company_ids),
+        {"authorized_company_scope_applied": authorized_company_ids is not None},
+    )
+    return result
+
+
+@app.get("/api/ticket-health/reference-metadata-source-contract")
+def api_ticket_health_reference_metadata_source_contract(
+    request: Request,
+    authorized_company_ids: list[int] | None = Depends(require_company_scope),
+) -> dict:
+    result = reference_metadata_source_contract_report(authorized_company_ids=authorized_company_ids)
+    record_success_audit(
+        AuditAction.search,
+        "ticket_health.reference_metadata_source_contract",
         getattr(request.state, "user", None),
         audit_scope(authorized_company_ids),
         {"authorized_company_scope_applied": authorized_company_ids is not None},

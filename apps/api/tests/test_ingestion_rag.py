@@ -2104,6 +2104,63 @@ def test_reference_field_lineage_report_applies_scope_and_avoids_raw_labels(monk
     assert any(params == ("priority", "priority", [123]) for _sql, params in captured_queries)
 
 
+def test_reference_metadata_source_contract_is_review_only():
+    lineage = {
+        "fields": [
+            {
+                "key": "priority",
+                "present_rows": 4,
+                "authoritative_label_rows": 0,
+                "authoritative_label_coverage_percent": 0.0,
+                "reference_source_authority_counts": {"bootstrap": 3, "inferred": 1},
+            },
+            {
+                "key": "queue",
+                "present_rows": 2,
+                "authoritative_label_rows": 2,
+                "authoritative_label_coverage_percent": 100.0,
+                "reference_source_authority_counts": {"authoritative": 2},
+            },
+        ],
+        "source_candidates": {
+            "fields": [
+                {
+                    "key": "priority",
+                    "candidate_label_rows": 0,
+                    "candidate_labels_available": False,
+                    "candidate_label_keys": [{"raw_key": "priorityName", "rows": 0}],
+                },
+                {
+                    "key": "queue",
+                    "candidate_label_rows": 0,
+                    "candidate_labels_available": False,
+                    "candidate_label_keys": [{"raw_key": "queueName", "rows": 0}],
+                },
+            ]
+        },
+    }
+
+    report = ticket_health_module.reference_metadata_source_contract_report(
+        authorized_company_ids=[123],
+        reference_lineage=lineage,
+    )
+
+    assert report["certification_state"] == "authoritative_reference_metadata_required"
+    assert report["authorized_company_scope_applied"] is True
+    assert report["summary"]["fields_requiring_metadata_source"] == 1
+    priority = next(field for field in report["fields"] if field["key"] == "priority")
+    assert priority["certification_status"] == "metadata_source_required"
+    assert priority["missing_authoritative_label_rows"] == 4
+    assert priority["candidate_raw_label_keys_checked"] == ["priorityName"]
+    assert priority["candidate_raw_labels_available"] is False
+    assert "TicketPriorities" in priority["candidate_entity_names_unverified"]
+    assert priority["required_local_reference_source"] == "autotask or autotask_metadata"
+    assert report["policy"]["live_autotask_probe_ran"] is False
+    assert report["policy"]["autotask_writes_allowed"] is False
+    assert report["policy"]["automatic_reference_sync_allowed"] is False
+    assert report["policy"]["returns_raw_label_values"] is False
+
+
 def test_field_certification_includes_response_lineage_targets():
     coverage = {
         "ready_for_ticket_health": False,
