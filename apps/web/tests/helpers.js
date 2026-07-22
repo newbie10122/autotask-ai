@@ -80,6 +80,27 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
             heartbeat: { status: "running" },
             next_due_job: { job_name: "open_ticket_history_gaps", due_at: "2026-07-22T00:29:03Z" }
           },
+          scheduler_automation: {
+            certification_state: "partial_scheduler_automation_evidence",
+            summary: {
+              required_jobs: 9,
+              certified_jobs: 9,
+              partial_jobs: 0,
+              missing_jobs: 0,
+              running_jobs: 1,
+              stale_running_jobs: 1
+            },
+            stale_running_provenance: [
+              {
+                run_id: 4143,
+                job_name: "classify_tickets",
+                age_seconds: 3600,
+                has_active_lock: false,
+                newer_completed_run_id: 4391,
+                stale_state: "orphaned_running_row_candidate"
+              }
+            ]
+          },
           counts: {
             tickets: 67726,
             ticket_notes: 675531,

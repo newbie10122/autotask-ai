@@ -185,7 +185,7 @@ RAW_BACKFILL_JOBS = {
     "raw_backfill_companies",
 }
 MUTATES_CHUNKS = {"build_documents", "reclassify_chunks"}
-OPERATIONS_STATUS_CACHE_VERSION = 4
+OPERATIONS_STATUS_CACHE_VERSION = 5
 SYNC_RECOVERY_REQUIRED_JOBS: tuple[str, ...] = (
     "recent_sync",
     "open_ticket_time_entry_gaps",
@@ -1124,6 +1124,77 @@ def _job_recovery_status(row: dict[str, Any], now: datetime) -> str:
     return "available"
 
 
+def _stale_running_provenance(conn: Any, now: datetime, *, limit: int = 10) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        """
+        WITH stale AS (
+            SELECT
+                jr.id,
+                jr.job_name,
+                jr.started_at,
+                jr.triggered_by,
+                jr.current_step,
+                EXISTS (
+                    SELECT 1
+                    FROM job_locks jl
+                    WHERE jl.run_id=jr.id
+                ) AS has_active_lock
+            FROM job_runs jr
+            WHERE jr.status='running'
+              AND jr.started_at < now() - interval '30 minutes'
+            ORDER BY jr.started_at ASC, jr.id ASC
+            LIMIT %s
+        )
+        SELECT
+            stale.*,
+            newer.id AS newer_completed_run_id,
+            newer.finished_at AS newer_completed_finished_at
+        FROM stale
+        LEFT JOIN LATERAL (
+            SELECT id, finished_at
+            FROM job_runs completed
+            WHERE completed.job_name=stale.job_name
+              AND completed.status='completed'
+              AND completed.finished_at > stale.started_at
+            ORDER BY completed.finished_at DESC NULLS LAST, completed.id DESC
+            LIMIT 1
+        ) newer ON true
+        ORDER BY stale.started_at ASC, stale.id ASC
+        """,
+        (min(max(limit, 1), 50),),
+    ).fetchall()
+    provenance: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        started_at = item.get("started_at")
+        age_seconds = int(max((now - started_at).total_seconds(), 0)) if started_at else None
+        newer_completed = bool(item.get("newer_completed_run_id"))
+        has_active_lock = bool(item.get("has_active_lock"))
+        if newer_completed and not has_active_lock:
+            stale_state = "orphaned_running_row_candidate"
+        elif newer_completed:
+            stale_state = "superseded_running_row_with_lock"
+        elif has_active_lock:
+            stale_state = "stale_running_with_lock"
+        else:
+            stale_state = "stale_running_without_lock"
+        provenance.append(
+            {
+                "run_id": item.get("id"),
+                "job_name": item.get("job_name"),
+                "started_at": started_at,
+                "age_seconds": age_seconds,
+                "triggered_by": item.get("triggered_by"),
+                "current_step": item.get("current_step"),
+                "has_active_lock": has_active_lock,
+                "newer_completed_run_id": item.get("newer_completed_run_id"),
+                "newer_completed_finished_at": item.get("newer_completed_finished_at"),
+                "stale_state": stale_state,
+            }
+        )
+    return provenance
+
+
 def scheduler_automation_certification_report() -> dict[str, Any]:
     ensure_operations_defaults()
     now = datetime.now(UTC)
@@ -1216,6 +1287,7 @@ def scheduler_automation_certification_report() -> dict[str, Any]:
             WHERE status='running'
             """
         ).fetchone()
+        stale_running_provenance = _stale_running_provenance(conn, now)
 
     jobs: list[dict[str, Any]] = []
     for row in rows:
@@ -1285,11 +1357,13 @@ def scheduler_automation_certification_report() -> dict[str, Any]:
         },
         "blockers": blockers,
         "jobs": jobs,
+        "stale_running_provenance": stale_running_provenance,
         "policy": {
             "read_only": True,
             "runs_jobs": False,
             "autotask_writes_allowed": False,
             "returns_raw_error_text": False,
+            "returns_raw_checkpoint_or_config": False,
             "automatic_model_or_workflow_changes_allowed": False,
         },
         "warnings": warnings,
