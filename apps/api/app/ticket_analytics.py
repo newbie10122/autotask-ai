@@ -5,6 +5,7 @@ from typing import Any
 
 from psycopg.types.json import Jsonb
 
+from .autotask import AutotaskReadOnlyClient
 from .db import db_connection, init_schema
 from .security import redact_private_entities
 from .ticket_classifier import classify_ticket, ticket_class_label
@@ -37,6 +38,15 @@ REFERENCE_FIELDS: tuple[tuple[str, str], ...] = (
     ("priority", "priority"),
 )
 
+AUTOTASK_METADATA_REFERENCE_SOURCES: dict[str, dict[str, Any]] = {
+    "TicketCategories": {
+        "field_name": "category",
+        "value_keys": ("id",),
+        "label_keys": ("name", "label", "description"),
+        "max_records": 500,
+    },
+}
+
 
 def _clean_value(value: Any) -> str:
     return str(value or "").strip()
@@ -54,7 +64,14 @@ def _reference_label_and_source(field_name: str, value: str) -> tuple[str, str]:
     return _fallback_label(field_name, value), "inferred"
 
 
-def _upsert_reference(conn: Any, field_name: str, value: str, label: str, source: str = "local") -> None:
+def _upsert_reference(
+    conn: Any,
+    field_name: str,
+    value: str,
+    label: str,
+    source: str = "local",
+    raw: dict[str, Any] | None = None,
+) -> None:
     if not value:
         return
     conn.execute(
@@ -62,13 +79,86 @@ def _upsert_reference(conn: Any, field_name: str, value: str, label: str, source
         INSERT INTO autotask_reference_values(field_name, value, label, source, raw, updated_at)
         VALUES (%s, %s, %s, %s, %s, now())
         ON CONFLICT (field_name, value) DO UPDATE
-        SET label=EXCLUDED.label, source=EXCLUDED.source, updated_at=now()
+        SET label=EXCLUDED.label, source=EXCLUDED.source, raw=EXCLUDED.raw, updated_at=now()
         """,
-        (field_name, value, label, source, Jsonb({})),
+        (field_name, value, label, source, Jsonb(raw or {})),
     )
 
 
-def sync_reference_data() -> dict[str, Any]:
+def _first_clean(item: dict[str, Any], keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = _clean_value(item.get(key))
+        if value:
+            return value
+    return ""
+
+
+def sync_autotask_reference_metadata(
+    client: AutotaskReadOnlyClient | None = None,
+    entities: tuple[str, ...] = ("TicketCategories",),
+) -> dict[str, Any]:
+    init_schema()
+    client = client or AutotaskReadOnlyClient()
+    processed = 0
+    upserted = 0
+    errors: list[dict[str, str]] = []
+    attempted_entities: list[str] = []
+    available_entities: list[str] = []
+    with db_connection() as conn:
+        for entity in entities:
+            source_config = AUTOTASK_METADATA_REFERENCE_SOURCES.get(entity)
+            if not source_config:
+                errors.append({"entity": entity, "error": "unsupported_reference_metadata_entity"})
+                continue
+            attempted_entities.append(entity)
+            try:
+                entity_processed = 0
+                for items, _payload in client.iter_entity_pages(
+                    entity,
+                    filters=[{"op": "gte", "field": "id", "value": 0}],
+                    limit=int(source_config["max_records"]),
+                ):
+                    for item in items:
+                        if not isinstance(item, dict):
+                            continue
+                        value = _first_clean(item, source_config["value_keys"])
+                        label = _first_clean(item, source_config["label_keys"])
+                        if not value or not label:
+                            continue
+                        _upsert_reference(
+                            conn,
+                            source_config["field_name"],
+                            value,
+                            label,
+                            "autotask_metadata",
+                            raw=item,
+                        )
+                        processed += 1
+                        upserted += 1
+                        entity_processed += 1
+                if entity_processed:
+                    available_entities.append(entity)
+            except Exception as exc:
+                errors.append({"entity": entity, "error": f"{exc.__class__.__name__}: {str(exc)[:180]}"})
+    return {
+        "ok": not errors,
+        "sync": "autotask_reference_metadata",
+        "read_only": True,
+        "autotask_writes_allowed": False,
+        "automatic_model_or_workflow_changes_allowed": False,
+        "attempted_entities": attempted_entities,
+        "available_entities": available_entities,
+        "processed": processed,
+        "upserted": upserted,
+        "errors": errors,
+    }
+
+
+def sync_reference_data(
+    *,
+    include_autotask_metadata: bool = True,
+    autotask_client: AutotaskReadOnlyClient | None = None,
+) -> dict[str, Any]:
     init_schema()
     upserted = 0
     with db_connection() as conn:
@@ -104,7 +194,24 @@ def sync_reference_data() -> dict[str, Any]:
                 label, source = _reference_label_and_source(field_name, value)
                 _upsert_reference(conn, field_name, value, label, source)
                 upserted += 1
-    return reference_data_status() | {"ok": True, "upserted": upserted}
+    metadata_sync = (
+        sync_autotask_reference_metadata(client=autotask_client)
+        if include_autotask_metadata
+        else {
+            "ok": True,
+            "sync": "autotask_reference_metadata",
+            "read_only": True,
+            "autotask_writes_allowed": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+            "attempted_entities": [],
+            "available_entities": [],
+            "processed": 0,
+            "upserted": 0,
+            "errors": [],
+            "skipped": True,
+        }
+    )
+    return reference_data_status() | {"ok": True, "upserted": upserted + metadata_sync["upserted"], "metadata_sync": metadata_sync}
 
 
 def reference_data_status() -> dict[str, Any]:
