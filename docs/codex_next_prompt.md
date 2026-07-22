@@ -24,6 +24,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge runtime probe on canonical `main` `9cc33aaf6ed3987d45a43e96713a7c39609bdcfc`: `/ready` returned ready; bounded read-only status-transition probe returned 404 for `TicketStatusHistory`, `TicketStatusHistories`, and `TicketChangeHistory`; `TicketHistory` returned one sampled row with `has_next_page=true` using `ticketID eq <local ticket>`. Status-duration/waiting remains source-limited because reachable `TicketHistory` row content still lacks parser-certified timestamped status transitions.
 - Post-merge runtime evidence on canonical `main` `bcc1b433b4a0124c833f131d28227a57eb6e1df2`: `/api/ticket-health/ticket-history-content-certification` returned `ok=true` after the runtime SQL fix. The aggregate-only report found `30186` TicketHistory rows, `100%` timestamp coverage, `1` status-like row, and no `field`/`oldValue`/`newValue` raw keys; status-duration/waiting remains source-limited by content shape, not by missing scheduled TicketHistory ingestion.
 - Post-merge conversational UI evidence on canonical `main` `98c047d290fa3ae89b1d196fbfcc91771e55de98`: Ask Assistant shows request phases for scoped ticket search, evidence preparation, local CPU model waiting, and answer rendering; terminal status text says when no browser request remains active. Local web service was rebuilt and `http://127.0.0.1:3010/` contains the new progress UI.
+- Post-merge conversational behavior evidence on canonical `main` `e05f32ed28b4446ad53bdd6911e782f9f3d22d6f`: Ticket History Only now skips the local chat model and returns deterministic retrieved ticket evidence. Generated prose remains explicit to General + Ticket History and Deep Dive. Local API/web containers were rebuilt; `/ready` returned ready.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -39,7 +40,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Update the existing Second Brain projection PR with PR #61 plus the Ask Assistant progress-phase runtime evidence.
+1. Update the existing Second Brain projection PR with PR #63 plus the Ticket History Only no-LLM behavior evidence.
 2. Continue the next safe Milestone 1 audit/scope closeout slice; keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
 
 ## Milestone status
