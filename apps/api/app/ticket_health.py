@@ -2114,6 +2114,68 @@ def _leakage_review(holdout_start: Any, row_limit: int, training_group_count: in
     }
 
 
+def _predictive_source_lineage() -> dict[str, Any]:
+    return {
+        "certification_state": "partial_source_lineage",
+        "fields": [
+            {
+                "field": "created_at_autotask",
+                "source": "autotask_tickets.created_at_autotask",
+                "used_for": "resolution_days label and temporal split",
+                "lineage_status": "available_locally",
+                "certified_for_prediction": True,
+            },
+            {
+                "field": "completed_at_autotask",
+                "source": "autotask_tickets.completed_at_autotask",
+                "used_for": "completed-ticket holdout, label construction, and training cutoff",
+                "lineage_status": "available_locally",
+                "certified_for_prediction": True,
+            },
+            {
+                "field": "queue",
+                "source": "autotask_tickets.queue",
+                "used_for": "Bayesian queue/priority historical grouping",
+                "lineage_status": "current_local_field; queue-at-creation history is not certified",
+                "certified_for_prediction": False,
+            },
+            {
+                "field": "priority",
+                "source": "autotask_tickets.priority",
+                "used_for": "simple priority baseline and Bayesian queue/priority historical grouping",
+                "lineage_status": "current_local_field; priority-at-creation history is not certified",
+                "certified_for_prediction": False,
+            },
+            {
+                "field": "company_id",
+                "source": "autotask_tickets.company_id",
+                "used_for": "authorized scope filtering and sanitized concentration review",
+                "lineage_status": "available_locally; output is bucketed/sanitized",
+                "certified_for_prediction": True,
+            },
+            {
+                "field": "category / issue_type / subissue_type",
+                "source": "autotask_tickets category fields",
+                "used_for": "sanitized concentration and stratified review only",
+                "lineage_status": "available_locally; label/reference completeness remains under Milestone 2 certification",
+                "certified_for_prediction": False,
+            },
+        ],
+        "not_used_for_current_model": [
+            "ticket_status_history",
+            "time_entries",
+            "SLA fields",
+            "technician workload",
+            "routing outcomes",
+        ],
+        "limitations": [
+            "Current predictive grouping uses current local queue/priority values, not certified queue/priority-at-ticket-creation history.",
+            "Status-duration, SLA, and labor signals remain outside this model until Milestone 2 source-lineage certification is complete.",
+            "This lineage record is evidence only and does not authorize prediction-driven workflow changes.",
+        ],
+    }
+
+
 def _prediction_target_policy(threshold_days: int, row_limit: int) -> dict[str, Any]:
     return {
         "target": "completed_ticket_resolution_duration",
@@ -2190,6 +2252,7 @@ def ticket_health_predictive_evaluation(
                     {"brier_score": None, "secondary_metrics": _probability_auc([])},
                 ),
                 "leakage_review": _leakage_review(None, row_limit, 0),
+                "source_lineage": _predictive_source_lineage(),
                 "human_review_threshold_policy": {
                     "selection_mode": "human_review_required",
                     "automatic_changes_allowed": False,
@@ -2336,6 +2399,7 @@ def ticket_health_predictive_evaluation(
         "stratified_metrics": stratified_metrics,
         "model_comparison": _model_comparison(baseline_metrics, statistical_metrics, calibration),
         "leakage_review": _leakage_review(holdout_start, row_limit, len(training_stats)),
+        "source_lineage": _predictive_source_lineage(),
         "threshold_sweep": threshold_sweep,
         "best_threshold_by_f1": best_threshold,
         "human_review_threshold_policy": policy,
