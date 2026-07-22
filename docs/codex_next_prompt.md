@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `dff08b09de8bc4c1e12f111ef19ba0aa8a661d1b`
-- Latest merged PR: `newbie10122/autotask-ai#74`, `Record Second Brain PR13 projection`
-- Latest PR #74 CI: GitHub Actions run `29932792277`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed validation on canonical PR #74 evidence passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `138 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`
+- Canonical `main`: `b03f4f35b2d032af58e7447444be6550136f9410`
+- Latest merged PR: `newbie10122/autotask-ai#75`, `Add labor gap lineage certification`
+- Latest PR #75 CI: GitHub Actions run `29933463319`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local governed validation on canonical PR #75 evidence passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `139 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -37,7 +37,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `ffd53e9dbe26bcbf20f7c8669d8c895a6381f6bd`: PR #71 recorded the Second Brain PR #6 merge state in Autotask AI control documents.
 - Post-merge audit evidence on canonical `main` `63201015556cdee0df5e250c88213bc465765aee`: PR #72 adds bounded Admin-only audit-log filters and success audit events for Operations inspection reads, with safe count/state metadata and no Autotask writes, sync jobs, production deployment, or model workflow changes.
 - Post-merge documentation evidence on canonical `main` `dff08b09de8bc4c1e12f111ef19ba0aa8a661d1b`: PR #74 records Second Brain PR #13 as the open governed projection for PR #71-#73 evidence.
-- Current active branch validation: `agent/m2-labor-gap-lineage` has focused field-certification/labor lineage tests passing with `73 passed`, and full governed validation passing with full pytest `139 passed`, Playwright browser smoke `13 passed`, and clean `git diff --check`. The branch carries open-ticket TimeEntries checked, checked-empty, and unchecked gap-check context into field certification so unchecked labor gaps keep certification partial while confirmed zero-result reads are distinguished from missing sync evidence.
+- Post-merge Milestone 2 evidence on canonical `main` `b03f4f35b2d032af58e7447444be6550136f9410`: PR #75 carries open-ticket TimeEntries checked, checked-empty, and unchecked gap-check context into field certification so unchecked labor gaps keep certification partial while confirmed zero-result reads are distinguished from missing sync evidence.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -53,9 +53,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Finish, validate, open, and merge `agent/m2-labor-gap-lineage` if exact-head CI passes.
-2. Update the open governed Second Brain projection PR #13 after this material Milestone 2 slice merges.
-3. Continue Milestone 2 field/source-lineage certification for SLA, status-duration, waiting state, and TicketHistory content shape.
+1. Record the PR #75 merge and updated Second Brain projection state in canonical project docs.
+2. Continue Milestone 2 field/source-lineage certification for SLA, status-duration, waiting state, and TicketHistory content shape.
 
 ## Milestone status
 
@@ -77,4 +76,4 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Projection PR `newbie10122/helix-second-brain#6` is merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`. Projection branch head `4306bcc` recorded Autotask AI progress through PR #70, including calibrated predictive ranking evidence, related-data catch-up visibility, admin inspection read audit coverage, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, PR #66 control-document reconciliation, current validation counts, prior predictive evidence, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py` before merge.
 
-Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `b1bf8505ea7e1eb0ff0f623799abc746997f5582`. It records Autotask AI progress through PR #73, including PR #71 Second Brain merge-state reconciliation and PR #72 audit inspection filters. Local validation passed with `python3 tools/validate_knowledge.py`. Do not mark it merged until the PR is actually merged.
+Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `efde35985ce30cc3955f27488ba16336ef5e2cdf`. It records Autotask AI progress through PR #75, including PR #72 audit inspection filters, PR #73/PR #74 documentation reconciliation, and PR #75 Milestone 2 labor gap lineage evidence. Local validation passed with `python3 tools/validate_knowledge.py`. Do not mark it merged until the PR is actually merged.
