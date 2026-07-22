@@ -5,9 +5,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `e9a867e2853ae87cb77b1cf1f698e495e6cfd0ba`
-- Latest merged PR: `newbie10122/autotask-ai#54`, `Isolate status source probe errors`
-- Latest PR #54 CI: GitHub Actions run `29889739984`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Canonical `main`: `48c9fb6d36225eb39a5f8f6791a4ef4884f36e19`
+- Latest merged PR: `newbie10122/autotask-ai#55`, `Use entity filters for status source probe`
+- Latest PR #55 CI: GitHub Actions run `29889914291`, workflow `CI`, job `Validate Autotask AI`, passed before merge
 - Latest local governed runtime checks on 2026-07-22: `/ready` returned ready, operations status returned scheduler `healthy`, `global_pause=false`, and local counts `tickets=67726`, `time_entries=49950`, `ticket_history=29760`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -20,6 +20,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Current active branch validation: `agent/status-history-entity-probe` has focused bounded probe/client and company-sync compatibility tests passing with `3 passed`, and focused admin route matrix, route authority, and success-audit tests passing with `3 passed`. The branch adds Admin-only manual `POST /api/autotask/probe/status-transition-sources` using `MaxRecords=1` per candidate entity with no scheduling, no Autotask writes, and no automatic sync-path/model/workflow authorization.
 - Current active branch validation: `agent/status-probe-error-isolation` has focused bounded probe/error-isolation tests passing with `2 passed`. The branch fixes the manual status-history probe so repeated unavailable entities do not trip the read-only client's consecutive-error breaker across candidates.
 - Current active branch validation: `agent/status-probe-entity-filters` has focused bounded probe filter/error-isolation tests passing with `3 passed`. The branch makes the manual status-transition source probe use per-entity read-only filters and report each filter used; `TicketHistory` now probes by `ticketID` instead of generic `id`.
+- Current active branch validation: `agent/status-probe-ticket-history-sample` has focused bounded probe sample-ticket/filter/error-isolation tests passing with `4 passed`. The branch makes the `TicketHistory` availability probe use a real local `autotask_tickets.autotask_id` with `ticketID eq <local ticket>` and `MaxRecords=1`, falling back only when no local ticket exists.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -35,7 +36,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Validate and merge `agent/status-probe-entity-filters` if full governed validation and exact-head CI pass.
+1. Validate and merge `agent/status-probe-ticket-history-sample` if full governed validation and exact-head CI pass.
 2. Rerun the bounded read-only status-transition probe. If an entity is available, design a review-only sync candidate; otherwise return to Milestone 1 audit/scope closeout.
 3. Update the existing Second Brain projection PR after this material slice merges.
 

@@ -18,9 +18,7 @@ STATUS_TRANSITION_CANDIDATE_ENTITIES: tuple[str, ...] = (
     "TicketHistory",
     "TicketChangeHistory",
 )
-STATUS_TRANSITION_PROBE_FILTERS: dict[str, list[dict[str, Any]]] = {
-    "TicketHistory": [{"op": "gte", "field": "ticketID", "value": 0}],
-}
+STATUS_TRANSITION_PROBE_FILTERS: dict[str, list[dict[str, Any]]] = {}
 
 
 @dataclass(frozen=True)
@@ -172,6 +170,29 @@ class AutotaskReadOnlyClient:
             query["IncludeFields"] = include_fields
         return self._request("POST", f"/V1.0/{entity}/query", json=query)
 
+    def _ticket_history_probe_filters(self) -> list[dict[str, Any]]:
+        try:
+            with db_connection() as conn:
+                row = conn.execute(
+                    """
+                    SELECT autotask_id
+                    FROM autotask_tickets
+                    WHERE autotask_id IS NOT NULL
+                    ORDER BY updated_at_autotask DESC NULLS LAST, id DESC
+                    LIMIT 1
+                    """
+                ).fetchone()
+            if row and row.get("autotask_id") is not None:
+                return [{"op": "eq", "field": "ticketID", "value": int(row["autotask_id"])}]
+        except Exception:
+            pass
+        return [{"op": "gte", "field": "ticketID", "value": 0}]
+
+    def _status_transition_probe_filters(self, entity: str) -> list[dict[str, Any]]:
+        if entity == "TicketHistory":
+            return self._ticket_history_probe_filters()
+        return STATUS_TRANSITION_PROBE_FILTERS.get(entity) or [{"op": "gte", "field": "id", "value": 0}]
+
     def probe_status_transition_sources(
         self,
         entities: tuple[str, ...] = STATUS_TRANSITION_CANDIDATE_ENTITIES,
@@ -179,7 +200,7 @@ class AutotaskReadOnlyClient:
         results: list[dict[str, Any]] = []
         for entity in entities:
             self._consecutive_errors = 0
-            filters = STATUS_TRANSITION_PROBE_FILTERS.get(entity) or [{"op": "gte", "field": "id", "value": 0}]
+            filters = self._status_transition_probe_filters(entity)
             try:
                 payload = self.query_entity(
                     entity,

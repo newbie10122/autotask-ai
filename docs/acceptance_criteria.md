@@ -201,6 +201,8 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused container validation passed for bounded probe/error-isolation tests with `2 passed`.
 - Current branch evidence on `agent/status-probe-entity-filters`: the bounded status-transition probe now uses per-entity read-only filters and reports the filter used; `TicketHistory` is probed by `ticketID` instead of generic `id`, matching the existing read-only sync contract.
 - Current branch validation: focused container validation passed for bounded probe filter/error-isolation tests with `3 passed`.
+- Current branch evidence on `agent/status-probe-ticket-history-sample`: the bounded `TicketHistory` availability probe now prefers a real local `autotask_tickets.autotask_id` and queries `ticketID eq <local ticket>` with `MaxRecords=1`; if no local ticket exists it falls back to `ticketID >= 0`.
+- Current branch validation: focused container validation passed for bounded probe sample-ticket/filter/error-isolation tests with `4 passed`.
 
 ## Milestone 8
 
