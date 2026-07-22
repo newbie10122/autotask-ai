@@ -761,7 +761,12 @@ def test_verifier_failure_preserves_warning_and_records_audit(monkeypatch):
 
     monkeypatch.setattr("app.assistant.db_connection", lambda: FakeConn())
 
-    result = ask_assistant("how do I fix the printer", authorized_company_ids=[123], actor_username="tech")
+    result = ask_assistant(
+        "how do I fix the printer",
+        mode="general_plus_ticket_history",
+        authorized_company_ids=[123],
+        actor_username="tech",
+    )
 
     assert result["confidence"] == "High"
     assert "Answer verifier failed closed: unretrieved ticket citation." in result["answer"]
@@ -845,7 +850,12 @@ def test_generated_answer_accepts_ticket_ids_from_source_metadata(monkeypatch):
 
     monkeypatch.setattr("app.assistant.db_connection", lambda: FakeConn())
 
-    result = ask_assistant("how do I fix the printer", authorized_company_ids=[123], actor_username="tech")
+    result = ask_assistant(
+        "how do I fix the printer",
+        mode="general_plus_ticket_history",
+        authorized_company_ids=[123],
+        actor_username="tech",
+    )
 
     assert result["confidence"] == "High"
     assert result["based_on_tickets"] == ["T42"]
@@ -853,6 +863,75 @@ def test_generated_answer_accepts_ticket_ids_from_source_metadata(monkeypatch):
     assert result["sources"][0]["ticket_number"] == "T42"
     assert "Answer verifier failed closed" not in result["answer"]
     assert result["warnings"] == []
+
+
+def test_ticket_history_only_mode_skips_local_chat(monkeypatch):
+    monkeypatch.setattr("app.assistant.init_schema", lambda: None)
+    monkeypatch.setattr("app.assistant.embed_text", lambda _text: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(
+        "app.assistant._chat_with_timeout",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("ticket_history_only should not call chat")),
+    )
+
+    source = {
+        "chunk_id": 10,
+        "content": "Ticket Number: T42\nDescription: Printer unable to print labels.",
+        "source_metadata": {"company_id": 123, "ticket_number": "T42", "autotask_id": 42},
+        "knowledge_class": "human_troubleshooting",
+        "quality_score": 0.9,
+        "is_noise": False,
+        "noise_reason": None,
+        "ticket_pk": 20,
+        "autotask_id": None,
+        "ticket_number": None,
+        "score": 0.8,
+    }
+
+    class FakeConn:
+        def execute(self, sql, params=None):
+            self.sql = sql
+            return self
+
+        def fetchone(self):
+            if "assistant_queries" in self.sql:
+                return {"id": 1}
+            if "assistant_answers" in self.sql:
+                return {"id": 2}
+            return {}
+
+        def fetchall(self):
+            if "FROM document_embeddings" in self.sql:
+                return [source]
+            return []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.assistant.db_connection", lambda: FakeConn())
+
+    result = ask_assistant(
+        "how do I fix the printer",
+        mode="ticket_history_only",
+        authorized_company_ids=[123],
+        actor_username="tech",
+    )
+
+    assert result["confidence"] == "High"
+    assert result["based_on_tickets"] == ["T42"]
+    assert "without waiting for the local CPU model" in result["answer"]
+    assert "Use a narrative mode or Deep Dive" in result["answer"]
 
 
 def test_generated_answer_rejects_cross_ticket_evidence_substitution(monkeypatch):
@@ -940,7 +1019,12 @@ def test_generated_answer_rejects_cross_ticket_evidence_substitution(monkeypatch
 
     monkeypatch.setattr("app.assistant.db_connection", lambda: FakeConn())
 
-    result = ask_assistant("how do I fix the scanner", authorized_company_ids=[123], actor_username="tech")
+    result = ask_assistant(
+        "how do I fix the scanner",
+        mode="general_plus_ticket_history",
+        authorized_company_ids=[123],
+        actor_username="tech",
+    )
 
     assert "Answer verifier failed closed: insufficient ticket-history source evidence." in result["answer"]
     assert "Answer verifier failed closed: insufficient ticket-history source evidence." in result["warnings"]

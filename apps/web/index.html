@@ -314,6 +314,12 @@
           item.setAttribute("aria-current", active && !complete ? "step" : "false");
         });
       };
+      const configureAskProgressForMode = (mode) => {
+        const modelPhase = askProgress.querySelector("[data-phase='llm']");
+        if (modelPhase) {
+          modelPhase.textContent = mode === "ticket_history_only" ? "Skip local CPU model" : "Wait on local CPU model";
+        }
+      };
       const stopAskTimer = () => {
         if (askStatusTimer) window.clearInterval(askStatusTimer);
         askStatusTimer = null;
@@ -321,6 +327,9 @@
       const askPhaseForElapsed = (elapsedSeconds, mode) => {
         if (elapsedSeconds < 3) return { phase: "search", label: "Searching scoped ticket history" };
         if (elapsedSeconds < 8) return { phase: "evidence", label: "Preparing retrieved evidence" };
+        if (mode === "ticket_history_only") {
+          return { phase: "final", label: "Rendering ticket-history-only answer" };
+        }
         if (mode === "deep_dive" && elapsedSeconds >= 45) {
           return { phase: "llm", label: "Deep Dive is still waiting on the local CPU model" };
         }
@@ -328,6 +337,7 @@
       };
       const startAskTimer = (mode) => {
         stopAskTimer();
+        configureAskProgressForMode(mode);
         askStartedAt = Date.now();
         const update = () => {
           const elapsedSeconds = Math.max(1, Math.round((Date.now() - askStartedAt) / 1000));

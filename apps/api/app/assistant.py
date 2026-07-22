@@ -80,19 +80,27 @@ def _fallback_answer(
     sources: list[dict[str, Any]],
     confidence: float,
     warning: str | None = None,
+    local_model_attempted: bool = True,
 ) -> str:
     tickets = _unique_tickets(sources)
     summaries = []
     for source in sources[: settings.assistant_max_context_chunks]:
         summaries.append(_source_summary(source))
-    guidance = (
-        "A local CPU LLM may take longer than the normal timeout. "
-        "This response uses retrieved ticket evidence directly instead of generated prose."
-    )
-    steps = [
-        "Open the representative tickets and compare the symptoms before applying a fix.",
-        "Use Deep Dive mode when you want the local CPU model to spend more time generating a narrative answer.",
-    ]
+    if local_model_attempted:
+        guidance = (
+            "A local CPU LLM may take longer than the normal timeout. "
+            "This response uses retrieved ticket evidence directly instead of generated prose."
+        )
+        steps = [
+            "Open the representative tickets and compare the symptoms before applying a fix.",
+            "Use Deep Dive mode when you want the local CPU model to spend more time generating a narrative answer.",
+        ]
+    else:
+        guidance = "Ticket History Only returned retrieved local ticket evidence without waiting for the local CPU model."
+        steps = [
+            "Open the representative tickets and compare the symptoms before applying a fix.",
+            "Use a narrative mode or Deep Dive when you want generated prose.",
+        ]
     answer = build_guarded_answer(
         ticket_history="\n".join(f"- {summary}" for summary in summaries) or WEAK_EVIDENCE_MESSAGE,
         general_guidance=guidance,
@@ -442,26 +450,29 @@ def ask_assistant(
         )
         confidence = 0.0
     else:
-        context = "\n\n---\n\n".join(redact_private_entities(source["content"]) for source in sources)
-        prompt = (
-            "Answer using only the CompuOne ticket-history context below. "
-            "Ignore boilerplate, surveys, autoresponders, completion emails, and unsubscribe footers. "
-            "Keep ticket history separate from general IT guidance. "
-            "Use this exact section format: Confidence, From CompuOne Ticket History, "
-            "General IT Guidance, Suggested Next Steps, Based on Tickets, Warnings.\n\n"
-            f"Question:\n{question}\n\nContext:\n{context}\n"
-        )
         confidence = min(max(best_score, 0.35), 0.95)
-        timeout = settings.deep_dive_timeout_seconds if mode == "deep_dive" else settings.assistant_normal_timeout_seconds
-        try:
-            generated = _chat_with_timeout(prompt, timeout)
-        except OllamaUnavailable as exc:
-            generated = ""
-            warning = str(exc)
-        if generated and "From CompuOne Ticket History" in generated:
-            answer = redact_private_entities(generated)
+        if mode == "ticket_history_only":
+            answer = _fallback_answer(sources, confidence, local_model_attempted=False)
         else:
-            answer = _fallback_answer(sources, confidence, warning)
+            context = "\n\n---\n\n".join(redact_private_entities(source["content"]) for source in sources)
+            prompt = (
+                "Answer using only the CompuOne ticket-history context below. "
+                "Ignore boilerplate, surveys, autoresponders, completion emails, and unsubscribe footers. "
+                "Keep ticket history separate from general IT guidance. "
+                "Use this exact section format: Confidence, From CompuOne Ticket History, "
+                "General IT Guidance, Suggested Next Steps, Based on Tickets, Warnings.\n\n"
+                f"Question:\n{question}\n\nContext:\n{context}\n"
+            )
+            timeout = settings.deep_dive_timeout_seconds if mode == "deep_dive" else settings.assistant_normal_timeout_seconds
+            try:
+                generated = _chat_with_timeout(prompt, timeout)
+            except OllamaUnavailable as exc:
+                generated = ""
+                warning = str(exc)
+            if generated and "From CompuOne Ticket History" in generated:
+                answer = redact_private_entities(generated)
+            else:
+                answer = _fallback_answer(sources, confidence, warning)
         answer = redact_private_entities(answer)
         verification = verify_answer(answer, sources, authorized_company_ids=authorized_company_ids)
         if not verification.ok:

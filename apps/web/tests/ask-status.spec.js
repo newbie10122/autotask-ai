@@ -36,6 +36,7 @@ test("ask workflow shows running and timeout states clearly", async ({ page }) =
   await expect(page.locator("#askStatus")).toContainText("Request is active");
   await expect(page.locator("#askProgress")).toBeVisible();
   await expect(page.locator("#askProgress [data-phase='search']")).toHaveAttribute("data-state", "active");
+  await expect(page.locator("#askProgress [data-phase='llm']")).toHaveText("Skip local CPU model");
   await expect(page.locator("#confidence")).toHaveText("Confidence: Pending");
 
   await expect(page.locator("#askStatus")).toContainText("timed out");
@@ -68,6 +69,7 @@ test("ask workflow identifies local model wait before completion", async ({ page
   await expect(page.locator("#apiStatus")).toHaveText("API ready");
 
   await page.locator("#question").fill("The outlook says it's offline");
+  await page.locator("#askMode").selectOption("general_plus_ticket_history");
   await page.getByRole("button", { name: "Ask", exact: true }).click();
 
   await expect(page.locator("#askStatus")).toContainText("Waiting on the local CPU model", { timeout: 9500 });
