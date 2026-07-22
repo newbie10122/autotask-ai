@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `1827b5dd9ecfb55316a6716d671d9c22212f78a7`, which merged PR `newbie10122/autotask-ai#89` (`Surface stale scheduler run provenance`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#89` run `29948149588`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation for stale-run provenance passed focused scheduler automation tests with `2 passed`, focused Operations browser smoke with `1 passed`, full repository validation with `153 passed`, Playwright browser smoke with `13 passed`, and real local Postgres scheduler automation smoke.
+- Canonical `main` is `216e803296698febd0c869bacbce671dd5f60e50`, which merged PR `newbie10122/autotask-ai#91` (`Add stale scheduler run cleanup`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#91` run `29948960498`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation for stale-run cleanup passed focused scheduler/archive tests with `3 passed`, focused route/audit tests with `4 passed`, focused Operations browser smoke with `1 passed`, full repository validation with `154 passed`, and Playwright browser smoke with `13 passed`.
 - Second Brain projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after recording Autotask AI progress through PR #70 at projection branch head `4306bcc`; local `python3 tools/validate_knowledge.py` passed before merge.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -72,7 +72,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #85 adds aggregate-only scoped reference-field lineage for current priority, category/issue/subissue, queue, and status fields and feeds priority/category/queue reference completeness into field certification.
 - PR #87 adds read-only scheduler automation certification to Operations status, including required-job recent scheduler-run evidence, stale running-run detection, and safe no-raw-error reporting.
 - PR #89 adds read-only stale running-run provenance to scheduler automation certification and the Operations UI without cleanup or raw error/config/checkpoint output.
-- Current branch `agent/m2-stale-run-cleanup` adds an Admin-only local archive action for stale orphaned scheduler run metadata. It only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job.
+- PR #91 adds an Admin-only local archive action for stale orphaned scheduler run metadata. It only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -109,7 +109,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Post-merge PR #85 reference-lineage runtime evidence: local read-only reference lineage returned `partial_reference_lineage`, tickets `67726`, and three partial targets. Priority has `67726` present rows, queue has `67665` present rows, and category/issue/subissue has `187528` present rows across the three fields, but each has `0%` meaningful mapped-label coverage because current local reference labels are inferred placeholders. Field certification remains `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, `waiting_states`, `priority`, `category`, and `queue`.
 - Post-merge PR #87 scheduler automation runtime evidence: local read-only scheduler certification returned `partial_scheduler_automation_evidence`, scheduler `healthy`, `9` required jobs, `9` certified jobs, `0` partial jobs, `0` missing jobs, `2` running jobs, and blocker `stale_running_jobs` because one old running row is older than 30 minutes. Required scheduled jobs had recent scheduler-completed runs, including `recent_sync` (`86` scheduler runs/`86` completed in 24h), `open_ticket_history_gaps` (`86` runs/`85` completed), `open_ticket_time_entry_gaps` (`85`/`85`), `ticket_history_gaps` (`23`/`23`), `ticket_time_entry_gaps` (`23`/`23`), `sync_reference_data` (`4`/`4`), `classify_tickets` (`46` runs/`44` completed), `reclassify_chunks` (`24`/`24`), and `nightly_pipeline` (`1`/`1`).
 - Post-merge PR #89 stale-run provenance runtime evidence: local read-only scheduler certification returned `1` stale running row, `classify_tickets` run `4143`, no active lock, newer completed run `4391`, and stale state `orphaned_running_row_candidate`. This explains the blocker as likely stale local run metadata, not evidence that the scheduler is failing to run classification.
-- Current branch cleanup evidence: `archive_stale_orphaned_run()` is local metadata only and returns policy flags proving it does not run jobs or allow Autotask writes. The archive SQL requires `running`, older than 30 minutes, no active lock, and newer completed run evidence before updating a row to `stale_orphaned`.
+- Post-merge PR #91 cleanup capability evidence: `archive_stale_orphaned_run()` is local metadata only and returns policy flags proving it does not run jobs or allow Autotask writes. The archive SQL requires `running`, older than 30 minutes, no active lock, and newer completed run evidence before updating a row to `stale_orphaned`; PR #91 did not execute cleanup against the live database.
 
 ## Milestone table
 
@@ -129,21 +129,31 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge the stale-run cleanup branch after CI passes, then update Second Brain PR #13 with sanitized evidence.
+1. Record PR #91 merge evidence in canonical project documents, then continue cleanup execution evidence if the stale row is still safely guarded.
 2. Continue the next independent Milestone 2 field/source-lineage or sync/recovery evidence slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 stale scheduler-run cleanup
+## Current receipt — Milestone 2 stale scheduler-run cleanup merge evidence
 
-- **Slice:** Add Admin-only local stale scheduler-run archive action on branch `agent/m2-stale-run-cleanup` from canonical `main` `c9a2e8b487246a896cb81d561e50306556c4c5e0`.
+- **Slice:** Record stale scheduler-run cleanup merge evidence after PR #91 and Second Brain PR #13 update.
+- **State:** `partial_foundation`; canonical docs now reflect PR #91 and Second Brain projection head `8235559d0dff9ba8225ebea3164123d8263db7d3`.
+- **Files changed:** Project status docs only.
+- **Validation:** Full validation and GitHub Actions passed for PR #91 before merge; this reconciliation requires docs whitespace validation and CI before merge.
+- **Read-only/authority evidence:** No job cleanup, sync jobs, production deployment, live Autotask probe, model threshold/workflow change, reference-data sync, routing/assignment change, or Autotask write capability was run or added by this docs-only branch.
+- **Rollback:** Revert this docs-only commit; application behavior remains the PR #91 behavior on canonical main.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `8235559d0dff9ba8225ebea3164123d8263db7d3` and records PR #91 stale scheduler cleanup capability evidence with local knowledge validation passing.
+
+## Historical receipt — Milestone 2 stale scheduler-run cleanup
+
+- **Slice:** Add Admin-only local stale scheduler-run archive action on branch `agent/m2-stale-run-cleanup`; merged as PR #91 into canonical `main` `216e803296698febd0c869bacbce671dd5f60e50`.
 - **State:** `partial_foundation`; the app can intentionally clear proven stale local scheduler metadata, but this branch does not run cleanup against the live database or mark sync/recovery certification complete.
 - **Files changed:** `apps/api/app/operations.py`, `apps/api/app/main.py`, `apps/api/tests/test_api.py`, `apps/api/tests/test_ingestion_rag.py`, `apps/web/index.html`, `apps/web/tests/helpers.js`, `apps/web/tests/operations-automation.spec.js`, and project status docs.
 - **Implemented:** `archive_stale_orphaned_run()` updates local `job_runs` rows to `stale_orphaned` only when the row is running, older than 30 minutes, has no active lock, and has a newer completed run for the same job. The Operations UI shows an Admin-only Archive action for `orphaned_running_row_candidate` cards.
-- **Validation:** Focused scheduler/archive tests passed with `3 passed`; focused route/audit tests passed with `4 passed`; focused Operations browser smoke passed with `1 passed`; full repository validation passed with `154 passed`; Playwright browser smoke passed with `13 passed`; `git diff --check` passed.
+- **Validation:** Focused scheduler/archive tests passed with `3 passed`; focused route/audit tests passed with `4 passed`; focused Operations browser smoke passed with `1 passed`; full repository validation passed with `154 passed`; Playwright browser smoke passed with `13 passed`; `git diff --check` passed; GitHub Actions run `29948960498` passed.
 - **Read-only/authority evidence:** No sync jobs, reference-data sync, live Autotask probe, production deployment, model workflow change, routing/assignment change, or Autotask write capability was run or added. The only mutation introduced is local scheduler metadata archival behind Admin route authority.
 - **Rollback:** Revert this branch commit; stale scheduler-run provenance remains visible but cannot be archived from the app.
-- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` records this PR #91 evidence at head `8235559d0dff9ba8225ebea3164123d8263db7d3`.
 
 ## Historical receipt — Milestone 2 stale running-run provenance merge evidence
 
@@ -877,8 +887,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `06dacfb4fee52ee48edf11ba39bd07f1059c9ec9`. It records Autotask AI progress through PR #89, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, and PR #89 stale-run provenance evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `8235559d0dff9ba8225ebea3164123d8263db7d3`. It records Autotask AI progress through PR #91, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, and PR #91 stale scheduler cleanup capability evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
 
 ## Exact next action
 
-Commit and merge this documentation reconciliation, then continue with authorized stale local scheduler-run cleanup or archival design, sync/recovery streak evidence, or the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
+Commit and merge this documentation reconciliation, then continue with guarded stale local scheduler-run cleanup execution evidence, sync/recovery streak evidence, or the next safe Milestone 2 source-lineage slice. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.
