@@ -24,6 +24,7 @@ from .operations import (
     request_stop,
     run_job,
     set_job_enabled,
+    set_global_pause,
     update_operations_settings,
 )
 from .realtime import recent_realtime_events
@@ -100,6 +101,10 @@ class RoutingFeedbackRequest(BaseModel):
 
 class OperationsSettingsRequest(BaseModel):
     settings: dict[str, object] = Field(default_factory=dict)
+
+
+class OperationsPauseRequest(BaseModel):
+    reason: str | None = Field(default=None, max_length=200)
 
 
 def _bearer_token(request: Request) -> str | None:
@@ -1012,16 +1017,48 @@ def api_disable_operation_job(job_name: str, _user: dict | None = Depends(requir
 
 
 @app.post("/api/operations/pause")
-def api_pause_operations(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    result = {"ok": True, "settings": update_operations_settings({"global_pause": True})}
-    record_success_audit(AuditAction.admin_action, "operations.pause", _user, audit_scope())
+def api_pause_operations(
+    payload: OperationsPauseRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
+    reason = payload.reason if payload else None
+    result = set_global_pause(True, actor=audit_actor(_user), reason=reason)
+    record_success_audit(
+        AuditAction.admin_action,
+        "operations.pause",
+        _user,
+        audit_scope(),
+        {
+            "paused": True,
+            "reason": (result.get("pause_provenance") or {}).get("reason"),
+            "local_metadata_only": True,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+        },
+    )
     return result
 
 
 @app.post("/api/operations/resume")
-def api_resume_operations(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
-    result = {"ok": True, "settings": update_operations_settings({"global_pause": False})}
-    record_success_audit(AuditAction.admin_action, "operations.resume", _user, audit_scope())
+def api_resume_operations(
+    payload: OperationsPauseRequest | None = None,
+    _user: dict | None = Depends(require_roles(Role.admin)),
+) -> dict:
+    reason = payload.reason if payload else None
+    result = set_global_pause(False, actor=audit_actor(_user), reason=reason)
+    record_success_audit(
+        AuditAction.admin_action,
+        "operations.resume",
+        _user,
+        audit_scope(),
+        {
+            "paused": False,
+            "reason": (result.get("pause_provenance") or {}).get("reason"),
+            "local_metadata_only": True,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+        },
+    )
     return result
 
 

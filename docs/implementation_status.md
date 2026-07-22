@@ -74,6 +74,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #89 adds read-only stale running-run provenance to scheduler automation certification and the Operations UI without cleanup or raw error/config/checkpoint output.
 - PR #91 adds an Admin-only local archive action for stale orphaned scheduler run metadata. It only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job.
 - PR #95 adds read-only scheduler recovery-streak evidence to Operations status and the Operations UI. It inspects the latest three scheduler-triggered runs for each required scheduler job without running jobs or exposing raw errors.
+- Current branch `agent/m2-scheduler-pause-provenance` records local pause/resume provenance in Operations settings/status and success audits: action, actor, reason, timestamp, and policy flags proving local metadata only, no job execution, and no Autotask writes.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -132,12 +133,23 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record PR #95 merge evidence and Second Brain PR #13 head in canonical docs.
+1. Merge scheduler pause/resume provenance after full validation and CI pass.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 scheduler recovery-streak merge evidence
+## Current receipt — Milestone 2 scheduler pause/resume provenance
+
+- **Slice:** Add local scheduler pause/resume actor/reason provenance on branch `agent/m2-scheduler-pause-provenance` from canonical `main` `df91d8a7b8418a95d93408b5e9f5f70db73daa4a`.
+- **State:** `partial_foundation`; local scheduler visibility is stronger, but production restart/recovery certification and broader field/source-lineage completion remain open.
+- **Files changed:** `apps/api/app/operations.py`, `apps/api/app/main.py`, `apps/api/tests/test_ingestion_rag.py`, `apps/api/tests/test_api.py`, `apps/web/index.html`, `apps/web/tests/helpers.js`, `apps/web/tests/operations-automation.spec.js`, and project status docs.
+- **Implemented:** Pause/resume now writes local provenance fields alongside `global_pause`, exposes `pause_provenance` in Operations status, records safe metadata in success audit events, and displays the latest pause/resume actor in the Operations UI.
+- **Validation:** Focused pause/provenance API tests passed with `2 passed`; focused Admin route audit tests passed with `2 passed`; focused Operations browser smoke passed with `1 passed`.
+- **Read-only/authority evidence:** The helper and route responses declare local metadata only, do not run jobs, and do not allow Autotask writes. This branch does not deploy production code, change model threshold/workflow behavior, change routing/assignment, run sync jobs, or run reference-data sync.
+- **Rollback:** Revert this branch commit; pause/resume returns to plain `global_pause` updates and generic success audits.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+
+## Historical receipt — Milestone 2 scheduler recovery-streak merge evidence
 
 - **Slice:** Record scheduler recovery-streak merge evidence after PR #95 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; local runtime evidence now shows scheduler automation and recovery streaks available, but production certification and broader field/source-lineage completion remain open.

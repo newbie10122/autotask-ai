@@ -58,6 +58,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge Milestone 2 evidence on canonical `main` `c1caa13d9b9785fce242b4a6ef2df8294857dceb`: PR #93 records guarded local Admin route cleanup execution for stale scheduler run `4143`; follow-up Operations status returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, no blockers, and `0` stale provenance rows. Nginx `/ready` and UI root returned `HTTP 200`.
 - Post-merge documentation evidence on canonical `main` `c604049dacc767b7d1e103a50b8fbfd6e1d4d405`: PR #94 records PR #93 merge evidence and Second Brain PR #13 head `7cd186cb9777025770ce5bc27cbe7e77e2408a16`.
 - Post-merge Milestone 2 evidence on canonical `main` `9c1e6cc11845a90bd24e9a1d3c9a90289c144072`: PR #95 adds read-only scheduler recovery-streak evidence. Local runtime after rebuild and scheduler tick returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, recovery streak `scheduler_recovery_streak_available`, `9` clean-streak jobs, `0` partial-streak jobs, and `3` required clean runs per job.
+- Current active branch validation: `agent/m2-scheduler-pause-provenance` has focused pause/provenance API tests passing with `2 passed`, focused Admin route audit tests passing with `2 passed`, and focused Operations browser smoke passing with `1 passed`. The branch records local pause/resume actor, reason, action, timestamp, and local-metadata-only policy provenance without running jobs or allowing Autotask writes.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -73,9 +74,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record PR #95 merge evidence and Second Brain PR #13 head in canonical docs.
-2. Continue the next safe Milestone 2 source-lineage slice without Autotask writes, production deployment, or model workflow changes.
-3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
+1. Merge scheduler pause/resume provenance after full validation and CI pass.
+2. Update existing Second Brain PR #13 with sanitized pause/resume provenance evidence after this branch merges.
+3. Continue the next safe Milestone 2 source-lineage slice without Autotask writes, production deployment, or model workflow changes.
 
 ## Milestone status
 
@@ -87,7 +88,7 @@ Continue from a clean branch based on canonical `origin/main`.
 
 ## Next eligible safe slices
 
-- Scheduler pause/resume provenance and production restart/recovery certification evidence.
+- Production restart/recovery certification evidence.
 - Predictive broader model evaluation and Milestone 2 field certification.
 - Durable audit identity/scope linkage across remaining workflows.
 - Milestone 2 field/source-lineage certification for remaining source-limited fields after status-duration/waiting and response-lineage certification, including category/queue/reference completeness.

@@ -14,9 +14,11 @@ test.afterAll(async () => {
 
 test("operations view surfaces scheduler and related-data automation movement", async ({ page }) => {
   await page.addInitScript(() => window.localStorage.setItem("autotaskAiToken", "test-token"));
+  const operationsRequestLog = [];
   await stubApi(page, {
     routeAuthRequired: true,
-    user: { username: "admin", roles: ["Admin"] }
+    user: { username: "admin", roles: ["Admin"] },
+    operationsRequestLog
   });
 
   await page.goto(`${pageUrl}#operations`);
@@ -24,6 +26,7 @@ test("operations view surfaces scheduler and related-data automation movement", 
 
   await expect(page.locator("#opsTimeEntries")).toHaveText("49054");
   await expect(page.locator("#opsTicketHistory")).toHaveText("29340");
+  await expect(page.locator("#opsPauseProvenance")).toHaveText("resume by admin");
   await expect(page.locator("#schedulerState")).toHaveText("healthy");
   await expect(page.locator("#schedulerHeartbeat")).toHaveText("12s ago");
   await expect(page.locator("#schedulerNextDue")).toContainText("open_ticket_history_gaps");
@@ -54,4 +57,11 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(fieldPanel).toContainText("TicketHistory coverage");
   await expect(fieldPanel).toContainText("source_limited");
   await expect(fieldPanel).toContainText("TimeEntries and labor-hour lineage");
+
+  await page.locator("#pauseOperations").click();
+  await page.locator("#resumeOperations").click();
+  expect(operationsRequestLog).toEqual([
+    { pathname: "/api/operations/pause", body: { reason: "manual_ui_pause" } },
+    { pathname: "/api/operations/resume", body: { reason: "manual_ui_resume" } }
+  ]);
 });
