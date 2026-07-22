@@ -25,6 +25,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge runtime evidence on canonical `main` `bcc1b433b4a0124c833f131d28227a57eb6e1df2`: `/api/ticket-health/ticket-history-content-certification` returned `ok=true` after the runtime SQL fix. The aggregate-only report found `30186` TicketHistory rows, `100%` timestamp coverage, `1` status-like row, and no `field`/`oldValue`/`newValue` raw keys; status-duration/waiting remains source-limited by content shape, not by missing scheduled TicketHistory ingestion.
 - Post-merge conversational UI evidence on canonical `main` `98c047d290fa3ae89b1d196fbfcc91771e55de98`: Ask Assistant shows request phases for scoped ticket search, evidence preparation, local CPU model waiting, and answer rendering; terminal status text says when no browser request remains active. Local web service was rebuilt and `http://127.0.0.1:3010/` contains the new progress UI.
 - Post-merge conversational behavior evidence on canonical `main` `e05f32ed28b4446ad53bdd6911e782f9f3d22d6f`: Ticket History Only now skips the local chat model and returns deterministic retrieved ticket evidence. Generated prose remains explicit to General + Ticket History and Deep Dive. Local API/web containers were rebuilt; `/ready` returned ready.
+- Post-merge conversational UI evidence on canonical `main` `99f79d82b8803b7d12930228f95aa023ce647107`: Ask Assistant ready text is mode-specific and no longer advertises local CPU wait time when Ticket History Only is selected. Local web container was rebuilt and `/ready` returned ready.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -40,7 +41,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Update the existing Second Brain projection PR with PR #63 plus the Ticket History Only no-LLM behavior evidence.
+1. Update the existing Second Brain projection PR with PR #65 plus mode-specific Ask ready-status evidence.
 2. Continue the next safe Milestone 1 audit/scope closeout slice; keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
 
 ## Milestone status

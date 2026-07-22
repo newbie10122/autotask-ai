@@ -58,6 +58,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Conversational UI branch `agent/answer-ticket-links` makes ticket IDs inside rendered assistant answer text open the same scoped ticket-detail modal.
 - Conversational UI branch `agent/ask-progress-phases` makes Ask Assistant request state explicit with visible phases for scoped ticket search, evidence preparation, local CPU model waiting, and answer rendering, plus terminal text that distinguishes active requests from timeout/error/done states.
 - Conversational behavior branch `agent/ticket-history-only-no-llm` makes Ticket History Only deterministic and local-evidence-only; it skips the local chat model while keeping generated prose explicit to General + Ticket History and Deep Dive.
+- Conversational UI branch `agent/ask-mode-ready-status` makes Ask Assistant ready text mode-specific so Ticket History Only no longer advertises local CPU model wait time.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive review UI branch `agent/predictive-review-ui` adds a Ticket Health screen for predictive queue summary, ranked/abstained counts, confidence, sample size, reason codes, and ticket-detail drilldown.
@@ -265,7 +266,19 @@ None currently identified for documentation and non-production implementation wo
 - **Rollback:** Revert this branch commit; scheduled jobs keep running, but the Operations page returns to the previous generic counts/tables without the automation-health summary.
 - **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
 
-## Latest receipt — Ticket History Only deterministic mode
+## Latest receipt — Ask mode ready status
+
+- **Slice:** Show mode-specific Ask Assistant ready status on branch `agent/ask-mode-ready-status` from canonical `main` `14bc4f082fff2f1582ccfce456052bae4a6d6c1b`; merged as PR #65 into canonical `main` `99f79d82b8803b7d12930228f95aa023ce647107`.
+- **State:** `partial`; mode semantics are clearer in the UI, but live production-auth deployment evidence remains open.
+- **Files changed:** `apps/web/index.html`, `apps/web/tests/ask-status.spec.js`, and project status docs.
+- **Implemented:** Ask Assistant ready text now reflects the selected mode: Ticket History Only says it uses retrieved evidence without the local CPU model, while General + Ticket History and Deep Dive tell operators the local model may be involved.
+- **Validation:** Focused `npx playwright test apps/web/tests/ask-status.spec.js` passed with `5 passed`; full `./scripts/validate-ci.sh` passed with production-auth preflight, redacted Compose validation, 10 ordered migrations, API image build, API/worker Python compile, full pytest `134 passed`, static web JavaScript syntax validation, Playwright browser smoke `13 passed`, and `git diff --check`.
+- **Runtime evidence:** Local web container was rebuilt; `/ready` returned ready and the served web bundle contains all three mode-specific ready messages.
+- **Read-only evidence:** No backend API contract, sync job, production deployment, live credential, model tuning, routing, workflow, or Autotask write behavior was changed.
+- **Rollback:** Revert this branch commit; the Ask Assistant returns to its prior static ready message.
+- **Second Brain state:** `pending-update`; update existing projection PR #6 after this Autotask AI PR is merged.
+
+## Previous receipt — Ticket History Only deterministic mode
 
 - **Slice:** Make Ticket History Only skip the local LLM on branch `agent/ticket-history-only-no-llm` from canonical `main` `cc63a9e1434a0dc15a1c5bc25258f23d7b6549a1`; merged as PR #63 into canonical `main` `e05f32ed28b4446ad53bdd6911e782f9f3d22d6f`.
 - **State:** `partial`; mode behavior is clearer and faster for deterministic evidence, but live production-auth deployment evidence remains open.
