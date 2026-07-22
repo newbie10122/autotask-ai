@@ -22,7 +22,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Current active branch validation: `agent/status-probe-entity-filters` has focused bounded probe filter/error-isolation tests passing with `3 passed`. The branch makes the manual status-transition source probe use per-entity read-only filters and report each filter used; `TicketHistory` now probes by `ticketID` instead of generic `id`.
 - Current active branch validation: `agent/status-probe-ticket-history-sample` has focused bounded probe sample-ticket/filter/error-isolation tests passing with `4 passed`. The branch makes the `TicketHistory` availability probe use a real local `autotask_tickets.autotask_id` with `ticketID eq <local ticket>` and `MaxRecords=1`, falling back only when no local ticket exists.
 - Post-merge runtime probe on canonical `main` `9cc33aaf6ed3987d45a43e96713a7c39609bdcfc`: `/ready` returned ready; bounded read-only status-transition probe returned 404 for `TicketStatusHistory`, `TicketStatusHistories`, and `TicketChangeHistory`; `TicketHistory` returned one sampled row with `has_next_page=true` using `ticketID eq <local ticket>`. Status-duration/waiting remains source-limited because reachable `TicketHistory` row content still lacks parser-certified timestamped status transitions.
-- Current active branch validation: `agent/ticket-history-content-certification` has focused content-certification and scoped route propagation tests passing with `2 passed`. The branch adds scoped `/api/ticket-health/ticket-history-content-certification` with aggregate-only action/category/raw-key evidence and no raw history detail text.
+- Post-merge runtime evidence on canonical `main` `bcc1b433b4a0124c833f131d28227a57eb6e1df2`: `/api/ticket-health/ticket-history-content-certification` returned `ok=true` after the runtime SQL fix. The aggregate-only report found `30186` TicketHistory rows, `100%` timestamp coverage, `1` status-like row, and no `field`/`oldValue`/`newValue` raw keys; status-duration/waiting remains source-limited by content shape, not by missing scheduled TicketHistory ingestion.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -38,9 +38,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Validate and merge `agent/ticket-history-content-certification` if full governed validation and exact-head CI pass.
-2. Use aggregate content-certification evidence to decide whether parser-safe status-duration work remains; otherwise return to Milestone 1 audit/scope closeout.
-3. Update the existing Second Brain projection PR after this material slice merges.
+1. Update the existing Second Brain projection PR with PRs #58 and #59 plus post-merge runtime content-certification evidence.
+2. Continue the next safe Milestone 1 audit/scope closeout slice; keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
 
 ## Milestone status
 
