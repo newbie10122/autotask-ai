@@ -82,6 +82,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #107 adds an Admin-only manual bounded read-only reference metadata source probe.
 - Post-merge bounded read-only runtime probe on canonical `main` `9e17d22` returned `/ready` `HTTP 200`, `live_autotask_probe_ran=true`, `autotask_writes_allowed=false`, `MaxRecords=1` per candidate entity, and one available candidate, `TicketCategories`. `TicketPriorities`, `Priorities`, `TicketIssueTypes`, `TicketSubIssueTypes`, `Queues`, `TicketQueues`, and `TicketStatuses` were unavailable by those entity names. The result is availability evidence only; it does not authorize automatic reference sync, model/workflow changes, or Autotask writes.
 - PR #111 adds read-only `TicketCategories` metadata ingestion to the reference-data sync path. Post-merge local runtime executed the reference-data sync once, processed/upserted `14` `TicketCategories` metadata rows with `metadata_sync.ok=true`, `autotask_writes_allowed=false`, and no metadata-sync errors; category reference lineage then showed `100.0%` authoritative label coverage, while issue/subissue, priority, queue, status-duration, and waiting blockers remain.
+- Current branch `agent/m2-ticket-picklist-metadata-sync` adds read-only `Tickets/entityInformation/fields` picklist ingestion for priority, category, issue type, subissue type, queue, and status labels. It upserts supported picklist values as `source='autotask_metadata'` and reports picklist fields/counts without running the live sync or allowing Autotask writes.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -140,22 +141,21 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record the `TicketCategories` authoritative metadata sync runtime evidence and update the open Second Brain projection.
-2. Continue the next independent Milestone 2 field/source-lineage slice for remaining priority, queue, issue/subissue, status-duration, and waiting blockers.
+1. Merge the ticket picklist metadata sync foundation.
+2. Execute and record bounded read-only runtime evidence for ticket picklist metadata, then continue status-duration and waiting blockers.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 ticket category metadata sync runtime evidence
+## Current receipt — Milestone 2 ticket picklist metadata sync foundation
 
-- **Slice:** Record post-merge runtime execution for the read-only `TicketCategories` reference metadata sync added by PR #111.
-- **State:** `partial_foundation`; category labels are now locally authoritative, but the category/issue/subissue target remains partial because issue and subissue labels still lack authoritative metadata. Priority, queue, status-duration, and waiting blockers also remain.
-- **Files changed:** Project status docs only.
-- **Implemented by PR #111:** `sync_autotask_reference_metadata()` reads `TicketCategories` with `id >= 0`, a bounded `500` record limit, and existing read-only paging. Valid rows upsert `field_name='category'`, the category `id` as `value`, the category `name` as `label`, `source='autotask_metadata'`, and the metadata raw payload into `autotask_reference_values`. `sync_reference_data()` now returns a `metadata_sync` report with attempted/available entities, processed/upserted counts, safe errors, and no-write/no-model-workflow policy flags.
-- **Runtime evidence:** Local API rebuild returned `/ready` `HTTP 200`. `POST /api/sync/reference-data/start` returned `ok=true`, total `upserted=239`, `metadata_sync.ok=true`, `attempted_entities=['TicketCategories']`, `available_entities=['TicketCategories']`, `processed=14`, `upserted=14`, no metadata-sync errors, `read_only=true`, and `autotask_writes_allowed=false`. Reference source counts included `autotask_metadata=42`.
-- **Field-certification evidence:** `/api/ticket-health/field-certification` remained `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, `waiting_states`, `priority`, `category`, and `queue`. Category reference lineage improved to `certification_status=available`, `authoritative_label_rows=67726`, and `authoritative_label_coverage_percent=100.0`; issue type and subissue type remain `metadata_source_required`, keeping the combined category target partial.
-- **Validation:** PR #111 CI run `29960006320` passed; focused reference-data/probe/contract validation passed with `5 passed`; full validation passed with `162` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only runtime-evidence branch requires docs whitespace validation and CI before merge.
-- **Read-only/authority evidence:** The runtime sync used the existing read-only Autotask client and did not write to Autotask, change model threshold/workflow behavior, change routing/assignment, or deploy production code.
-- **Rollback:** Revert the docs-only runtime evidence commit to remove the receipt. To remove local category metadata rows, a separately reviewed local database cleanup would be required; do not perform that cleanup as part of documentation rollback.
+- **Slice:** Add read-only ticket field picklist metadata ingestion using the live-proven `Tickets/entityInformation/fields` endpoint.
+- **State:** `partial_foundation`; the app can now sync authoritative labels for priority, category, issue type, subissue type, queue, and status picklists, but this branch does not execute the live sync and does not address status-duration/waiting transition timestamps.
+- **Files changed:** `apps/api/app/autotask.py`, `apps/api/app/ticket_analytics.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `AutotaskReadOnlyClient.ticket_entity_fields()` reads `/V1.0/Tickets/entityInformation/fields`. `sync_autotask_reference_metadata()` now maps supported ticket picklist fields into local reference fields and upserts picklist `value`/`label` pairs as `source='autotask_metadata'`, with raw metadata scoped to the field/picklist item. The `metadata_sync` report includes `ticket_picklist_fields` and `ticket_picklist_upserted`.
+- **Live discovery basis:** A bounded read-only manual check of `/V1.0/Tickets/entityInformation/fields` returned `75` field definitions and picklist metadata for `priority`, `ticketCategory`, `issueType`, `subIssueType`, `queueID`, and `status`.
+- **Validation:** Focused reference-data/probe/contract validation passed with `6 passed`; Python compile passed for the changed modules/tests; `git diff --check` passed. Full validation and CI are required before merge.
+- **Read-only/authority evidence:** This branch adds read-only Autotask metadata ingestion code only. It does not run the live sync, deploy production code, change model threshold/workflow behavior, change routing/assignment, or write to Autotask.
+- **Rollback:** Revert this branch commit; existing category metadata rows from PR #111 remain unless separately reviewed local database cleanup is approved.
 - **Second Brain state:** `pull-request-open`; projection PR `newbie10122/helix-second-brain#13` remains open at head `e367155` and records PR #112 TicketCategories metadata sync runtime evidence with local knowledge validation passing.
 
 ## Historical receipt — Milestone 2 reference metadata source-contract merge evidence

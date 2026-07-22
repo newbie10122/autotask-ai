@@ -47,6 +47,15 @@ AUTOTASK_METADATA_REFERENCE_SOURCES: dict[str, dict[str, Any]] = {
     },
 }
 
+TICKET_PICKLIST_REFERENCE_FIELDS: dict[str, str] = {
+    "priority": "priority",
+    "ticketCategory": "category",
+    "issueType": "issue_type",
+    "subIssueType": "subissue_type",
+    "queueID": "queue",
+    "status": "status",
+}
+
 
 def _clean_value(value: Any) -> str:
     return str(value or "").strip()
@@ -93,6 +102,31 @@ def _first_clean(item: dict[str, Any], keys: tuple[str, ...]) -> str:
     return ""
 
 
+def _upsert_ticket_picklist_metadata(conn: Any, field: dict[str, Any]) -> int:
+    source_field = _clean_value(field.get("name"))
+    target_field = TICKET_PICKLIST_REFERENCE_FIELDS.get(source_field)
+    if not target_field:
+        return 0
+    upserted = 0
+    for item in field.get("picklistValues") or []:
+        if not isinstance(item, dict):
+            continue
+        value = _clean_value(item.get("value"))
+        label = _clean_value(item.get("label"))
+        if not value or not label:
+            continue
+        _upsert_reference(
+            conn,
+            target_field,
+            value,
+            label,
+            "autotask_metadata",
+            raw={"ticket_field": source_field, "picklist": item},
+        )
+        upserted += 1
+    return upserted
+
+
 def sync_autotask_reference_metadata(
     client: AutotaskReadOnlyClient | None = None,
     entities: tuple[str, ...] = ("TicketCategories",),
@@ -104,6 +138,8 @@ def sync_autotask_reference_metadata(
     errors: list[dict[str, str]] = []
     attempted_entities: list[str] = []
     available_entities: list[str] = []
+    ticket_picklist_fields: list[str] = []
+    ticket_picklist_upserted = 0
     with db_connection() as conn:
         for entity in entities:
             source_config = AUTOTASK_METADATA_REFERENCE_SOURCES.get(entity)
@@ -140,6 +176,19 @@ def sync_autotask_reference_metadata(
                     available_entities.append(entity)
             except Exception as exc:
                 errors.append({"entity": entity, "error": f"{exc.__class__.__name__}: {str(exc)[:180]}"})
+        try:
+            for field in client.ticket_entity_fields():
+                field_name = _clean_value(field.get("name"))
+                if field_name not in TICKET_PICKLIST_REFERENCE_FIELDS:
+                    continue
+                upsert_count = _upsert_ticket_picklist_metadata(conn, field)
+                if upsert_count:
+                    ticket_picklist_fields.append(field_name)
+                    ticket_picklist_upserted += upsert_count
+                    processed += upsert_count
+                    upserted += upsert_count
+        except Exception as exc:
+            errors.append({"entity": "Tickets.entityInformation.fields", "error": f"{exc.__class__.__name__}: {str(exc)[:180]}"})
     return {
         "ok": not errors,
         "sync": "autotask_reference_metadata",
@@ -148,6 +197,8 @@ def sync_autotask_reference_metadata(
         "automatic_model_or_workflow_changes_allowed": False,
         "attempted_entities": attempted_entities,
         "available_entities": available_entities,
+        "ticket_picklist_fields": ticket_picklist_fields,
+        "ticket_picklist_upserted": ticket_picklist_upserted,
         "processed": processed,
         "upserted": upserted,
         "errors": errors,
@@ -205,6 +256,8 @@ def sync_reference_data(
             "automatic_model_or_workflow_changes_allowed": False,
             "attempted_entities": [],
             "available_entities": [],
+            "ticket_picklist_fields": [],
+            "ticket_picklist_upserted": 0,
             "processed": 0,
             "upserted": 0,
             "errors": [],
