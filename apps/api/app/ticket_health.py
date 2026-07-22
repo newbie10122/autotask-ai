@@ -3003,6 +3003,117 @@ def _certification_status(*statuses: str, source_limited: bool = False) -> str:
     return "partial"
 
 
+def _remaining_field_blocker_diagnostics(
+    targets: list[dict[str, Any]],
+    *,
+    open_history_complete: bool,
+    exact_status_transition: bool,
+    sampled_status_candidates: int,
+    parsed_status_transitions: int,
+    timestamped_status_transitions: int,
+    structured_status_transition_rows: int,
+) -> dict[str, Any]:
+    diagnostics: list[dict[str, Any]] = []
+
+    for target in targets:
+        key = str(target.get("key"))
+        status = str(target.get("certification_status") or "")
+        if status not in {"missing", "partial", "source_limited"}:
+            continue
+
+        reason = "field_incomplete"
+        automation_can_improve = False
+        next_safe_action = "Continue read-only source-lineage certification before model or workflow use."
+        evidence = {
+            "certification_status": status,
+            "coverage_percent": target.get("coverage_percent"),
+            "available_count": target.get("available_count"),
+            "total_count": target.get("total_count"),
+        }
+
+        if key == "ticket_status_history":
+            reason = "coverage_backfill"
+            automation_can_improve = True
+            next_safe_action = "Continue bounded scheduled TicketHistory gap checks; do not infer status durations until transition shape is certified."
+        elif key == "status_duration":
+            source_shape_limited = (
+                not exact_status_transition
+                or sampled_status_candidates == 0
+                or parsed_status_transitions == 0
+                or timestamped_status_transitions == 0
+                or structured_status_transition_rows == 0
+            )
+            reason = "source_shape_limited" if source_shape_limited else "coverage_backfill"
+            automation_can_improve = not open_history_complete
+            next_safe_action = (
+                "Find or certify a read-only timestamped status-transition source; current TicketHistory rows do not prove exact status durations."
+                if source_shape_limited
+                else "Continue bounded open-ticket TicketHistory gap checks before trusting status-duration coverage."
+            )
+            evidence.update(
+                {
+                    "open_history_complete": open_history_complete,
+                    "exact_status_transition_timestamp": exact_status_transition,
+                    "sampled_status_candidate_rows": sampled_status_candidates,
+                    "parsed_status_transitions": parsed_status_transitions,
+                    "timestamped_status_transitions": timestamped_status_transitions,
+                    "structured_status_transition_rows": structured_status_transition_rows,
+                }
+            )
+        elif key == "waiting_states":
+            reason = "snapshot_only_duration_limited"
+            automation_can_improve = not open_history_complete
+            next_safe_action = "Use current waiting-state snapshot for present-state review only; historical waiting duration still needs timestamped transitions."
+            evidence.update(
+                {
+                    "current_snapshot_available": target.get("current_snapshot_available"),
+                    "historical_duration_available": target.get("historical_duration_available"),
+                    "unknown_unmapped_tickets": target.get("unknown_unmapped_tickets"),
+                }
+            )
+        elif key == "queue":
+            reason = "historical_lineage_limited"
+            next_safe_action = "Keep queue as current-field evidence; do not use queue-at-creation/history for prediction until a read-only history source is certified."
+            evidence.update(
+                {
+                    "authoritative_label_coverage_percent": target.get("authoritative_label_coverage_percent"),
+                    "missing_reference_rows": target.get("missing_reference_rows"),
+                }
+            )
+
+        diagnostics.append(
+            {
+                "key": key,
+                "label": target.get("label"),
+                "reason": reason,
+                "automation_can_improve_coverage": automation_can_improve,
+                "next_safe_action": next_safe_action,
+                "evidence": evidence,
+            }
+        )
+
+    reason_counts = Counter(item["reason"] for item in diagnostics)
+    return {
+        "summary": {
+            "blockers": len(diagnostics),
+            "automation_can_improve_coverage": sum(
+                1 for item in diagnostics if item["automation_can_improve_coverage"]
+            ),
+            "source_or_lineage_limited": sum(
+                1 for item in diagnostics if not item["automation_can_improve_coverage"]
+            ),
+            "reasons": dict(reason_counts),
+        },
+        "items": diagnostics,
+        "policy": {
+            "read_only": True,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+        },
+    }
+
+
 def field_certification_report(
     coverage_report: dict[str, Any] | None = None,
     status_diagnostics: dict[str, Any] | None = None,
@@ -3392,6 +3503,15 @@ def field_certification_report(
         for target in targets
         if target["certification_status"] in {"missing", "partial", "source_limited"}
     ]
+    remaining_blocker_diagnostics = _remaining_field_blocker_diagnostics(
+        targets,
+        open_history_complete=open_history_complete,
+        exact_status_transition=exact_status_transition,
+        sampled_status_candidates=sampled_status_candidates,
+        parsed_status_transitions=parsed_status_transitions,
+        timestamped_status_transitions=timestamped_status_transitions,
+        structured_status_transition_rows=structured_status_transition_rows,
+    )
     return {
         "ok": True,
         "generated_at_ms": int((time.monotonic() - started) * 1000),
@@ -3399,6 +3519,7 @@ def field_certification_report(
         "summary": dict(summary),
         "targets": targets,
         "blockers": blockers,
+        "remaining_blocker_diagnostics": remaining_blocker_diagnostics,
         "source_reports": {
             "field_coverage": {
                 "ready_for_ticket_health": coverage.get("ready_for_ticket_health"),
@@ -3468,6 +3589,7 @@ def field_certification_report(
             },
             "transition_parser": transition_summary,
             "status_transition_source_candidates": source_candidate_report,
+            "remaining_blocker_diagnostics": remaining_blocker_diagnostics,
         },
         "predictive_policy": {
             "review_only": True,

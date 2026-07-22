@@ -2700,6 +2700,14 @@ def test_field_certification_marks_status_duration_source_limited_with_snapshot_
         "structured_status_transition_rows"
     ] == 0
     assert report["source_reports"]["current_waiting_state_snapshot"]["snapshot_only"] is True
+    diagnostics = report["remaining_blocker_diagnostics"]
+    by_blocker = {item["key"]: item for item in diagnostics["items"]}
+    assert by_blocker["status_duration"]["reason"] == "source_shape_limited"
+    assert by_blocker["status_duration"]["automation_can_improve_coverage"] is False
+    assert by_blocker["waiting_states"]["reason"] == "snapshot_only_duration_limited"
+    assert diagnostics["summary"]["source_or_lineage_limited"] >= 2
+    assert diagnostics["policy"]["runs_jobs"] is False
+    assert diagnostics["policy"]["autotask_writes_allowed"] is False
 
 
 def test_ticket_predictive_review_signal_abstains_with_low_sample_size():
@@ -3065,6 +3073,11 @@ def test_ticket_field_certification_marks_source_limited_operational_inputs():
     assert "by_status" not in report["source_reports"]["status_source"]["status_sample_coverage"]
     assert report["predictive_policy"]["automatic_model_or_workflow_changes_allowed"] is False
     assert report["source_reports"]["status_transition_source_candidates"]["policy"]["live_autotask_probe_ran"] is False
+    diagnostics = report["source_reports"]["remaining_blocker_diagnostics"]
+    by_blocker = {item["key"]: item for item in diagnostics["items"]}
+    assert by_blocker["status_duration"]["reason"] == "source_shape_limited"
+    assert by_blocker["status_duration"]["evidence"]["structured_status_transition_rows"] == 0
+    assert diagnostics["policy"]["read_only"] is True
 
 
 def test_ticket_field_certification_keeps_labor_partial_until_gap_checks_finish():

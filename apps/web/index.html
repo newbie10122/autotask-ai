@@ -176,6 +176,7 @@
             <div><span>Blockers</span><strong id="fieldCertificationBlockers">Loading</strong></div>
             <div><span>Status Parser</span><strong id="fieldCertificationParser">Loading</strong></div>
           </div>
+          <div id="fieldCertificationDiagnostics" class="job-card-grid"></div>
           <div id="fieldCertificationTargets" class="job-card-grid"></div>
         </div>
         <h3>Run Now</h3>
@@ -983,6 +984,23 @@
         const parser = data.source_reports?.transition_parser || {};
         document.getElementById("fieldCertificationParser").textContent =
           `${parser.parsed_status_transitions ?? 0} status / ${parser.timestamped_status_transitions ?? 0} timestamped`;
+        const diagnosticTarget = document.getElementById("fieldCertificationDiagnostics");
+        diagnosticTarget.innerHTML = "";
+        const diagnostics = data.remaining_blocker_diagnostics || data.source_reports?.remaining_blocker_diagnostics || {};
+        (diagnostics.items || []).forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "job-card";
+          const title = document.createElement("strong");
+          title.textContent = item.label || item.key;
+          card.appendChild(title);
+          renderKeyValue(card, "Reason", item.reason || "unknown");
+          renderKeyValue(card, "Automation", item.automation_can_improve_coverage ? "Can improve coverage" : "Source limited");
+          renderKeyValue(card, "Next", item.next_safe_action || "Review source lineage");
+          diagnosticTarget.appendChild(card);
+        });
+        if (!(diagnostics.items || []).length) {
+          diagnosticTarget.textContent = "No remaining blocker diagnostics reported.";
+        }
         const target = document.getElementById("fieldCertificationTargets");
         target.innerHTML = "";
         (data.targets || []).forEach((item) => {

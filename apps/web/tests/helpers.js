@@ -249,6 +249,46 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
           ok: true,
           certification_state: "partial_field_certification",
           blockers: ["ticket_status_history", "status_duration", "waiting_states"],
+          remaining_blocker_diagnostics: {
+            summary: {
+              blockers: 3,
+              automation_can_improve_coverage: 1,
+              source_or_lineage_limited: 2,
+              reasons: {
+                coverage_backfill: 1,
+                source_shape_limited: 1,
+                snapshot_only_duration_limited: 1
+              }
+            },
+            items: [
+              {
+                key: "ticket_status_history",
+                label: "TicketHistory coverage",
+                reason: "coverage_backfill",
+                automation_can_improve_coverage: true,
+                next_safe_action: "Continue bounded scheduled TicketHistory gap checks."
+              },
+              {
+                key: "status_duration",
+                label: "Status-duration and waiting-time lineage",
+                reason: "source_shape_limited",
+                automation_can_improve_coverage: false,
+                next_safe_action: "Find or certify a read-only timestamped status-transition source."
+              },
+              {
+                key: "waiting_states",
+                label: "Waiting state/reason lineage",
+                reason: "snapshot_only_duration_limited",
+                automation_can_improve_coverage: false,
+                next_safe_action: "Use current waiting-state snapshot for present-state review only."
+              }
+            ],
+            policy: {
+              read_only: true,
+              runs_jobs: false,
+              autotask_writes_allowed: false
+            }
+          },
           source_reports: {
             transition_parser: {
               parsed_status_transitions: 0,

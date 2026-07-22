@@ -83,6 +83,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Post-merge bounded read-only runtime probe on canonical `main` `9e17d22` returned `/ready` `HTTP 200`, `live_autotask_probe_ran=true`, `autotask_writes_allowed=false`, `MaxRecords=1` per candidate entity, and one available candidate, `TicketCategories`. `TicketPriorities`, `Priorities`, `TicketIssueTypes`, `TicketSubIssueTypes`, `Queues`, `TicketQueues`, and `TicketStatuses` were unavailable by those entity names. The result is availability evidence only; it does not authorize automatic reference sync, model/workflow changes, or Autotask writes.
 - PR #111 adds read-only `TicketCategories` metadata ingestion to the reference-data sync path. Post-merge local runtime executed the reference-data sync once, processed/upserted `14` `TicketCategories` metadata rows with `metadata_sync.ok=true`, `autotask_writes_allowed=false`, and no metadata-sync errors; category reference lineage then showed `100.0%` authoritative label coverage, while issue/subissue, priority, queue, status-duration, and waiting blockers remain.
 - PR #114 adds read-only `Tickets/entityInformation/fields` picklist ingestion for priority, category, issue type, subissue type, queue, and status labels. Post-merge local runtime executed the reference-data sync once, upserted `231` ticket picklist rows across `issueType`, `priority`, `queueID`, `status`, `subIssueType`, and `ticketCategory`, and field certification now reports all six reference fields at `100.0%` authoritative label coverage with zero metadata-source gaps. Remaining blockers are `ticket_status_history`, `status_duration`, `waiting_states`, and queue-at-creation/history lineage.
+- Branch `agent/m2-status-history-source-lineage-next` adds field-certification remaining-blocker diagnostics and Operations UI visibility. Local runtime evidence after API rebuild showed one automation-improvable coverage blocker (`ticket_status_history`) and three source/lineage blockers (`status_duration`, `waiting_states`, and `queue`) with no jobs run and no Autotask writes.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -141,9 +142,21 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Continue status-duration, waiting, TicketHistory coverage, and queue-at-creation/history blockers.
-2. Continue production-auth deployment evidence only when explicitly approved for that protected action.
-3. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+1. Merge field-certification remaining-blocker diagnostics after CI passes.
+2. Continue status-duration, waiting, TicketHistory coverage, and queue-at-creation/history blockers.
+3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
+4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+
+## Current receipt — Milestone 2 remaining blocker diagnostics
+
+- **Slice:** Make field-certification blockers explain whether scheduled automation can still improve coverage or whether the blocker is source/lineage limited.
+- **State:** `partial_foundation`; this improves operator visibility only. Milestone 2 remains partial because historical TicketHistory estate coverage, timestamped status transitions, historical waiting duration, and queue-at-creation/history lineage are not certified.
+- **Files changed:** `apps/api/app/ticket_health.py`, focused API tests, Operations UI rendering, Playwright Operations smoke, and project status docs.
+- **Implemented:** `/api/ticket-health/field-certification` now returns `remaining_blocker_diagnostics` at top level and under `source_reports`. Each blocker includes a reason, safe next action, evidence counts, and read-only policy. Operations renders those diagnostics below the field-certification summary.
+- **Runtime evidence:** Local API rebuild returned `/ready` `HTTP 200`. Field certification returned `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, `waiting_states`, and `queue`. Diagnostics reported `coverage_backfill=1`, `source_shape_limited=1`, `snapshot_only_duration_limited=1`, `historical_lineage_limited=1`, `automation_can_improve_coverage=1`, and `source_or_lineage_limited=3`.
+- **Validation:** Focused API validation passed with `6 passed`; focused Operations Playwright validation passed with `1 passed`; static web JavaScript syntax passed; full `./scripts/validate-ci.sh` passed with `163` API tests and `13` Playwright tests; `git diff --check` passed.
+- **Read-only/authority evidence:** The change only reports local diagnostics and renders them in the local UI. It does not run jobs, write to Autotask, deploy production code, change model thresholds/workflows, or change routing/assignment.
+- **Rollback:** Revert this branch commit to remove the diagnostic fields and UI cards; field-certification targets and existing source reports remain available from prior behavior.
 
 ## Current receipt — Milestone 2 ticket picklist metadata sync runtime evidence
 
