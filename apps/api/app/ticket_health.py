@@ -1114,6 +1114,122 @@ def labor_coverage_report(limit: int = 10, authorized_company_ids: list[int] | N
     }
 
 
+def sla_lineage_report(authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
+    init_schema()
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    with db_connection() as conn:
+        summary = conn.execute(
+            f"""
+            SELECT
+              count(*) AS tickets,
+              count(*) FILTER (
+                WHERE t.completed_at_autotask IS NULL
+                  AND COALESCE(t.status, '') <> ALL(%s)
+              ) AS open_tickets,
+              count(*) FILTER (
+                WHERE t.sla_id IS NOT NULL
+                   OR t.raw ? 'serviceLevelAgreementID'
+                   OR t.raw ? 'serviceLevelAgreementHasBeenMet'
+                   OR t.raw ? 'serviceLevelAgreementPausedNextEventHours'
+                   OR t.due_at_autotask IS NOT NULL
+                   OR t.first_response_due_at_autotask IS NOT NULL
+                   OR t.resolved_due_at_autotask IS NOT NULL
+                   OR t.resolution_plan_due_at_autotask IS NOT NULL
+              ) AS with_any_sla_fields,
+              count(*) FILTER (WHERE t.sla_id IS NOT NULL OR t.raw ? 'serviceLevelAgreementID') AS with_sla_id,
+              count(*) FILTER (WHERE t.sla_met IS NOT NULL OR t.raw ? 'serviceLevelAgreementHasBeenMet') AS with_sla_met,
+              count(*) FILTER (WHERE t.due_at_autotask IS NOT NULL OR t.raw ? 'dueDateTime') AS with_due_at,
+              count(*) FILTER (
+                WHERE t.first_response_due_at_autotask IS NOT NULL OR t.raw ? 'firstResponseDueDateTime'
+              ) AS with_first_response_due,
+              count(*) FILTER (
+                WHERE t.resolution_plan_due_at_autotask IS NOT NULL OR t.raw ? 'resolutionPlanDueDateTime'
+              ) AS with_resolution_plan_due,
+              count(*) FILTER (
+                WHERE t.resolved_due_at_autotask IS NOT NULL OR t.raw ? 'resolvedDueDateTime'
+              ) AS with_resolved_due,
+              count(*) FILTER (
+                WHERE t.sla_paused_next_event_hours IS NOT NULL
+                   OR t.raw ? 'serviceLevelAgreementPausedNextEventHours'
+              ) AS with_sla_pause_context
+            FROM autotask_tickets t
+            WHERE true {company_scope_sql}
+            """,
+            (list(CLOSED_STATUS_IDS), *company_scope_params),
+        ).fetchone()
+        by_status = list(
+            conn.execute(
+                f"""
+                SELECT
+                  COALESCE(status_ref.label, t.status, '[Blank]') AS status_label,
+                  count(*) AS tickets,
+                  count(*) FILTER (
+                    WHERE t.sla_id IS NOT NULL
+                       OR t.raw ? 'serviceLevelAgreementID'
+                       OR t.raw ? 'serviceLevelAgreementHasBeenMet'
+                       OR t.due_at_autotask IS NOT NULL
+                       OR t.first_response_due_at_autotask IS NOT NULL
+                       OR t.resolved_due_at_autotask IS NOT NULL
+                  ) AS with_any_sla_fields,
+                  count(*) FILTER (
+                    WHERE t.due_at_autotask IS NOT NULL
+                       OR t.first_response_due_at_autotask IS NOT NULL
+                       OR t.resolved_due_at_autotask IS NOT NULL
+                       OR t.resolution_plan_due_at_autotask IS NOT NULL
+                  ) AS with_due_target_fields
+                FROM autotask_tickets t
+                LEFT JOIN autotask_reference_values status_ref
+                  ON status_ref.field_name='status' AND status_ref.value=t.status
+                WHERE true {company_scope_sql}
+                GROUP BY COALESCE(status_ref.label, t.status, '[Blank]')
+                ORDER BY tickets DESC, status_label
+                LIMIT 25
+                """,
+                tuple(company_scope_params),
+            ).fetchall()
+        )
+
+    tickets = int(summary["tickets"] or 0)
+    with_any_sla_fields = int(summary["with_any_sla_fields"] or 0)
+    due_target_fields = max(
+        int(summary["with_due_at"] or 0),
+        int(summary["with_first_response_due"] or 0),
+        int(summary["with_resolution_plan_due"] or 0),
+        int(summary["with_resolved_due"] or 0),
+    )
+    warnings = []
+    if with_any_sla_fields and due_target_fields < with_any_sla_fields:
+        warnings.append(
+            "Some local tickets have SLA identifiers or met flags without due/response/resolution target timestamps; keep SLA analytics partial for those records."
+        )
+    if not with_any_sla_fields:
+        warnings.append("No local SLA fields are present in the scoped ticket set.")
+    return {
+        "ok": True,
+        "summary": {
+            "tickets": tickets,
+            "open_tickets": int(summary["open_tickets"] or 0),
+            "with_any_sla_fields": with_any_sla_fields,
+            "with_sla_id": int(summary["with_sla_id"] or 0),
+            "with_sla_met": int(summary["with_sla_met"] or 0),
+            "with_due_at": int(summary["with_due_at"] or 0),
+            "with_first_response_due": int(summary["with_first_response_due"] or 0),
+            "with_resolution_plan_due": int(summary["with_resolution_plan_due"] or 0),
+            "with_resolved_due": int(summary["with_resolved_due"] or 0),
+            "with_sla_pause_context": int(summary["with_sla_pause_context"] or 0),
+            "with_due_target_fields": due_target_fields,
+            "coverage_percent": _percent(with_any_sla_fields, tickets),
+            "due_target_coverage_percent": _percent(due_target_fields, with_any_sla_fields),
+        },
+        "by_status": [dict(row) for row in by_status],
+        "warnings": warnings,
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "interpretation": (
+            "SLA evidence is scoped local read-only lineage; model/workflow use remains excluded until due target completeness is certified."
+        ),
+    }
+
+
 def _summary_where(queue: str | None, assigned_resource_id: int | None) -> tuple[str, list[Any]]:
     clauses = ["t.completed_at_autotask IS NULL", "NOT t.analytics_exclude", "COALESCE(t.status, '') <> ALL(%s)"]
     params: list[Any] = [list(CLOSED_STATUS_IDS)]
@@ -1806,6 +1922,7 @@ def field_certification_report(
     transition_parse_summary: dict[str, Any] | None = None,
     source_candidates: dict[str, Any] | None = None,
     labor_coverage: dict[str, Any] | None = None,
+    sla_lineage: dict[str, Any] | None = None,
     authorized_company_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
@@ -1820,10 +1937,12 @@ def field_certification_report(
         authorized_company_ids=authorized_company_ids,
     )
     labor_gap_context = labor_coverage or labor_coverage_report(authorized_company_ids=authorized_company_ids)
+    sla_lineage_context = sla_lineage or sla_lineage_report(authorized_company_ids=authorized_company_ids)
     source_capability = status_diag.get("source_capability") or {}
     open_history = status_diag.get("open_ticket_history_context") or {}
     status_sample = status_diag.get("status_sample_coverage") or {}
     labor_summary = labor_gap_context.get("summary") or {}
+    sla_summary = sla_lineage_context.get("summary") or {}
     exact_status_transition = bool(source_capability.get("has_exact_status_transition_timestamp"))
     open_history_complete = (
         int(open_history.get("open_tickets") or 0) > 0 and int(open_history.get("open_tickets_without_history") or 0) == 0
@@ -1858,6 +1977,16 @@ def field_certification_report(
     if unchecked_labor_open_tickets > 0:
         labor_note = (
             "TimeEntries gap checks still have unchecked open tickets; distinguish unchecked tickets from checked-empty tickets before certifying labor coverage."
+        )
+    sla_due_target_fields = int(sla_summary.get("with_due_target_fields") or 0)
+    sla_any_fields = int(sla_summary.get("with_any_sla_fields") or 0)
+    sla_certification_status = _certification_status(str(sla_information.get("status") or "missing"))
+    if sla_any_fields > 0 and sla_due_target_fields < sla_any_fields:
+        sla_certification_status = "partial"
+    sla_note = sla_information.get("note") or "SLA fields are read-only local evidence; unmapped/blank records keep certification partial."
+    if sla_any_fields > 0 and sla_due_target_fields < sla_any_fields:
+        sla_note = (
+            "SLA identifiers or met flags exist without complete due/response/resolution target timestamps; keep SLA analytics partial for those records."
         )
 
     targets = [
@@ -1910,13 +2039,16 @@ def field_certification_report(
         {
             "key": "sla_information",
             "label": "SLA target/due/response/resolution lineage",
-            "certification_status": _certification_status(str(sla_information.get("status") or "missing")),
+            "certification_status": sla_certification_status,
             "source": sla_information.get("source"),
             "coverage_percent": sla_information.get("coverage_percent"),
             "available_count": sla_information.get("available_count"),
             "total_count": sla_information.get("total_count"),
+            "tickets_with_sla_fields": sla_any_fields,
+            "tickets_with_due_target_fields": sla_due_target_fields,
+            "due_target_coverage_percent": sla_summary.get("due_target_coverage_percent"),
             "prediction_use": "excluded_until_certified_for_model_training",
-            "note": sla_information.get("note") or "SLA fields are read-only local evidence; unmapped/blank records keep certification partial.",
+            "note": sla_note,
         },
         {
             "key": "waiting_states",
@@ -1961,6 +2093,12 @@ def field_certification_report(
                 "summary": labor_summary,
                 "warnings": labor_gap_context.get("warnings") or [],
                 "interpretation": "Checked-empty TimeEntries are confirmed zero-result reads; unchecked tickets still need bounded gap checks before labor coverage is certified.",
+            },
+            "sla_lineage": {
+                "summary": sla_summary,
+                "warnings": sla_lineage_context.get("warnings") or [],
+                "interpretation": sla_lineage_context.get("interpretation"),
+                "authorized_company_scope_applied": sla_lineage_context.get("authorized_company_scope_applied"),
             },
             "status_source": {
                 "source_capability": source_capability,

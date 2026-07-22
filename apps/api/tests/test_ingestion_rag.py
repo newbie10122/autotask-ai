@@ -1352,12 +1352,137 @@ def test_field_certification_fetches_labor_coverage_with_authorized_scope(monkey
         diagnostics,
         transition_summary,
         source_candidates={"policy": {"live_autotask_probe_ran": False}},
+        sla_lineage={"summary": {"with_any_sla_fields": 0, "with_due_target_fields": 0}, "warnings": []},
         authorized_company_ids=[123],
     )
 
     assert captured["authorized_company_ids"] == [123]
     assert report["predictive_policy"]["authorized_company_scope_applied"] is True
     assert report["source_reports"]["labor_gap_context"]["summary"]["open_tickets"] == 2
+
+
+def test_sla_lineage_report_applies_authorized_company_scope(monkeypatch):
+    captured_queries = []
+
+    class FakeResult:
+        def __init__(self, row=None, rows=None):
+            self.row = row or {}
+            self.rows = rows or []
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            captured_queries.append((sql, params))
+            if "count(*) AS tickets" in sql:
+                return FakeResult(
+                    {
+                        "tickets": 4,
+                        "open_tickets": 2,
+                        "with_any_sla_fields": 3,
+                        "with_sla_id": 3,
+                        "with_sla_met": 2,
+                        "with_due_at": 1,
+                        "with_first_response_due": 1,
+                        "with_resolution_plan_due": 0,
+                        "with_resolved_due": 1,
+                        "with_sla_pause_context": 1,
+                    }
+                )
+            return FakeResult(rows=[])
+
+    monkeypatch.setattr(ticket_health_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_health_module, "db_connection", lambda: FakeConnection())
+
+    report = ticket_health_module.sla_lineage_report(authorized_company_ids=[123])
+
+    assert report["authorized_company_scope_applied"] is True
+    assert report["summary"]["with_any_sla_fields"] == 3
+    assert report["summary"]["with_due_target_fields"] == 1
+    assert len(captured_queries) == 2
+    assert all("t.company_id = ANY(%s)" in sql for sql, _params in captured_queries)
+    assert captured_queries[0][1] == (list(ticket_health_module.CLOSED_STATUS_IDS), [123])
+    assert captured_queries[1][1] == ([123],)
+
+
+def test_field_certification_keeps_sla_partial_until_due_targets_are_complete():
+    coverage = {
+        "ready_for_ticket_health": False,
+        "counts": {"tickets": 4},
+        "blockers": [],
+        "fields": [
+            {"key": "ticket_status", "status": "available", "source": "status"},
+            {"key": "ticket_status_history", "status": "available", "source": "history"},
+            {"key": "waiting_states", "status": "available", "source": "waiting"},
+            {"key": "time_entries", "status": "available", "source": "time entries"},
+            {"key": "labor_hours", "status": "available", "source": "hours"},
+            {
+                "key": "sla_information",
+                "status": "available",
+                "available_count": 3,
+                "total_count": 4,
+                "coverage_percent": 75.0,
+                "source": "SLA raw fields",
+                "note": "",
+            },
+        ],
+    }
+    diagnostics = {
+        "source_capability": {"has_exact_status_transition_timestamp": True},
+        "open_ticket_history_context": {
+            "open_tickets": 4,
+            "open_tickets_with_history": 4,
+            "open_tickets_without_history": 0,
+        },
+        "status_sample_coverage": {"sampled_status_candidate_rows": 1},
+    }
+    transition_summary = {
+        "parsed_status_transitions": 1,
+        "timestamped_status_transitions": 1,
+    }
+    labor_coverage = {
+        "summary": {
+            "open_tickets": 4,
+            "open_tickets_checked_for_time_entries": 4,
+            "open_tickets_checked_empty_time_entries": 0,
+            "open_tickets_unchecked_time_entries": 0,
+        },
+        "warnings": [],
+    }
+    sla_lineage = {
+        "summary": {
+            "with_any_sla_fields": 3,
+            "with_due_target_fields": 1,
+            "due_target_coverage_percent": 33.3,
+        },
+        "warnings": ["Some local tickets have SLA identifiers without target timestamps."],
+    }
+
+    report = ticket_health_module.field_certification_report(
+        coverage,
+        diagnostics,
+        transition_summary,
+        labor_coverage=labor_coverage,
+        sla_lineage=sla_lineage,
+    )
+    by_target = {target["key"]: target for target in report["targets"]}
+
+    assert by_target["sla_information"]["certification_status"] == "partial"
+    assert by_target["sla_information"]["tickets_with_sla_fields"] == 3
+    assert by_target["sla_information"]["tickets_with_due_target_fields"] == 1
+    assert "SLA identifiers or met flags exist without complete" in by_target["sla_information"]["note"]
+    assert "sla_information" in report["predictive_policy"]["excluded_until_certified"]
+    assert report["source_reports"]["sla_lineage"]["summary"]["with_due_target_fields"] == 1
 
 
 def test_ticket_predictive_review_signal_abstains_with_low_sample_size():
@@ -1694,8 +1819,22 @@ def test_ticket_field_certification_marks_source_limited_operational_inputs():
         },
         "warnings": ["7 open tickets have checked-empty TimeEntries evidence."],
     }
+    sla_lineage = {
+        "summary": {
+            "with_any_sla_fields": 0,
+            "with_due_target_fields": 0,
+            "due_target_coverage_percent": 0.0,
+        },
+        "warnings": ["No local SLA fields are present in the scoped ticket set."],
+    }
 
-    report = ticket_health_module.field_certification_report(coverage, diagnostics, transition_summary, labor_coverage=labor_coverage)
+    report = ticket_health_module.field_certification_report(
+        coverage,
+        diagnostics,
+        transition_summary,
+        labor_coverage=labor_coverage,
+        sla_lineage=sla_lineage,
+    )
     by_target = {target["key"]: target for target in report["targets"]}
 
     assert report["certification_state"] == "partial_field_certification"
@@ -1798,8 +1937,22 @@ def test_ticket_field_certification_keeps_labor_partial_until_gap_checks_finish(
         },
         "warnings": ["6 open local tickets do not have local TimeEntries yet."],
     }
+    sla_lineage = {
+        "summary": {
+            "with_any_sla_fields": 10,
+            "with_due_target_fields": 10,
+            "due_target_coverage_percent": 100.0,
+        },
+        "warnings": [],
+    }
 
-    report = ticket_health_module.field_certification_report(coverage, diagnostics, transition_summary, labor_coverage=labor_coverage)
+    report = ticket_health_module.field_certification_report(
+        coverage,
+        diagnostics,
+        transition_summary,
+        labor_coverage=labor_coverage,
+        sla_lineage=sla_lineage,
+    )
     by_target = {target["key"]: target for target in report["targets"]}
 
     assert by_target["time_entries"]["certification_status"] == "partial"
