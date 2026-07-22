@@ -76,6 +76,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #95 adds read-only scheduler recovery-streak evidence to Operations status and the Operations UI. It inspects the latest three scheduler-triggered runs for each required scheduler job without running jobs or exposing raw errors.
 - PR #97 records local pause/resume provenance in Operations settings/status and success audits: action, actor, reason, timestamp, and policy flags proving local metadata only, no job execution, and no Autotask writes.
 - PR #99 preserves bootstrap reference-label provenance during reference sync, reports reference label counts by source, and displays bootstrap/inferred/source counts in the UI.
+- Current branch `agent/m2-reference-lineage-source-authority` separates meaningful local reference labels from authoritative Autotask-sourced labels in reference lineage, field certification, and Operations field-certification cards.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -134,12 +135,24 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record reference-label provenance merge evidence after PR #99 and Second Brain PR #13 update.
+1. Validate and merge reference-lineage source-authority evidence.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 reference-label provenance merge evidence
+## Current receipt — Milestone 2 reference-lineage source-authority evidence
+
+- **Slice:** Distinguish authoritative Autotask reference labels from bootstrap/inferred local labels on branch `agent/m2-reference-lineage-source-authority` from canonical `main` `4bd7460`.
+- **State:** `partial_foundation`; source authority is clearer, but authoritative reference-label completeness remains open until Autotask-sourced labels cover the relevant local ticket values.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, `apps/web/index.html`, `apps/web/tests/helpers.js`, `apps/web/tests/operations-automation.spec.js`, and project status docs.
+- **Implemented:** Reference lineage now reports aggregate source-authority buckets, authoritative/bootstrap/inferred label rows, and authoritative label coverage. Field certification carries those counts into priority/category/queue targets, and the Operations UI displays authoritative label coverage when available.
+- **Runtime evidence:** Local API/web rebuild returned Nginx `/ready` `HTTP 200`, UI root `HTTP 200`, and `/api/ticket-health/field-certification` showed priority, category, and queue still `partial` with `0.0%` authoritative label coverage and inferred label rows separated from authoritative rows.
+- **Validation:** Focused API validation passed with `7 passed`; focused Operations browser validation passed with `1 passed`; full repository validation passed with `158` API tests and `13` Playwright tests; `git diff --check` passed. GitHub CI is still required before merge.
+- **Read-only/authority evidence:** This branch only changes local aggregate certification/reporting and UI display. It does not run reference sync, sync jobs, live Autotask probes, production deployment, model threshold/workflow changes, routing/assignment changes, or Autotask writes.
+- **Rollback:** Revert this branch commit; reference lineage returns to meaningful-label coverage without separate source-authority buckets.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+
+## Historical receipt — Milestone 2 reference-label provenance merge evidence
 
 - **Slice:** Record reference-label provenance merge evidence after PR #99 and Second Brain PR #13 update.
 - **State:** `partial_foundation`; source counts are clearer and bootstrap labels are no longer downgraded to inferred, but authoritative Autotask reference-label completeness remains open.

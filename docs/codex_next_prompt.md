@@ -60,6 +60,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge Milestone 2 evidence on canonical `main` `9c1e6cc11845a90bd24e9a1d3c9a90289c144072`: PR #95 adds read-only scheduler recovery-streak evidence. Local runtime after rebuild and scheduler tick returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, recovery streak `scheduler_recovery_streak_available`, `9` clean-streak jobs, `0` partial-streak jobs, and `3` required clean runs per job.
 - Post-merge Milestone 2 evidence on canonical `main` `5368aa96582e7480e4709355ca0ffa2707d7ae5e`: PR #97 records local pause/resume actor, reason, action, timestamp, and local-metadata-only policy provenance without running jobs or allowing Autotask writes.
 - Post-merge Milestone 2 evidence on canonical `main` `ef848a778d2ffddc53a4c9163260cd7817ad7c68`: PR #99 preserves bootstrap source provenance for known reference labels, exposes reference counts by source, and displays bootstrap/inferred/source counts in the UI without running sync jobs or writing to Autotask.
+- Current active branch validation: `agent/m2-reference-lineage-source-authority` has focused API reference/field-certification tests passing with `7 passed`, focused Operations browser validation passing with `1 passed`, and full validation passing with `158` API tests plus `13` Playwright tests. Runtime after local API/web rebuild returned `/ready` and UI `HTTP 200`; field certification showed priority/category/queue remain `partial` with `0.0%` authoritative label coverage and inferred label rows separated from authoritative rows. The branch separates authoritative Autotask-sourced labels from bootstrap/inferred local labels in reference lineage, field certification, and Operations UI cards without running sync jobs or writing to Autotask.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -75,7 +76,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record reference-label provenance merge evidence after PR #99 and Second Brain PR #13 update.
+1. Validate and merge reference-lineage source-authority evidence.
 2. Continue the next safe Milestone 2 source-lineage slice without Autotask writes, production deployment, or model workflow changes.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 

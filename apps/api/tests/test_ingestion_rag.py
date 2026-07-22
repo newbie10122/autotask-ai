@@ -40,6 +40,10 @@ def _reference_lineage_fixture(status: str = "certified") -> dict:
                 "present_rows": 10,
                 "mapped_rows": 10 if status == "certified" else 5,
                 "meaningful_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "authoritative_label_rows": 10 if status == "certified" else 5,
+                "authoritative_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "bootstrap_label_rows": 0,
+                "inferred_label_rows": 0 if status == "certified" else 5,
                 "generic_or_inferred_rows": 0 if status == "certified" else 5,
                 "missing_reference_rows": 0,
             },
@@ -50,6 +54,10 @@ def _reference_lineage_fixture(status: str = "certified") -> dict:
                 "present_rows": 10,
                 "mapped_rows": 10 if status == "certified" else 5,
                 "meaningful_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "authoritative_label_rows": 10 if status == "certified" else 5,
+                "authoritative_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "bootstrap_label_rows": 0,
+                "inferred_label_rows": 0 if status == "certified" else 5,
                 "generic_or_inferred_rows": 0 if status == "certified" else 5,
                 "missing_reference_rows": 0,
             },
@@ -60,6 +68,10 @@ def _reference_lineage_fixture(status: str = "certified") -> dict:
                 "present_rows": 10,
                 "mapped_rows": 10 if status == "certified" else 5,
                 "meaningful_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "authoritative_label_rows": 10 if status == "certified" else 5,
+                "authoritative_label_coverage_percent": 100.0 if status == "certified" else 50.0,
+                "bootstrap_label_rows": 0,
+                "inferred_label_rows": 0 if status == "certified" else 5,
                 "generic_or_inferred_rows": 0 if status == "certified" else 5,
                 "missing_reference_rows": 0,
             },
@@ -2051,9 +2063,22 @@ def test_reference_field_lineage_report_applies_scope_and_avoids_raw_labels(monk
     assert report["authorized_company_scope_applied"] is True
     assert priority["present_rows"] == 4
     assert priority["mapped_rows"] == 3
+    assert priority["authoritative_label_rows"] == 0
+    assert priority["authoritative_label_coverage_percent"] == 0.0
+    assert priority["bootstrap_label_rows"] == 3
+    assert priority["inferred_label_rows"] == 1
     assert priority["generic_or_inferred_rows"] == 1
+    assert priority["certification_status"] == "partial"
+    assert priority["reference_source_authority_counts"] == {"bootstrap": 3, "inferred": 1}
     assert priority["top_values"][0]["value_bucket"] == "priority_value_1"
+    assert priority["top_values"][0]["reference_source_authority"] == "bootstrap"
     assert "reference_label" not in priority["top_values"][0]
+    priority_target = next(target for target in report["targets"] if target["key"] == "priority")
+    assert priority_target["certification_status"] == "partial"
+    assert priority_target["authoritative_label_rows"] == 0
+    assert priority_target["bootstrap_label_rows"] == 3
+    assert priority_target["inferred_label_rows"] == 1
+    assert any("bootstrap labels" in warning for warning in report["warnings"])
     assert report["policy"]["returns_raw_ticket_text"] is False
     assert any("t.company_id = ANY(%s)" in sql for sql, _params in captured_queries)
     assert captured_queries[1][1] == ("priority", "priority", [123])

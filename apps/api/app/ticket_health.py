@@ -1880,6 +1880,19 @@ def _reference_label_quality(field_name: str, value: Any, label: Any, source: An
     return "mapped"
 
 
+def _reference_source_authority(source: Any) -> str:
+    clean_source = str(source or "").strip().lower()
+    if clean_source in {"autotask", "autotask_metadata"}:
+        return "authoritative"
+    if clean_source == "bootstrap":
+        return "bootstrap"
+    if clean_source == "inferred":
+        return "inferred"
+    if not clean_source:
+        return "missing"
+    return "other"
+
+
 def reference_field_lineage_report(authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
     started = time.monotonic()
     init_schema()
@@ -1923,6 +1936,7 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
             generic_or_inferred_rows = 0
             missing_reference_rows = 0
             source_counts: Counter[str] = Counter()
+            source_authority_counts: Counter[str] = Counter()
             top_values: list[dict[str, Any]] = []
             for index, row in enumerate(rows, start=1):
                 row_count = int(row["row_count"] or 0)
@@ -1931,11 +1945,13 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
                     key, row["value"], row["reference_label"], row["reference_source"]
                 )
                 source = str(row["reference_source"] or "missing")
+                authority = _reference_source_authority(row["reference_source"])
                 present_rows += row_count
                 raw_value_rows += raw_rows
                 if quality != "missing_reference":
                     referenced_rows += row_count
                     source_counts[source] += row_count
+                    source_authority_counts[authority] += row_count
                 if quality == "mapped":
                     mapped_rows += row_count
                 elif quality == "generic_or_inferred":
@@ -1949,11 +1965,22 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
                             "row_count": row_count,
                             "reference_present": quality != "missing_reference",
                             "reference_source": source,
+                            "reference_source_authority": authority,
                             "label_quality": quality,
                         }
                     )
 
-            status = "missing" if present_rows == 0 else "available" if mapped_rows == present_rows else "partial"
+            authoritative_rows = int(source_authority_counts.get("authoritative") or 0)
+            bootstrap_rows = int(source_authority_counts.get("bootstrap") or 0)
+            inferred_rows = int(source_authority_counts.get("inferred") or 0)
+            other_source_rows = int(source_authority_counts.get("other") or 0)
+            status = (
+                "missing"
+                if present_rows == 0
+                else "available"
+                if mapped_rows == present_rows and authoritative_rows == present_rows
+                else "partial"
+            )
             field_report = {
                 "key": key,
                 "label": spec["label"],
@@ -1968,10 +1995,16 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
                 "reference_coverage_percent": _percent(referenced_rows, present_rows),
                 "mapped_rows": mapped_rows,
                 "meaningful_label_coverage_percent": _percent(mapped_rows, present_rows),
+                "authoritative_label_rows": authoritative_rows,
+                "authoritative_label_coverage_percent": _percent(authoritative_rows, present_rows),
+                "bootstrap_label_rows": bootstrap_rows,
+                "inferred_label_rows": inferred_rows,
+                "other_source_label_rows": other_source_rows,
                 "generic_or_inferred_rows": generic_or_inferred_rows,
                 "missing_reference_rows": missing_reference_rows,
                 "certification_status": status,
                 "reference_source_counts": dict(source_counts),
+                "reference_source_authority_counts": dict(source_authority_counts),
                 "top_values": top_values,
             }
             fields.append(field_report)
@@ -1983,8 +2016,15 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
         statuses = [str(field.get("certification_status") or "missing") for field in target_fields]
         present_rows = sum(int(field.get("present_rows") or 0) for field in target_fields)
         mapped_rows = sum(int(field.get("mapped_rows") or 0) for field in target_fields)
+        authoritative_rows = sum(int(field.get("authoritative_label_rows") or 0) for field in target_fields)
+        bootstrap_rows = sum(int(field.get("bootstrap_label_rows") or 0) for field in target_fields)
+        inferred_rows = sum(int(field.get("inferred_label_rows") or 0) for field in target_fields)
+        other_source_rows = sum(int(field.get("other_source_label_rows") or 0) for field in target_fields)
         generic_rows = sum(int(field.get("generic_or_inferred_rows") or 0) for field in target_fields)
         missing_reference_rows = sum(int(field.get("missing_reference_rows") or 0) for field in target_fields)
+        source_authority_counts: Counter[str] = Counter()
+        for field in target_fields:
+            source_authority_counts.update(field.get("reference_source_authority_counts") or {})
         targets.append(
             {
                 "key": target_spec["key"],
@@ -1994,8 +2034,14 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
                 "present_rows": present_rows,
                 "mapped_rows": mapped_rows,
                 "meaningful_label_coverage_percent": _percent(mapped_rows, present_rows),
+                "authoritative_label_rows": authoritative_rows,
+                "authoritative_label_coverage_percent": _percent(authoritative_rows, present_rows),
+                "bootstrap_label_rows": bootstrap_rows,
+                "inferred_label_rows": inferred_rows,
+                "other_source_label_rows": other_source_rows,
                 "generic_or_inferred_rows": generic_rows,
                 "missing_reference_rows": missing_reference_rows,
+                "reference_source_authority_counts": dict(source_authority_counts),
             }
         )
 
@@ -2005,6 +2051,8 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
         warnings.append("No local tickets are present in the scoped ticket set.")
     if any(int(target["generic_or_inferred_rows"] or 0) > 0 for target in targets):
         warnings.append("Some reference labels are locally inferred placeholders, not authoritative Autotask reference labels.")
+    if any(int(target["bootstrap_label_rows"] or 0) > 0 for target in targets):
+        warnings.append("Some reference labels are local bootstrap labels, not authoritative Autotask metadata.")
     if any(int(target["missing_reference_rows"] or 0) > 0 for target in targets):
         warnings.append("Some ticket reference values have no local reference-value row.")
 
@@ -2028,7 +2076,7 @@ def reference_field_lineage_report(authorized_company_ids: list[int] | None = No
             "automatic_model_or_workflow_changes_allowed": False,
         },
         "warnings": warnings,
-        "interpretation": "Reference lineage separates current ticket field availability from meaningful local reference-label coverage; inferred fallback labels remain partial evidence.",
+        "interpretation": "Reference lineage separates current ticket field availability, meaningful local labels, and authoritative Autotask-sourced reference labels; bootstrap and inferred labels remain partial evidence.",
     }
 
 
@@ -3050,10 +3098,14 @@ def field_certification_report(
             "available_count": priority_field.get("available_count"),
             "total_count": priority_field.get("total_count"),
             "meaningful_label_coverage_percent": priority_reference.get("meaningful_label_coverage_percent"),
+            "authoritative_label_coverage_percent": priority_reference.get("authoritative_label_coverage_percent"),
+            "authoritative_label_rows": priority_reference.get("authoritative_label_rows"),
+            "bootstrap_label_rows": priority_reference.get("bootstrap_label_rows"),
+            "inferred_label_rows": priority_reference.get("inferred_label_rows"),
             "generic_or_inferred_rows": priority_reference.get("generic_or_inferred_rows"),
             "missing_reference_rows": priority_reference.get("missing_reference_rows"),
             "prediction_use": "excluded_until_certified_for_model_training",
-            "note": "Priority values are current local ticket fields; meaningful reference labels must be locally certified before model training use.",
+            "note": "Priority values are current local ticket fields; authoritative Autotask-sourced reference labels must be locally certified before model training use.",
         },
         {
             "key": "category",
@@ -3064,10 +3116,14 @@ def field_certification_report(
             "available_count": category_field.get("available_count"),
             "total_count": category_field.get("total_count"),
             "meaningful_label_coverage_percent": category_reference.get("meaningful_label_coverage_percent"),
+            "authoritative_label_coverage_percent": category_reference.get("authoritative_label_coverage_percent"),
+            "authoritative_label_rows": category_reference.get("authoritative_label_rows"),
+            "bootstrap_label_rows": category_reference.get("bootstrap_label_rows"),
+            "inferred_label_rows": category_reference.get("inferred_label_rows"),
             "generic_or_inferred_rows": category_reference.get("generic_or_inferred_rows"),
             "missing_reference_rows": category_reference.get("missing_reference_rows"),
             "prediction_use": "excluded_until_certified_for_model_training",
-            "note": "Category, issue type, and subissue type are current local fields; inferred fallback labels remain partial evidence.",
+            "note": "Category, issue type, and subissue type are current local fields; bootstrap and inferred labels remain partial evidence.",
         },
         {
             "key": "queue",
@@ -3078,10 +3134,14 @@ def field_certification_report(
             "available_count": queue_field.get("available_count"),
             "total_count": queue_field.get("total_count"),
             "meaningful_label_coverage_percent": queue_reference.get("meaningful_label_coverage_percent"),
+            "authoritative_label_coverage_percent": queue_reference.get("authoritative_label_coverage_percent"),
+            "authoritative_label_rows": queue_reference.get("authoritative_label_rows"),
+            "bootstrap_label_rows": queue_reference.get("bootstrap_label_rows"),
+            "inferred_label_rows": queue_reference.get("inferred_label_rows"),
             "generic_or_inferred_rows": queue_reference.get("generic_or_inferred_rows"),
             "missing_reference_rows": queue_reference.get("missing_reference_rows"),
             "prediction_use": "excluded_until_certified_for_model_training",
-            "note": "Queue values are current local ticket fields; queue-at-creation history and meaningful reference labels are not assumed.",
+            "note": "Queue values are current local ticket fields; queue-at-creation history and authoritative labels are not assumed.",
         },
     ]
     summary = Counter(target["certification_status"] for target in targets)

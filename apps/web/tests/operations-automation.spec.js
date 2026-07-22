@@ -57,6 +57,9 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(fieldPanel).toContainText("TicketHistory coverage");
   await expect(fieldPanel).toContainText("source_limited");
   await expect(fieldPanel).toContainText("TimeEntries and labor-hour lineage");
+  await expect(fieldPanel).toContainText("Priority current-field/reference lineage");
+  await expect(fieldPanel).toContainText("Auth Labels");
+  await expect(fieldPanel).toContainText("25%");
 
   await page.locator("#pauseOperations").click();
   await page.locator("#resumeOperations").click();
