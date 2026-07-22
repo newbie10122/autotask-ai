@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `a2a2a3c98245307438d8d26005aecd6403fce0f6`
-- Latest merged PR: `newbie10122/autotask-ai#45`, `Add predictive leakage bias review evidence`
-- Latest PR #45 CI: GitHub Actions run `29885766011`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local governed runtime checks on 2026-07-22: `/ready` returned ready, operations status returned scheduler `healthy`, `global_pause=false`, and local counts `tickets=67726`, `time_entries=49636`, `ticket_history=29582`
+- Canonical `main`: `8e1590fbf5a9ba9fe8be9a64305045ad3802ffb6`
+- Latest merged PR: `newbie10122/autotask-ai#46`, `Add predictive source lineage evidence`
+- Latest PR #46 CI: GitHub Actions run `29886086334`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local governed runtime checks on 2026-07-22: `/ready` returned ready, operations status returned scheduler `healthy`, `global_pause=false`, and local counts `tickets=67726`, `time_entries=49950`, `ticket_history=29760`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
 - Current active branch validation: `agent/predictive-source-lineage` passed full governed validation with `123` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `source_lineage.certification_state=partial_source_lineage`, with queue, priority, and category-derived fields marked not fully certified for prediction
@@ -27,10 +27,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Validate and merge branch `agent/predictive-source-lineage` after GitHub CI passes.
-2. Update the existing Second Brain projection PR with predictive source-lineage evidence.
-3. Continue predictive work with broader model evaluation and Milestone 2 field certification.
-4. Keep all predictive behavior review-only; do not auto-select thresholds or change routing, escalation, notification, assignment, status, priority, or workflow behavior.
+1. Continue predictive work with broader model evaluation and Milestone 2 field certification.
+2. Keep any next slice read-only and advisory; do not auto-select thresholds or change routing, escalation, notification, assignment, status, priority, or workflow behavior.
+3. Update the existing Second Brain projection PR after the next material slice.
 
 ## Milestone status
 
@@ -52,6 +51,6 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Existing projection branch: `agent/autotask-ai-governed-roadmap-projection`.
 Existing PR: `newbie10122/helix-second-brain#6`.
-Latest pushed projection head `455a6e59e9e3dd089eb8de1433683002761ad8a1` records PR #45, canonical commit `a2a2a3c98245307438d8d26005aecd6403fce0f6`, predictive leakage/model/bias evidence, predictive calibration-policy evidence, PR #43 control-doc reconciliation, predictive threshold evidence, prior predictive ranking/evaluation/UI work, operations automation visibility, Ask Assistant ticket-detail links, prior Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
+Latest pushed projection head `baf030f5aafc3e1c726586f02bb12a21b5ad9aa7` records PR #46, canonical commit `8e1590fbf5a9ba9fe8be9a64305045ad3802ffb6`, predictive source-lineage evidence, predictive leakage/model/bias evidence, predictive calibration-policy evidence, PR #43 control-doc reconciliation, predictive threshold evidence, prior predictive ranking/evaluation/UI work, operations automation visibility, Ask Assistant ticket-detail links, prior Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py`.
 
 Update the existing projection after the next material Autotask AI slice. Do not create duplicate projection PRs, and do not mark Second Brain state `merged` until PR #6 is actually merged.
