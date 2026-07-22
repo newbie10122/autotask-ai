@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `c31860ce040faf89da3c0e7e5edad4d9511181f2`
-- Latest merged PR: `newbie10122/autotask-ai#86`, `Record reference lineage merge`
-- Latest PR #86 CI: GitHub Actions run `29946475601`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local validation on current sync/recovery branch passed with focused operations scheduler evidence tests `86 passed`, API/worker Python compilation, full pytest `152 passed`, Playwright browser smoke `13 passed`, and real local Postgres scheduler automation smoke.
+- Canonical `main`: `2a3841b83ef336462eb162ec64bbe1531f776f9e`
+- Latest merged PR: `newbie10122/autotask-ai#87`, `Certify scheduler automation evidence`
+- Latest PR #87 CI: GitHub Actions run `29946958586`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation for scheduler automation evidence passed with focused operations scheduler evidence tests `86 passed`, API/worker Python compilation, full pytest `152 passed`, Playwright browser smoke `13 passed`, and real local Postgres scheduler automation smoke.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -49,7 +49,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `55f3d9804427ae79b3e8b532597282f950f76cc1`: PR #84 records the PR #83 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
 - Post-merge Milestone 2 evidence on canonical `main` `d295d6a6ad1168f3cbd2deb717422936ef5c34aa`: PR #85 adds aggregate-only scoped reference-field lineage for current priority, category/issue/subissue, queue, and status fields. Runtime local evidence found priority, category/issue/subissue, and queue values are present, but priority/category/queue reference lineage is `partial` because local labels are inferred placeholders rather than authoritative mapped reference labels; field certification blockers now include `priority`, `category`, and `queue` alongside the existing status-duration/waiting blockers.
 - Post-merge documentation evidence on canonical `main` `c31860ce040faf89da3c0e7e5edad4d9511181f2`: PR #86 records the PR #85 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
-- Current active branch validation: `agent/m2-sync-recovery-evidence` adds read-only scheduler automation certification to Operations status. Runtime local evidence found scheduler `healthy`, all `9` required scheduled jobs certified with recent scheduler-completed runs, `86` recent-sync scheduler runs in 24h, `85` open-ticket-history-gap runs, `85` open-ticket-TimeEntries-gap runs, `23` estate TicketHistory gap runs, `23` estate TimeEntries gap runs, `4` sync-reference-data runs, and blocker `stale_running_jobs` because one old running row is older than 30 minutes.
+- Post-merge Milestone 2 evidence on canonical `main` `2a3841b83ef336462eb162ec64bbe1531f776f9e`: PR #87 adds read-only scheduler automation certification to Operations status. Runtime local evidence found scheduler `healthy`, all `9` required scheduled jobs certified with recent scheduler-completed runs, `86` recent-sync scheduler runs in 24h, `85` open-ticket-history-gap runs, `85` open-ticket-TimeEntries-gap runs, `23` estate TicketHistory gap runs, `23` estate TimeEntries gap runs, `4` sync-reference-data runs, and blocker `stale_running_jobs` because one old running row is older than 30 minutes.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -65,8 +65,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge `agent/m2-sync-recovery-evidence` after PR CI passes.
-2. Update existing Second Brain PR #13 with sanitized scheduler automation evidence.
+1. Merge the documentation reconciliation that records PR #87 and Second Brain PR #13 head `709c1e736a223b6f5759bdb0d47a7a702999c228`.
+2. Resolve or explain the stale running scheduler row with read-only evidence.
 3. Continue the next safe Milestone 2 source-lineage or sync/recovery evidence slice without Autotask writes, production deployment, or model workflow changes.
 
 ## Milestone status
@@ -79,6 +79,7 @@ Continue from a clean branch based on canonical `origin/main`.
 
 ## Next eligible safe slices
 
+- Stale running scheduler-run provenance and sync/recovery streak evidence.
 - Predictive broader model evaluation and Milestone 2 field certification.
 - Durable audit identity/scope linkage across remaining workflows.
 - Milestone 2 field/source-lineage certification for remaining source-limited fields after status-duration/waiting and response-lineage certification, including category/queue/reference completeness and sync/recovery streak evidence.
@@ -89,4 +90,4 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Projection PR `newbie10122/helix-second-brain#6` is merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`. Projection branch head `4306bcc` recorded Autotask AI progress through PR #70, including calibrated predictive ranking evidence, related-data catch-up visibility, admin inspection read audit coverage, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, PR #66 control-document reconciliation, current validation counts, prior predictive evidence, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py` before merge.
 
-Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `f9dadc062035896823a3614230c49f9c3acf6f1c`. It records Autotask AI progress through PR #85, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, and PR #85 reference-field lineage evidence. Local validation passed with `python3 tools/validate_knowledge.py`. Do not mark it merged until the PR is actually merged.
+Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `709c1e736a223b6f5759bdb0d47a7a702999c228`. It records Autotask AI progress through PR #87, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, and PR #87 scheduler automation evidence. Local validation passed with `python3 tools/validate_knowledge.py`. Do not mark it merged until the PR is actually merged.
