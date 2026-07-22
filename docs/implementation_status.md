@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `9e17d22`, which merged PR `newbie10122/autotask-ai#108` (`Record reference metadata probe merge evidence`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#108` run `29958828970`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #107 passed focused bounded reference/status probe tests with `6 passed`, focused route authority/success-audit tests with `2 passed`, `git diff --check`, and full repository validation with `161` API tests plus `13` Playwright tests.
+- Canonical `main` is `7c5db4a`, which merged PR `newbie10122/autotask-ai#110` (`Record runtime probe projection evidence`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#110` run `29959637237`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #110 passed `git diff --check` and full repository validation with `161` API tests plus `13` Playwright tests.
 - Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `2f86a7b` after recording Autotask AI progress through PR #109 and the post-merge bounded runtime reference metadata probe; local `python3 tools/validate_knowledge.py` passed with `111` Markdown files, `111` unique IDs, and `242` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -81,6 +81,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #105 adds a read-only reference metadata source contract for authoritative reference-label certification.
 - PR #107 adds an Admin-only manual bounded read-only reference metadata source probe.
 - Post-merge bounded read-only runtime probe on canonical `main` `9e17d22` returned `/ready` `HTTP 200`, `live_autotask_probe_ran=true`, `autotask_writes_allowed=false`, `MaxRecords=1` per candidate entity, and one available candidate, `TicketCategories`. `TicketPriorities`, `Priorities`, `TicketIssueTypes`, `TicketSubIssueTypes`, `Queues`, `TicketQueues`, and `TicketStatuses` were unavailable by those entity names. The result is availability evidence only; it does not authorize automatic reference sync, model/workflow changes, or Autotask writes.
+- Current branch `agent/m2-ticket-category-metadata-sync` adds read-only `TicketCategories` metadata ingestion to the reference-data sync path. Available category metadata rows are upserted as `source='autotask_metadata'` in `autotask_reference_values`, while the result reports read-only/no-write/no-model-workflow policy flags and safe per-entity errors. This branch does not execute the live sync.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -139,22 +140,21 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record bounded reference metadata runtime-probe evidence.
-2. Continue the next independent Milestone 2 field/source-lineage slice using the available `TicketCategories` candidate as read-only evidence.
+1. Merge the `TicketCategories` authoritative metadata sync foundation.
+2. Continue the next independent Milestone 2 field/source-lineage slice for remaining priority, queue, issue/subissue, status-duration, and waiting blockers.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 reference metadata runtime-probe evidence
+## Current receipt — Milestone 2 ticket category metadata sync foundation
 
-- **Slice:** Record bounded reference metadata runtime-probe evidence after PR #108.
-- **State:** `partial_foundation`; the app has now executed one bounded read-only reference metadata availability probe and identified one available candidate source, but reference labels are not synced or certified yet.
-- **Files changed:** Project status docs only.
-- **Implemented by PR #107:** `AutotaskReadOnlyClient.probe_reference_metadata_sources()` probes candidate metadata entities with `MaxRecords=1`, `id >= 0` read filters, per-entity error isolation, sanitized availability results, and policy flags preventing automatic reference sync/model workflow changes. `POST /api/autotask/probe/reference-metadata-sources` is Admin-only and records success-audit metadata.
-- **Runtime evidence:** Local `/ready` returned `HTTP 200`; the bounded Admin-only probe returned `live_autotask_probe_ran=true`, `autotask_writes_allowed=false`, `MaxRecords=1` per candidate entity, available entity `TicketCategories`, and unavailable candidates `TicketPriorities`, `Priorities`, `TicketIssueTypes`, `TicketSubIssueTypes`, `Queues`, `TicketQueues`, and `TicketStatuses`.
-- **Validation:** PR #107 CI run `29958500758` passed; PR #108 docs reconciliation CI run `29958828970` passed before merge. This docs-only runtime-evidence branch requires docs whitespace validation and CI before merge.
-- **Read-only/authority evidence:** The runtime probe was manually invoked, bounded, and read-only. This branch does not schedule probes, run reference sync, run sync jobs, deploy production code, change model threshold/workflow behavior, change routing/assignment, or write to Autotask.
-- **Rollback:** Revert this docs-only commit; application behavior remains the PR #107 behavior on canonical main.
-- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `2f86a7b` and records PR #109 reference metadata runtime-probe evidence with local knowledge validation passing.
+- **Slice:** Add read-only authoritative category metadata ingestion from the only live-proven available reference metadata entity, `TicketCategories`.
+- **State:** `partial_foundation`; category labels can now be populated as authoritative `autotask_metadata` rows through the reference-data sync path, but this branch does not execute the live sync and does not certify remaining priority, queue, issue/subissue, or status labels.
+- **Files changed:** `apps/api/app/ticket_analytics.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `sync_autotask_reference_metadata()` reads `TicketCategories` with `id >= 0`, a bounded `500` record limit, and existing read-only paging. Valid rows upsert `field_name='category'`, the category `id` as `value`, the category `name` as `label`, `source='autotask_metadata'`, and the sanitized metadata raw payload into `autotask_reference_values`. `sync_reference_data()` now returns a `metadata_sync` report with attempted/available entities, processed/upserted counts, safe errors, and no-write/no-model-workflow policy flags.
+- **Validation:** Focused reference-data/probe/contract validation passed with `5 passed`; Python compile passed for the changed module/test; `git diff --check` passed. Full validation and CI are required before merge.
+- **Read-only/authority evidence:** This branch adds read-only Autotask ingestion code for already-proven `TicketCategories` only. It does not run the live sync, schedule new jobs, deploy production code, change model threshold/workflow behavior, change routing/assignment, or write to Autotask.
+- **Rollback:** Revert this branch commit; existing local/bootstrap/inferred reference sync remains.
+- **Second Brain state:** `pull-request-open`; projection PR `newbie10122/helix-second-brain#13` remains open at head `2f86a7b` and records PR #109 runtime-probe evidence with local knowledge validation passing.
 
 ## Historical receipt — Milestone 2 reference metadata source-contract merge evidence
 

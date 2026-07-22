@@ -2014,13 +2014,63 @@ def test_reference_sync_preserves_bootstrap_source_for_known_values(monkeypatch)
     monkeypatch.setattr(ticket_analytics_module, "init_schema", lambda: None)
     monkeypatch.setattr(ticket_analytics_module, "db_connection", lambda: FakeConnection())
 
-    result = ticket_analytics_module.sync_reference_data()
+    result = ticket_analytics_module.sync_reference_data(include_autotask_metadata=False)
 
     priority_upserts = [params[:4] for params in captured_upserts if params[0] == "priority"]
     assert ("priority", "2", "Priority 2", "bootstrap") in priority_upserts
     assert ("priority", "7", "Priority 7", "inferred") in priority_upserts
     assert result["ok"] is True
     assert "by_source" in result
+
+
+def test_sync_reference_data_upserts_available_ticket_category_metadata(monkeypatch):
+    captured_upserts = []
+
+    class FakeResult:
+        def __init__(self, rows=None, row=None):
+            self.rows = rows or []
+            self.row = row or {"count": 0}
+
+        def fetchall(self):
+            return self.rows
+
+        def fetchone(self):
+            return self.row
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            if "INSERT INTO autotask_reference_values" in sql:
+                captured_upserts.append(params)
+                return FakeResult()
+            if "SELECT DISTINCT" in sql:
+                return FakeResult(rows=[])
+            if "count(*) AS count" in sql:
+                return FakeResult(row={"count": len(captured_upserts)})
+            return FakeResult(rows=[])
+
+    class FakeAutotaskClient:
+        def iter_entity_pages(self, entity, filters=None, limit=None):
+            assert entity == "TicketCategories"
+            assert filters == [{"op": "gte", "field": "id", "value": 0}]
+            assert limit == 500
+            yield ([{"id": 12, "name": "Printer Support", "isActive": True}], {})
+
+    monkeypatch.setattr(ticket_analytics_module, "init_schema", lambda: None)
+    monkeypatch.setattr(ticket_analytics_module, "db_connection", lambda: FakeConnection())
+
+    result = ticket_analytics_module.sync_reference_data(autotask_client=FakeAutotaskClient())
+
+    category_upserts = [params for params in captured_upserts if params[0] == "category"]
+    assert ("category", "12", "Printer Support", "autotask_metadata") == category_upserts[-1][:4]
+    assert result["metadata_sync"]["available_entities"] == ["TicketCategories"]
+    assert result["metadata_sync"]["autotask_writes_allowed"] is False
+    assert result["metadata_sync"]["processed"] == 1
 
 
 def test_reference_data_status_reports_source_counts(monkeypatch):
