@@ -599,6 +599,84 @@ def test_related_data_work_plan_estimates_bounded_catchup_runs():
     assert plan["recommendation"] == "ticket_time_entry_gaps"
 
 
+def test_scheduler_automation_certification_reports_recent_scheduler_evidence(monkeypatch):
+    now = datetime.now(UTC)
+    captured_queries = []
+
+    class FakeResult:
+        def __init__(self, row=None, rows=None):
+            self.row = row or {}
+            self.rows = rows or []
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            captured_queries.append((sql, params))
+            if "WITH required(job_name)" in sql:
+                rows = []
+                for job_name in operations_module.SYNC_RECOVERY_REQUIRED_JOBS:
+                    failed = job_name == "ticket_history_gaps"
+                    rows.append(
+                        {
+                            "job_name": job_name,
+                            "enabled": True,
+                            "cadence_seconds": 900,
+                            "schedule": "every 15 minutes",
+                            "scheduled_status": "completed",
+                            "last_started_at": now,
+                            "last_finished_at": now,
+                            "latest_run_status": "failed" if failed else "completed",
+                            "latest_run_started_at": now,
+                            "latest_run_finished_at": now,
+                            "latest_triggered_by": "scheduler",
+                            "latest_failed_count": 1 if failed else 0,
+                            "latest_has_error": failed,
+                            "scheduler_runs_24h": 2,
+                            "scheduler_completed_24h": 1 if failed else 2,
+                            "scheduler_failed_24h": 1 if failed else 0,
+                            "scheduler_skipped_24h": 0,
+                            "scheduler_completed_7d": 7,
+                        }
+                    )
+                return FakeResult(rows=rows)
+            if "stale_running_jobs" in sql:
+                return FakeResult({"running_jobs": 0, "stale_running_jobs": 0})
+            raise AssertionError(sql)
+
+    monkeypatch.setattr(operations_module, "ensure_operations_defaults", lambda: None)
+    monkeypatch.setattr(operations_module, "db_connection", lambda: FakeConnection())
+    monkeypatch.setattr(operations_module, "_scheduler_status", lambda _conn, _now: {"state": "healthy"})
+    monkeypatch.setattr(
+        operations_module,
+        "_execute_job",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must not execute jobs")),
+    )
+
+    report = operations_module.scheduler_automation_certification_report()
+    by_job = {job["job_name"]: job for job in report["jobs"]}
+
+    assert report["certification_state"] == "partial_scheduler_automation_evidence"
+    assert report["summary"]["required_jobs"] == len(operations_module.SYNC_RECOVERY_REQUIRED_JOBS)
+    assert report["blockers"] == ["ticket_history_gaps"]
+    assert by_job["ticket_history_gaps"]["certification_status"] == "partial"
+    assert by_job["recent_sync"]["certification_status"] == "available"
+    assert by_job["ticket_history_gaps"]["latest_has_error"] is True
+    assert "last_error" not in by_job["ticket_history_gaps"]
+    assert report["policy"]["runs_jobs"] is False
+    assert any("WITH required(job_name)" in sql for sql, _params in captured_queries)
+
+
 def test_scheduler_preflight_global_pause_disk_and_threshold_guards(monkeypatch):
     settings = operations_module.default_operations_settings()
     settings["global_pause"] = True
