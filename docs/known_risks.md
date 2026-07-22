@@ -33,7 +33,7 @@
 **Severity:** High
 **State:** Partially mitigated
 **Impact:** Security and operational actions may not be reconstructable after restart unless every material path writes identity-linked audit records.
-**Existing controls:** Branch `agent/m1-durable-audit-scope-foundation` adds durable `audit_log` persistence, outcome/scope fields, and authorization-denial audit events with no-DB fallback. Branch `agent/m1-success-audit-scope-linkage` adds centralized success records for material admin actions, recurring analytics, assistant ask, and feedback. PR #68 adds success audit records for admin reads of the audit log and pending curated-memory queue. Branch `agent/audit-log-filtering` adds bounded audit-log filtering and success audits for Operations read inspections.
+**Existing controls:** Branch `agent/m1-durable-audit-scope-foundation` adds durable `audit_log` persistence, outcome/scope fields, and authorization-denial audit events with no-DB fallback. Branch `agent/m1-success-audit-scope-linkage` adds centralized success records for material admin actions, recurring analytics, assistant ask, and feedback. PR #68 adds success audit records for admin reads of the audit log and pending curated-memory queue. PR #72 adds bounded audit-log filtering and success audits for Operations read inspections.
 **Next mitigation:** Link audit records across remaining workflows and include verifier-failure receipts in the certification matrix before treating audit coverage as complete.
 
 ### R5 — Quality Streak evidence not yet established
@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `ffd53e9dbe26bcbf20f7c8669d8c895a6381f6bd` through PR #71; Second Brain PR #6 was merged as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after projection head `4306bcc` recorded evidence through PR #70, and a new governed projection is pending after the current material audit slice merges.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `63201015556cdee0df5e250c88213bc465765aee` through PR #72; Second Brain PR #6 was merged as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after projection head `4306bcc` recorded evidence through PR #70, and a new governed projection is pending after this post-merge reconciliation PR merges.
 
 ### R16 — CI runner environment differences
 
