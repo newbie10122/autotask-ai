@@ -135,6 +135,8 @@ CLOSED_STATUS_IDS = {"5", "16", "20"}
 TICKET_HEALTH_FEEDBACK_OUTCOMES = {"accurate", "too_high", "too_low", "needs_review"}
 CALIBRATION_MIN_FEEDBACK = 10
 CALIBRATION_MIN_REVIEWED_ENTITIES = 5
+PREDICTION_PRIOR_SAMPLE_SIZE = 5
+PREDICTION_MIN_SAMPLE_SIZE = 5
 
 
 def invalidate_ticket_health_summary_cache() -> int:
@@ -180,6 +182,15 @@ def _num(value: Any, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _round_optional(value: Any, digits: int = 2) -> float | None:
+    if value is None:
+        return None
+    try:
+        return round(float(value), digits)
+    except (TypeError, ValueError):
+        return None
 
 
 def _priority_points(priority: Any) -> tuple[int, str | None]:
@@ -1721,6 +1732,127 @@ def _ticket_health_feedback_counts(ticket_ids: list[int]) -> dict[int, dict[str,
     }
 
 
+def _historical_completion_stats(
+    tickets: list[dict[str, Any]],
+    authorized_company_ids: list[int] | None = None,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    queues = sorted({str(ticket.get("queue") or "") for ticket in tickets})
+    priorities = sorted({str(ticket.get("priority") or "") for ticket in tickets})
+    if not queues or not priorities:
+        return {}
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    with db_connection() as conn:
+        rows = conn.execute(
+            f"""
+            WITH completed AS (
+                SELECT
+                    COALESCE(t.queue, '') AS queue_key,
+                    COALESCE(t.priority, '') AS priority_key,
+                    COALESCE(labor.labor_hours, 0) AS labor_hours,
+                    EXTRACT(EPOCH FROM (t.completed_at_autotask - t.created_at_autotask)) / 86400 AS resolution_days
+                FROM autotask_tickets t
+                LEFT JOIN (
+                    SELECT ticket_id, sum(COALESCE(hours, 0)) AS labor_hours
+                    FROM autotask_time_entries
+                    GROUP BY ticket_id
+                ) labor ON labor.ticket_id = t.id
+                WHERE t.completed_at_autotask IS NOT NULL
+                  AND t.created_at_autotask IS NOT NULL
+                  AND COALESCE(t.queue, '') = ANY(%s)
+                  AND COALESCE(t.priority, '') = ANY(%s)
+                  AND NOT t.analytics_exclude
+                  {company_scope_sql}
+            )
+            SELECT
+                queue_key,
+                priority_key,
+                count(*) AS sample_size,
+                avg(resolution_days) AS avg_resolution_days,
+                avg(labor_hours) AS avg_labor_hours,
+                count(*) FILTER (WHERE resolution_days > 7) AS delayed_count
+            FROM completed
+            GROUP BY queue_key, priority_key
+            """,
+            (queues, priorities, *company_scope_params),
+        ).fetchall()
+    return {
+        (str(row["queue_key"] or ""), str(row["priority_key"] or "")): {
+            "sample_size": int(row.get("sample_size") or 0),
+            "avg_resolution_days": _round_optional(row.get("avg_resolution_days")),
+            "avg_labor_hours": _round_optional(row.get("avg_labor_hours")),
+            "delayed_count": int(row.get("delayed_count") or 0),
+        }
+        for row in rows
+    }
+
+
+def _ticket_predictive_review_signal(
+    ticket: dict[str, Any],
+    feedback: dict[str, int],
+    historical_stats: dict[str, Any] | None,
+) -> dict[str, Any]:
+    stats = historical_stats or {}
+    sample_size = int(stats.get("sample_size") or 0)
+    delayed_count = int(stats.get("delayed_count") or 0)
+    smoothed_delay_rate = round(
+        (delayed_count + (0.5 * PREDICTION_PRIOR_SAMPLE_SIZE)) / (sample_size + PREDICTION_PRIOR_SAMPLE_SIZE),
+        3,
+    )
+    if sample_size < PREDICTION_MIN_SAMPLE_SIZE:
+        return {
+            "review_only": True,
+            "abstained": True,
+            "confidence": "low",
+            "sample_size": sample_size,
+            "minimum_sample_size": PREDICTION_MIN_SAMPLE_SIZE,
+            "bayesian_delay_rate": smoothed_delay_rate,
+            "statistical_review_score": None,
+            "reason_codes": ["insufficient_local_history"],
+            "limitations": [
+                "Low-confidence predictions abstain until enough scoped completed-ticket examples exist.",
+                "This signal is local review guidance only and never writes to Autotask.",
+            ],
+        }
+
+    score = int(ticket.get("health_score") or 0)
+    reason_codes = [f"bayesian_delay_rate={smoothed_delay_rate}"]
+    avg_resolution_days = _num(stats.get("avg_resolution_days"), 0.0)
+    avg_labor_hours = _num(stats.get("avg_labor_hours"), 0.0)
+    if avg_resolution_days > 0 and _num(ticket.get("age_days")) > avg_resolution_days * 1.25:
+        score += 12
+        reason_codes.append("open_age_exceeds_similar_resolution_average")
+    if avg_labor_hours > 0 and _num(ticket.get("labor_hours")) > avg_labor_hours * 1.5:
+        score += 10
+        reason_codes.append("labor_exceeds_similar_average")
+    if feedback.get("needs_review"):
+        score += 8
+        reason_codes.append("local_needs_review_feedback")
+    if feedback.get("too_low"):
+        score += 6
+        reason_codes.append("local_feedback_score_too_low")
+    if feedback.get("too_high"):
+        score -= 6
+        reason_codes.append("local_feedback_score_too_high")
+    score += round(smoothed_delay_rate * 12)
+    confidence = "strong" if sample_size >= 25 else "moderate"
+    return {
+        "review_only": True,
+        "abstained": False,
+        "confidence": confidence,
+        "sample_size": sample_size,
+        "minimum_sample_size": PREDICTION_MIN_SAMPLE_SIZE,
+        "bayesian_delay_rate": smoothed_delay_rate,
+        "average_resolution_days": stats.get("avg_resolution_days"),
+        "average_labor_hours": stats.get("avg_labor_hours"),
+        "statistical_review_score": max(0, min(score, 100)),
+        "reason_codes": reason_codes,
+        "limitations": [
+            "Calibrated with scoped local completed-ticket history and local feedback only.",
+            "No Autotask ticket, assignment, status, or priority is changed.",
+        ],
+    }
+
+
 def ticket_health_review_queue(
     limit: int = 25,
     queue: str | None = None,
@@ -1741,9 +1873,15 @@ def ticket_health_review_queue(
     )
     tickets = list(summary.get("tickets", []))
     feedback_by_ticket = _ticket_health_feedback_counts([int(ticket["id"]) for ticket in tickets])
+    completion_stats = _historical_completion_stats(tickets, authorized_company_ids=authorized_company_ids)
     items: list[dict[str, Any]] = []
     for ticket in tickets:
         feedback = feedback_by_ticket.get(int(ticket["id"]), {})
+        predictive_signal = _ticket_predictive_review_signal(
+            ticket,
+            feedback,
+            completion_stats.get((str(ticket.get("queue") or ""), str(ticket.get("priority") or ""))),
+        )
         reasons: list[str] = []
         factors = ticket.get("factors") or []
         warnings = ticket.get("warnings") or []
@@ -1764,6 +1902,11 @@ def ticket_health_review_queue(
             + (10 if warnings else 0),
             100,
         )
+        predictive_review_priority = (
+            predictive_signal["statistical_review_score"]
+            if predictive_signal.get("statistical_review_score") is not None
+            else review_priority
+        )
         if allowed_bucket and ticket.get("risk_bucket") != allowed_bucket:
             continue
         if needs_review_only and not feedback.get("needs_review"):
@@ -1779,6 +1922,8 @@ def ticket_health_review_queue(
                 "risk_bucket": ticket["risk_bucket"],
                 "health_score": ticket["health_score"],
                 "review_priority": review_priority,
+                "predictive_review_priority": predictive_review_priority,
+                "predictive_signal": predictive_signal,
                 "status_label": ticket.get("status_label") or ticket.get("status"),
                 "queue_label": ticket.get("queue_label") or ticket.get("queue"),
                 "assigned_resource_name": ticket.get("assigned_resource_name"),
@@ -1786,7 +1931,7 @@ def ticket_health_review_queue(
                 "reasons": list(dict.fromkeys(reasons)),
             }
         )
-    items.sort(key=lambda item: (-int(item["review_priority"]), str(item.get("ticket_number") or "")))
+    items.sort(key=lambda item: (-int(item["predictive_review_priority"]), str(item.get("ticket_number") or "")))
     return {
         "ok": True,
         "limit": row_limit,
@@ -1801,11 +1946,14 @@ def ticket_health_review_queue(
             "review_candidates": len(items),
             "returned": min(len(items), row_limit),
             "needs_review_feedback_tickets": sum(1 for item in items if item["feedback"].get("needs_review")),
+            "predictive_ranked_tickets": sum(1 for item in items if not item["predictive_signal"].get("abstained")),
+            "predictive_abstentions": sum(1 for item in items if item["predictive_signal"].get("abstained")),
         },
         "items": items[:row_limit],
         "guidance": [
             "This queue is local and review-only.",
             "Use it to prioritize human Ticket Health review; it does not write to Autotask or change tickets.",
+            "Statistical ranking abstains when scoped local historical samples are too small.",
         ],
     }
 

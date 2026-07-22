@@ -1022,6 +1022,37 @@ def test_ticket_health_data_paths_accept_and_apply_company_scope():
     assert "company_scope_sql" in number_source
 
 
+def test_ticket_predictive_review_signal_abstains_with_low_sample_size():
+    signal = ticket_health_module._ticket_predictive_review_signal(
+        {"health_score": 40, "age_days": 3, "labor_hours": 1},
+        {},
+        {"sample_size": 2, "delayed_count": 1, "avg_resolution_days": 2, "avg_labor_hours": 1},
+    )
+
+    assert signal["abstained"] is True
+    assert signal["confidence"] == "low"
+    assert signal["statistical_review_score"] is None
+    assert "insufficient_local_history" in signal["reason_codes"]
+    assert signal["review_only"] is True
+
+
+def test_ticket_predictive_review_signal_uses_bayesian_history_and_feedback():
+    signal = ticket_health_module._ticket_predictive_review_signal(
+        {"health_score": 55, "age_days": 8, "labor_hours": 6},
+        {"needs_review": 1, "too_low": 1},
+        {"sample_size": 20, "delayed_count": 8, "avg_resolution_days": 4, "avg_labor_hours": 2},
+    )
+
+    assert signal["abstained"] is False
+    assert signal["confidence"] == "moderate"
+    assert signal["sample_size"] == 20
+    assert signal["statistical_review_score"] > 55
+    assert "open_age_exceeds_similar_resolution_average" in signal["reason_codes"]
+    assert "labor_exceeds_similar_average" in signal["reason_codes"]
+    assert "local_needs_review_feedback" in signal["reason_codes"]
+    assert signal["review_only"] is True
+
+
 def test_customer_success_data_paths_fail_closed_and_filter_company_scope():
     summary_source = inspect.getsource(customer_success_module.customer_success_summary)
     detail_source = inspect.getsource(customer_success_module.customer_success_detail)

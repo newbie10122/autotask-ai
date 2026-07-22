@@ -130,7 +130,7 @@
 ### R14 — Prediction and routing bias
 
 **Severity:** Deferred but material
-**Mitigation:** Explainable baselines, holdout evaluation, calibration, reason codes, abstention, fairness/concentration review, and recommendation-only authority.
+**Mitigation:** Explainable baselines, holdout evaluation, calibration, reason codes, abstention, fairness/concentration review, and recommendation-only authority. The `agent/predictive-ticket-review-ranking` foundation keeps ranking review-only, emits sample size/confidence/limitations, and abstains on low scoped historical samples; offline evaluation and bias review remain required before predictive claims are trusted.
 
 ### R15 — Future Autotask writeback
 

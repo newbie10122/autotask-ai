@@ -297,6 +297,7 @@ def test_api_route_authority_matrix_classifies_every_route():
         ("GET", "/api/ticket-health/summary"),
         ("GET", "/api/ticket-health/tickets/{ticket_id}"),
         ("GET", "/api/ticket-health/ticket-number/{ticket_number}"),
+        ("GET", "/api/ticket-health/review-queue"),
         ("GET", "/api/customer-success/summary"),
         ("GET", "/api/customer-success/companies/{company_id}"),
         ("GET", "/api/routing/technician-skill-profiles"),
@@ -483,19 +484,48 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
         captured["recent_realtime_events"] = (limit, authorized_company_ids)
         return {"ok": True}
 
+    def fake_ticket_health_review_queue(
+        limit,
+        queue,
+        assigned_resource_id,
+        risk_bucket,
+        min_priority,
+        needs_review_only,
+        authorized_company_ids,
+    ):
+        captured["ticket_health_review_queue"] = (
+            limit,
+            queue,
+            assigned_resource_id,
+            risk_bucket,
+            min_priority,
+            needs_review_only,
+            authorized_company_ids,
+        )
+        return {"ok": True}
+
     monkeypatch.setattr("app.main.customer_success_detail", fake_customer_success_detail)
     monkeypatch.setattr("app.main.ticket_routing_recommendation", fake_ticket_routing_recommendation)
     monkeypatch.setattr("app.main.recent_realtime_events", fake_recent_realtime_events)
+    monkeypatch.setattr("app.main.ticket_health_review_queue", fake_ticket_health_review_queue)
     token = create_session_token("tech", [Role.technician.value])["token"]
     headers = {"Authorization": f"Bearer {token}"}
 
     assert client.get("/api/customer-success/companies/77?recent_days=14", headers=headers).status_code == 200
     assert client.get("/api/routing/tickets/88/recommendation?limit=4", headers=headers).status_code == 200
     assert client.get("/api/realtime/events?limit=9", headers=headers).status_code == 200
+    assert (
+        client.get(
+            "/api/ticket-health/review-queue?limit=7&queue=Support&assigned_resource_id=44&risk_bucket=high&min_priority=20&needs_review_only=true",
+            headers=headers,
+        ).status_code
+        == 200
+    )
 
     assert captured["customer_success_detail"] == (77, 14, [123])
     assert captured["ticket_routing_recommendation"] == (88, 4, [123])
     assert captured["recent_realtime_events"] == (9, [123])
+    assert captured["ticket_health_review_queue"] == (7, "Support", 44, "high", 20, True, [123])
 
 
 def test_local_feedback_routes_pass_scope_and_deny_readonly(monkeypatch):

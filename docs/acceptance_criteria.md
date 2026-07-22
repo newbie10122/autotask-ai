@@ -167,6 +167,8 @@ A milestone may be marked `verified_complete` only when:
 - Holdout evaluation beats a defined simple baseline.
 - Calibration and abstention are measured.
 - Bias and client/category concentration risks are reviewed.
+- Current branch evidence on `agent/predictive-ticket-review-ranking`: `/api/ticket-health/review-queue` exposes scoped review-only ticket ranking with Bayesian-smoothed local completed-ticket delay rates, local feedback calibration, sample size, confidence, reason codes, limitations, and low-sample abstention.
+- Current branch validation: focused container tests passed with `4 passed` for route authority, scoped route propagation, predictive abstention, and Bayesian history/feedback score movement. This is predictive foundation evidence only; holdout evaluation, leakage controls, bias/concentration review, and production certification remain required.
 
 ## Milestone 8
 
