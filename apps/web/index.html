@@ -160,7 +160,10 @@
             <div><span>Scheduler</span><strong id="schedulerState">Loading</strong></div>
             <div><span>Heartbeat Age</span><strong id="schedulerHeartbeat">Loading</strong></div>
             <div><span>Next Due Job</span><strong id="schedulerNextDue">Loading</strong></div>
+            <div><span>Certification</span><strong id="schedulerAutomationState">Loading</strong></div>
+            <div><span>Stale Runs</span><strong id="schedulerStaleRuns">Loading</strong></div>
           </div>
+          <div id="schedulerStaleProvenance" class="job-card-grid"></div>
           <div id="relatedDataAutomation" class="job-card-grid"></div>
         </div>
         <div class="automation-panel" aria-live="polite">
@@ -813,6 +816,27 @@
         document.getElementById("schedulerNextDue").textContent = nextDue.job_name
           ? `${nextDue.job_name}${nextDue.due_at ? ` due ${nextDue.due_at}` : ""}`
           : "No due job reported";
+        const schedulerAutomation = status.scheduler_automation || {};
+        const automationSummary = schedulerAutomation.summary || {};
+        document.getElementById("schedulerAutomationState").textContent = schedulerAutomation.certification_state || "Unknown";
+        document.getElementById("schedulerStaleRuns").textContent = automationSummary.stale_running_jobs ?? 0;
+        const staleTarget = document.getElementById("schedulerStaleProvenance");
+        staleTarget.innerHTML = "";
+        (schedulerAutomation.stale_running_provenance || []).forEach((run) => {
+          const card = document.createElement("div");
+          card.className = "job-card";
+          const title = document.createElement("strong");
+          title.textContent = `${run.job_name || "job"} #${run.run_id || ""}`.trim();
+          card.appendChild(title);
+          renderKeyValue(card, "State", run.stale_state || "stale_running");
+          renderKeyValue(card, "Age", formatAgeSeconds(run.age_seconds));
+          renderKeyValue(card, "Lock", run.has_active_lock ? "Present" : "None");
+          renderKeyValue(card, "Newer Completed", run.newer_completed_run_id || "None");
+          staleTarget.appendChild(card);
+        });
+        if (!staleTarget.children.length && Number(automationSummary.stale_running_jobs || 0) > 0) {
+          staleTarget.textContent = "Stale running jobs exist; provenance is not available in this response.";
+        }
 
         const jobsBody = document.getElementById("scheduledJobs");
         jobsBody.innerHTML = "";

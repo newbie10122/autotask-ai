@@ -1,5 +1,5 @@
 import inspect
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import json
 
 from app.answer_guardrails import has_required_answer_sections
@@ -652,6 +652,8 @@ def test_scheduler_automation_certification_reports_recent_scheduler_evidence(mo
                 return FakeResult(rows=rows)
             if "stale_running_jobs" in sql:
                 return FakeResult({"running_jobs": 0, "stale_running_jobs": 0})
+            if "WITH stale AS" in sql:
+                return FakeResult(rows=[])
             raise AssertionError(sql)
 
     monkeypatch.setattr(operations_module, "ensure_operations_defaults", lambda: None)
@@ -673,8 +675,94 @@ def test_scheduler_automation_certification_reports_recent_scheduler_evidence(mo
     assert by_job["recent_sync"]["certification_status"] == "available"
     assert by_job["ticket_history_gaps"]["latest_has_error"] is True
     assert "last_error" not in by_job["ticket_history_gaps"]
+    assert report["stale_running_provenance"] == []
     assert report["policy"]["runs_jobs"] is False
+    assert report["policy"]["returns_raw_checkpoint_or_config"] is False
     assert any("WITH required(job_name)" in sql for sql, _params in captured_queries)
+
+
+def test_scheduler_automation_certification_reports_stale_run_provenance(monkeypatch):
+    now = datetime.now(UTC)
+
+    class FakeResult:
+        def __init__(self, row=None, rows=None):
+            self.row = row or {}
+            self.rows = rows or []
+
+        def fetchone(self):
+            return self.row
+
+        def fetchall(self):
+            return self.rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, params=None):
+            if "WITH required(job_name)" in sql:
+                rows = []
+                for job_name in operations_module.SYNC_RECOVERY_REQUIRED_JOBS:
+                    rows.append(
+                        {
+                            "job_name": job_name,
+                            "enabled": True,
+                            "cadence_seconds": 900,
+                            "schedule": "every 15 minutes",
+                            "scheduled_status": "completed",
+                            "last_started_at": now,
+                            "last_finished_at": now,
+                            "latest_run_status": "completed",
+                            "latest_run_started_at": now,
+                            "latest_run_finished_at": now,
+                            "latest_triggered_by": "scheduler",
+                            "latest_failed_count": 0,
+                            "latest_has_error": False,
+                            "scheduler_runs_24h": 2,
+                            "scheduler_completed_24h": 2,
+                            "scheduler_failed_24h": 0,
+                            "scheduler_skipped_24h": 0,
+                            "scheduler_completed_7d": 7,
+                        }
+                    )
+                return FakeResult(rows=rows)
+            if "stale_running_jobs" in sql:
+                return FakeResult({"running_jobs": 1, "stale_running_jobs": 1})
+            if "WITH stale AS" in sql:
+                return FakeResult(
+                    rows=[
+                        {
+                            "id": 42,
+                            "job_name": "open_ticket_history_gaps",
+                            "started_at": now - timedelta(hours=1),
+                            "triggered_by": "scheduler",
+                            "current_step": "syncing",
+                            "has_active_lock": False,
+                            "newer_completed_run_id": 43,
+                            "newer_completed_finished_at": now,
+                        }
+                    ]
+                )
+            raise AssertionError(sql)
+
+    monkeypatch.setattr(operations_module, "ensure_operations_defaults", lambda: None)
+    monkeypatch.setattr(operations_module, "db_connection", lambda: FakeConnection())
+    monkeypatch.setattr(operations_module, "_scheduler_status", lambda _conn, _now: {"state": "healthy"})
+
+    report = operations_module.scheduler_automation_certification_report()
+    provenance = report["stale_running_provenance"]
+
+    assert report["certification_state"] == "partial_scheduler_automation_evidence"
+    assert report["blockers"] == ["stale_running_jobs"]
+    assert provenance[0]["run_id"] == 42
+    assert provenance[0]["newer_completed_run_id"] == 43
+    assert provenance[0]["stale_state"] == "orphaned_running_row_candidate"
+    assert "last_error" not in provenance[0]
+    assert "config_snapshot" not in provenance[0]
+    assert "last_checkpoint" not in provenance[0]
 
 
 def test_scheduler_preflight_global_pause_disk_and_threshold_guards(monkeypatch):
