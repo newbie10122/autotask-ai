@@ -222,6 +222,36 @@ button:disabled {
   color: #991b1b;
   font-weight: 700;
 }
+.ask-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+.ask-progress[hidden] {
+  display: none;
+}
+.ask-progress li {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  min-height: 34px;
+  padding: 8px;
+}
+.ask-progress li[data-state="active"] {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+.ask-progress li[data-state="complete"] {
+  background: #ecfdf5;
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  font-weight: 700;
+}
 .result, pre, #auditLog {
   margin-top: 16px;
   white-space: pre-wrap;

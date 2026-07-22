@@ -33,13 +33,48 @@ test("ask workflow shows running and timeout states clearly", async ({ page }) =
   await page.getByRole("button", { name: "Ask", exact: true }).click();
 
   await expect(page.getByRole("button", { name: "Asking" })).toBeDisabled();
-  await expect(page.locator("#askStatus")).toContainText("Waiting for assistant response");
+  await expect(page.locator("#askStatus")).toContainText("Request is active");
+  await expect(page.locator("#askProgress")).toBeVisible();
+  await expect(page.locator("#askProgress [data-phase='search']")).toHaveAttribute("data-state", "active");
   await expect(page.locator("#confidence")).toHaveText("Confidence: Pending");
 
   await expect(page.locator("#askStatus")).toContainText("timed out");
+  await expect(page.locator("#askStatus")).toContainText("No browser request is active");
   await expect(page.getByRole("button", { name: "Ask", exact: true })).toBeEnabled();
   await expect(page.locator("#warnings")).toContainText("proxy timed out");
   await expect(page.locator("#confidence")).toHaveText("Confidence: None");
+});
+
+test("ask workflow identifies local model wait before completion", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem("autotaskAiToken", "test-token"));
+  await stubApi(page, {
+    routeAuthRequired: true,
+    user: { username: "tech", roles: ["Technician"] },
+    askHandler: async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 8600));
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          answer_id: 43,
+          answer: "Confidence: Medium\n\nSuggested Next Steps\n- Reopen Outlook.",
+          confidence: "Medium",
+          based_on_tickets: ["T20230715.0124"],
+          warnings: []
+        })
+      });
+    }
+  });
+  await page.goto(`${pageUrl}#ask`);
+  await expect(page.locator("#apiStatus")).toHaveText("API ready");
+
+  await page.locator("#question").fill("The outlook says it's offline");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+
+  await expect(page.locator("#askStatus")).toContainText("Waiting on the local CPU model", { timeout: 9500 });
+  await expect(page.locator("#askProgress [data-phase='llm']")).toHaveAttribute("data-state", "active");
+  await expect(page.locator("#askStatus")).toContainText("Assistant response complete");
+  await expect(page.locator("#askStatus")).toContainText("No request is active");
+  await expect(page.locator("#askProgress [data-phase='final']")).toHaveAttribute("data-state", "complete");
 });
 
 test("based-on ticket opens scoped ticket detail modal", async ({ page }) => {
