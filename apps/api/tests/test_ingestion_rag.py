@@ -1598,6 +1598,15 @@ def test_ticket_history_content_certification_returns_aggregate_evidence(monkeyp
     assert report["policy"]["autotask_writes_allowed"] is False
 
 
+def test_ticket_history_content_certification_qualifies_raw_history_columns():
+    source = inspect.getsource(ticket_health_module.ticket_history_content_certification_report)
+
+    assert "h.raw::text" in source
+    assert "h.raw ? 'field'" in source
+    assert "h.raw ? 'oldValue'" in source
+    assert "h.raw ? 'newValue'" in source
+
+
 def test_ticket_predictive_target_policy_blocks_automatic_actions():
     policy = ticket_health_module._prediction_target_policy(7, 100)
 
