@@ -5,11 +5,11 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `844d0330ad703d1744fc4837ce042c13122b52e9`
-- Latest merged PR: `newbie10122/autotask-ai#38`, `Show operations automation health`
-- Latest PR #38 CI: GitHub Actions run `29880680300`, workflow `CI`, passed before merge
-- Latest local governed validation: focused container tests passed with `4 passed` on branch `agent/predictive-ticket-review-ranking`; run full `./scripts/validate-ci.sh && git diff --check` before opening the PR.
-- Current working branch objective: `agent/predictive-ticket-review-ranking` adds scoped review-only Bayesian-smoothed ticket review ranking with local-feedback calibration and low-sample abstention.
+- Canonical `main`: `ab65f9390ac3ad69f44648a564b6830dfd906bf5`
+- Latest merged PR: `newbie10122/autotask-ai#39`, `Add predictive ticket review ranking`
+- Latest PR #39 CI: GitHub Actions run `29881177178`, workflow `CI`, passed before merge
+- Latest local governed validation: `npm run test:web` passed with `11 passed` on branch `agent/predictive-review-ui`; run full `./scripts/validate-ci.sh && git diff --check` before opening the PR.
+- Current working branch objective: `agent/predictive-review-ui` surfaces the review-only predictive ticket queue in the browser with counts, confidence, sample size, reason codes, abstentions, and ticket-detail drilldown.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -28,8 +28,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Finish validation and merge branch `agent/predictive-ticket-review-ranking` after GitHub CI passes.
-2. Update the existing Second Brain projection PR with predictive ticket review ranking evidence.
+1. Finish validation and merge branch `agent/predictive-review-ui` after GitHub CI passes.
+2. Update the existing Second Brain projection PR with predictive review UI evidence.
 3. Continue Milestone 1 closeout, Milestone 2 certification, and Milestone 7 evaluation work: live production-auth evidence where approved, bounded related-data catch-up certification, status-duration/SLA source-lineage work, predictive holdout baselines, bias/concentration review, and remaining capability Quality Streak receipts.
 
 ## Milestone status
