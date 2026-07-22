@@ -34,7 +34,7 @@ A milestone may be marked `verified_complete` only when:
 - Repository receipts include exact commands, results, commits, risks, rollback, and Second Brain state.
 - Local reconciled evidence on branch `agent/m0-ci-validation`: `./scripts/validate-ci.sh` passed with redacted Compose validation, 6 ordered migrations, API image build, Python compile, `53 passed`, and static web JavaScript syntax.
 - GitHub Actions evidence: PR `newbie10122/autotask-ai#3` latest run `29850162173` passed workflow `CI`, job `Validate Autotask AI`, for head `67de41334d7c609bfdb9fd52580addd139804ac7`; PR #3 was merged into canonical `main` as `fec62ba9963e0ade35e292f88b337bbbe8bf5714`. Milestone 0 still requires fuller certification matrix/Quality Streak records before it can be marked `verified_complete`.
-- Current canonical evidence: PR `newbie10122/autotask-ai#10` merged into `main` as `7ca491b82d1ac1085efbbede3d3ccc1a9fe35057`, with GitHub Actions run `29857699615` passing. Control documents must reference this as current truth rather than stale PR #9/#10 publication steps.
+- Current canonical evidence: PR `newbie10122/autotask-ai#42` merged into `main` as `c688c6d622e60e866ee63302a1f577f498635741`, with GitHub Actions run `29882172665` passing. Control documents must reference PR #42 and the current runtime/predictive evidence rather than stale PR #41 or `agent/predictive-threshold-sweep` completion steps.
 
 ## Milestone 1
 
@@ -175,6 +175,10 @@ A milestone may be marked `verified_complete` only when:
 - Current branch validation: focused container tests passed with `3 passed` for route authority, scoped route propagation, and binary metric calculations. This is initial evaluation evidence only; target/label documentation, leakage review, bias/concentration review, and production certification remain required.
 - Current branch evidence on `agent/predictive-threshold-sweep`: predictive evaluation includes F1 and an advisory threshold sweep for Bayesian delay-rate thresholds without automatically changing ranking thresholds.
 - Current branch validation: focused container tests passed with `2 passed` for binary metric F1 and threshold sweep ordering. This is evaluation evidence only; human review is required before changing thresholds.
+- Current runtime evaluation evidence on canonical `main` `c688c6d622e60e866ee63302a1f577f498635741`: `/api/ticket-health/predictive-evaluation?limit=100&delayed_days_threshold=7` returned holdout size `100`, training groups `32`, statistical evaluated `100`, abstentions `0`, default statistical `accuracy=0.94`, `precision=null`, `recall=0.0`, and `f1=0.0`. The advisory best-F1 threshold was `0.05`, with `accuracy=0.3`, `precision=0.068`, `recall=0.833`, and `f1=0.125`.
+- The default predictive signal must not be described as useful merely because aggregate accuracy is high; the measured default behavior misses all delayed tickets in the current local holdout.
+- Lowering the threshold improves delayed-ticket recall in the current local holdout but causes substantial precision loss. Any threshold selection remains human-reviewed and advisory; no automatic threshold, model, routing, escalation, notification, assignment, or workflow change is authorized by this evidence.
+- Next acceptance evidence must document target/label semantics, calibration bands, Brier score, PR/ROC secondary metrics, threshold confusion matrices, coverage/abstention, leakage review, sanitized client/category concentration analysis, a human-review threshold policy artifact, and a local read-only shadow evaluation mechanism.
 
 ## Milestone 8
 
