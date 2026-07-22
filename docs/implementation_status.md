@@ -85,7 +85,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Status-probe entity-filters branch `agent/status-probe-entity-filters` makes the manual probe use per-entity read-only filters and report each filter used. `TicketHistory` now probes by `ticketID`, matching the existing read-only sync path, while candidate status-history entities still probe by `id`.
 - Status-probe sample-ticket branch `agent/status-probe-ticket-history-sample` makes the `TicketHistory` availability probe use one real local `autotask_tickets.autotask_id` with `ticketID eq <local ticket>` and `MaxRecords=1`, falling back to `ticketID >= 0` only when no local ticket exists.
 - Post-merge bounded read-only runtime probe on canonical `main` `9cc33aaf6ed3987d45a43e96713a7c39609bdcfc` found `TicketStatusHistory`, `TicketStatusHistories`, and `TicketChangeHistory` unavailable by those entity names, while `TicketHistory` was reachable with a sampled row and next page using `ticketID eq <local ticket>`. The status-duration/waiting blocker is now confirmed as TicketHistory row content/parser shape, not basic TicketHistory reachability.
-- TicketHistory content-certification branch `agent/ticket-history-content-certification` adds scoped `/api/ticket-health/ticket-history-content-certification`, returning aggregate-only action counts, action categories, timestamp coverage, status-like row counts, and raw-key counts without exposing raw history detail text. It keeps parser/model/workflow changes disabled.
+- TicketHistory content-certification is merged through PRs #58 and #59. Canonical `main` runtime validation on `bcc1b433b4a0124c833f131d28227a57eb6e1df2` returned `ok=true` for `/api/ticket-health/ticket-history-content-certification` after qualifying joined `h.raw` JSON references. The aggregate-only evidence found `30186` TicketHistory rows, `100%` timestamp coverage, `1` status-like row, and no `field`/`oldValue`/`newValue` raw keys, without exposing raw history detail text or enabling parser/model/workflow changes.
 
 ## Milestone table
 
@@ -105,8 +105,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge `agent/ticket-history-content-certification`, then update the existing Second Brain projection.
-2. Use the aggregate content-certification report to decide whether parser-safe status-duration work remains; otherwise proceed to the next Milestone 1 audit/scope closeout slice.
+1. Update the existing Second Brain projection with PRs #58 and #59 plus runtime content-certification evidence.
+2. Treat status-duration/waiting as source-limited unless parser-compatible status transitions are backfilled or another read-only Autotask source becomes available; proceed to the next Milestone 1 audit/scope closeout slice in parallel where safe.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
