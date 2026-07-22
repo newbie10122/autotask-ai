@@ -104,6 +104,7 @@
           <div><span>Classified Tickets</span><strong id="classifiedTickets">Loading</strong></div>
           <div><span>Excluded from Analytics</span><strong id="excludedTickets">Loading</strong></div>
           <div><span>Reference Labels</span><strong id="referenceLabels">Loading</strong></div>
+          <div><span>Reference Sources</span><strong id="referenceSources">Loading</strong></div>
         </div>
         <div class="actions">
           <button data-action="/api/sync/reference-data/start" data-requires-role="Admin" type="button">Sync Reference Labels</button>
@@ -703,6 +704,9 @@
         document.getElementById("classifiedTickets").textContent = classes.classified_tickets || 0;
         document.getElementById("excludedTickets").textContent = report.excluded_count || 0;
         document.getElementById("referenceLabels").textContent = refs.total_reference_values || 0;
+        document.getElementById("referenceSources").textContent = (refs.by_source || [])
+          .map((item) => `${item.source}: ${item.count}`)
+          .join(" / ") || "Unknown";
         document.getElementById("analyticsWarnings").textContent =
           (report.warnings && report.warnings.length ? report.warnings.join("\n") : "No analytics warnings.");
         const target = document.getElementById("recurringIssues");

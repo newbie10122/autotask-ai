@@ -47,6 +47,13 @@ def _fallback_label(field_name: str, value: str) -> str:
     return f"{pretty} {value}"
 
 
+def _reference_label_and_source(field_name: str, value: str) -> tuple[str, str]:
+    bootstrap_label = REFERENCE_BOOTSTRAP.get((field_name, value))
+    if bootstrap_label:
+        return bootstrap_label, "bootstrap"
+    return _fallback_label(field_name, value), "inferred"
+
+
 def _upsert_reference(conn: Any, field_name: str, value: str, label: str, source: str = "local") -> None:
     if not value:
         return
@@ -79,8 +86,8 @@ def sync_reference_data() -> dict[str, Any]:
             ).fetchall()
             for row in rows:
                 value = _clean_value(row["value"])
-                label = REFERENCE_BOOTSTRAP.get((field_name, value), _fallback_label(field_name, value))
-                _upsert_reference(conn, field_name, value, label, "inferred")
+                label, source = _reference_label_and_source(field_name, value)
+                _upsert_reference(conn, field_name, value, label, source)
                 upserted += 1
 
         for field_name, json_key in (("source", "source"), ("ticket_type", "ticketType")):
@@ -94,8 +101,8 @@ def sync_reference_data() -> dict[str, Any]:
             ).fetchall()
             for row in rows:
                 value = _clean_value(row["value"])
-                label = REFERENCE_BOOTSTRAP.get((field_name, value), _fallback_label(field_name, value))
-                _upsert_reference(conn, field_name, value, label, "inferred")
+                label, source = _reference_label_and_source(field_name, value)
+                _upsert_reference(conn, field_name, value, label, source)
                 upserted += 1
     return reference_data_status() | {"ok": True, "upserted": upserted}
 
@@ -114,7 +121,17 @@ def reference_data_status() -> dict[str, Any]:
                 """
             ).fetchall()
         )
-    return {"ok": True, "total_reference_values": total, "by_field": by_field}
+        by_source = list(
+            conn.execute(
+                """
+                SELECT COALESCE(source, 'unknown') AS source, count(*) AS count
+                FROM autotask_reference_values
+                GROUP BY 1
+                ORDER BY count DESC, source
+                """
+            ).fetchall()
+        )
+    return {"ok": True, "total_reference_values": total, "by_field": by_field, "by_source": by_source}
 
 
 def classify_tickets(limit: int | None = None) -> dict[str, Any]:

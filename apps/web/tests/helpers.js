@@ -62,7 +62,16 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
       return route.fulfill({ contentType: "application/json", body: JSON.stringify({ classified_tickets: 0 }) });
     }
     if (pathname === "/api/reference-data/status") {
-      return route.fulfill({ contentType: "application/json", body: JSON.stringify({ total_reference_values: 0 }) });
+      return route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          total_reference_values: 3,
+          by_source: [
+            { source: "bootstrap", count: 1 },
+            { source: "inferred", count: 2 }
+          ]
+        })
+      });
     }
     if (pathname === "/api/operations/status") {
       return route.fulfill({
