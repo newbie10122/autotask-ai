@@ -38,6 +38,31 @@ def test_threshold_success_path(monkeypatch):
     assert AutotaskReadOnlyClient().threshold_information() == {"threshold": 42}
 
 
+def test_status_transition_source_probe_is_bounded_read_only(monkeypatch):
+    calls = []
+
+    def fake_request(_self, method, endpoint, json=None):
+        calls.append((method, endpoint, json))
+        if "TicketStatusHistory" in endpoint:
+            return {"items": [{"id": 1}], "pageDetails": {"nextPageUrl": "https://example.invalid/next"}}
+        raise RuntimeError("entity unavailable")
+
+    monkeypatch.setattr(AutotaskReadOnlyClient, "_request", fake_request)
+
+    report = AutotaskReadOnlyClient(delay_seconds=0).probe_status_transition_sources(
+        ("TicketStatusHistory", "TicketChangeHistory")
+    )
+
+    assert report["live_autotask_probe_ran"] is True
+    assert report["autotask_writes_allowed"] is False
+    assert report["max_records_per_entity"] == 1
+    assert report["available_entities"] == ["TicketStatusHistory"]
+    assert report["results"][0]["has_next_page"] is True
+    assert report["results"][1]["availability"] == "unavailable"
+    assert all(call[0] == "POST" for call in calls)
+    assert all(call[2]["MaxRecords"] == 1 for call in calls)
+
+
 def test_next_page_query_urls_use_post(monkeypatch):
     calls = []
     monkeypatch.setattr(
@@ -94,7 +119,9 @@ def test_company_sync_stores_records(monkeypatch):
     monkeypatch.setattr(
         AutotaskReadOnlyClient,
         "query_entity",
-        lambda _self, entity, filters=None, include_fields=None: {"items": [{"id": 10, "companyName": "Acme"}]},
+        lambda _self, entity, filters=None, include_fields=None, max_records=None: {
+            "items": [{"id": 10, "companyName": "Acme"}]
+        },
     )
     result = sync_companies(limit=1)
     assert result["pulled"] == 1
@@ -139,7 +166,7 @@ def test_company_sync_limit_1000_can_process_two_pages(monkeypatch):
     monkeypatch.setattr(
         AutotaskReadOnlyClient,
         "query_entity",
-        lambda _self, entity, filters=None, include_fields=None: {"items": next(pages)},
+        lambda _self, entity, filters=None, include_fields=None, max_records=None: {"items": next(pages)},
     )
 
     result = sync_companies(limit=1000)

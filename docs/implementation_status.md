@@ -80,6 +80,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Status-transition certification branch `agent/status-transition-certification` adds a scoped parser summary for local TicketHistory action/detail rows and feeds it into field certification. Local runtime evidence found `0` parsed status transitions and `0` timestamped status transitions in the inspected local TicketHistory sample, so status-duration and waiting-state analytics remain source-limited until a usable read-only status-transition source is found or backfilled.
 - Operations field-certification UI branch `agent/operations-field-certification-ui` surfaces `/api/ticket-health/field-certification` in the Operations screen with certification state, blockers, parser counts, and target cards so operators can see why status-duration/waiting are not yet fully certified.
 - Status-transition source-candidates branch `agent/status-transition-source-candidates` adds a scoped, read-only `/api/ticket-health/status-transition-sources` report and embeds the same source-candidate contract in field certification. It classifies local TicketHistory, current status, proxy timestamps, and unprobed candidate Autotask status-history entities without running a live Autotask probe or authorizing any sync/write/model workflow change.
+- Status-history entity probe branch `agent/status-history-entity-probe` adds an Admin-only manual `POST /api/autotask/probe/status-transition-sources` endpoint that uses the read-only Autotask client with `MaxRecords=1` per candidate entity, per-entity error isolation, and success-audit metadata. It does not schedule probes, write to Autotask, or authorize automatic sync-path/model/workflow changes.
 
 ## Milestone table
 
@@ -99,8 +100,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Validate and merge `agent/status-transition-source-candidates`, then update the existing Second Brain projection.
-2. Continue with a bounded read-only entity-availability probe design for status-transition timestamps, or proceed to the next Milestone 1 audit/scope closeout slice if live probing is not needed.
+1. Validate and merge `agent/status-history-entity-probe`, then update the existing Second Brain projection.
+2. If an Admin intentionally runs the bounded read-only probe and a status-transition entity is available, design a review-only sync candidate; otherwise proceed to the next Milestone 1 audit/scope closeout slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add remaining production-auth deployment evidence and targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
