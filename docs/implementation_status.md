@@ -11,8 +11,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `27b0bd7e502a0b9ef74b60238f0e9f362ece422b`, which merged PR `newbie10122/autotask-ai#81` (`Certify status-duration source limitation`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#81` run `29942057803`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation passed with API/worker Python compilation, full pytest `147 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
+- Canonical `main` is `baf37e6c4dd2d1427f0d7770155c1641a3340580`, which merged PR `newbie10122/autotask-ai#82` (`Record status-duration lineage merge`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#82` run `29942884682`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Latest local validation on the current response-lineage branch passed with API/worker Python compilation, full pytest `150 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
 - Second Brain projection PR `newbie10122/helix-second-brain#6` was merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e` after recording Autotask AI progress through PR #70 at projection branch head `4306bcc`; local `python3 tools/validate_knowledge.py` passed before merge.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
@@ -68,6 +68,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Milestone 2 scoped labor lineage branch `agent/m2-scoped-labor-lineage` applies authorized company scope to labor coverage summary/status/target queries and to field-certification labor context fetches.
 - Milestone 2 SLA lineage branch `agent/m2-sla-lineage-certification` adds scoped SLA ID/met/due-target/pause lineage evidence and keeps SLA certification partial when due target timestamps are incomplete.
 - Milestone 2 status-duration/waiting lineage branch `agent/m2-status-duration-waiting-lineage` adds aggregate-only TicketHistory source-shape inventory, current waiting-state snapshot taxonomy, and a no-proxy-duration contract so current status timestamps are not treated as historical waiting duration evidence.
+- Milestone 2 response-lineage branch `agent/m2-response-lineage-certification` adds aggregate-only scoped customer/technician response lineage from local ticket-note author identifiers and normalized/raw note timestamps; runtime evidence shows note author IDs and raw `createDateTime` timestamps are present, while the normalized timestamp column will populate on future sync/upsert/backfill.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -100,6 +101,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Post-merge bounded read-only runtime probe on canonical `main` `9cc33aaf6ed3987d45a43e96713a7c39609bdcfc` found `TicketStatusHistory`, `TicketStatusHistories`, and `TicketChangeHistory` unavailable by those entity names, while `TicketHistory` was reachable with a sampled row and next page using `ticketID eq <local ticket>`. The status-duration/waiting blocker is now confirmed as TicketHistory row content/parser shape, not basic TicketHistory reachability.
 - TicketHistory content-certification is merged through PRs #58 and #59. Canonical `main` runtime validation on `bcc1b433b4a0124c833f131d28227a57eb6e1df2` returned `ok=true` for `/api/ticket-health/ticket-history-content-certification` after qualifying joined `h.raw` JSON references. The aggregate-only evidence found `30186` TicketHistory rows, `100%` timestamp coverage, `1` status-like row, and no `field`/`oldValue`/`newValue` raw keys, without exposing raw history detail text or enabling parser/model/workflow changes.
 - Post-merge Milestone 2 evidence on canonical `main` `27b0bd7e502a0b9ef74b60238f0e9f362ece422b`: PR #81 field certification executed locally through the API container against existing Postgres and returned `partial_field_certification` with blockers `ticket_status_history`, `status_duration`, and `waiting_states`. The aggregate-only TicketHistory source-shape inventory found `38648` scoped local rows, `4804` tickets represented, `100%` timestamp coverage, `0` structured status-transition rows, `1` status-like parser-incompatible row, `164` duplicate timestamp groups, and `33489` non-monotonic timestamp rows by local ID order. The current waiting-state snapshot taxonomy reported `67726` tickets, `67625` mapped tickets, and `101` unknown/unmapped tickets; historical waiting-duration remains unavailable.
+- Current branch response-lineage runtime evidence: local read-only field certification returned blockers `ticket_status_history`, `status_duration`, and `waiting_states`. The new response lineage report found `675531` scoped ticket notes, `8091` customer-attributed notes, `667440` technician-attributed notes, `0` ambiguous notes, `100%` raw-backed timestamp coverage for both customer and technician response notes, and `0` normalized timestamp rows until future sync/upsert/backfill refreshes the normalized column. Response lineage is available as local read-only evidence.
 
 ## Milestone table
 
@@ -119,12 +121,24 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Record the PR #81 merge and Second Brain PR #13 projection update in canonical project docs.
-2. Continue the next independent Milestone 2 field/source-lineage slice, prioritizing customer/technician response timestamps, category/queue/reference completeness, or sync/recovery streak evidence.
+1. Merge `agent/m2-response-lineage-certification` after PR CI passes, then update Second Brain PR #13 with sanitized response-lineage evidence.
+2. Continue the next independent Milestone 2 field/source-lineage slice, prioritizing category/queue/reference completeness or sync/recovery streak evidence.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 status-duration and waiting source-lineage
+## Current receipt — Milestone 2 customer/technician response lineage
+
+- **Slice:** Add scoped customer/technician response-lineage certification on branch `agent/m2-response-lineage-certification` from canonical `main` `baf37e6c4dd2d1427f0d7770155c1641a3340580`.
+- **State:** `partial_foundation`; local ticket-note author identifiers and raw `createDateTime` timestamps are present, while normalized ticket-note timestamps need future sync/upsert/backfill refresh before the normalized column alone can carry the evidence.
+- **Files changed:** `apps/api/app/ticket_health.py`, `apps/api/tests/test_ingestion_rag.py`, and project status docs.
+- **Implemented:** `response_lineage_report()` returns aggregate-only scoped counts for customer-attributed notes, technician-attributed notes, normalized/raw timestamp coverage, ambiguous author attribution, open-ticket response coverage, author-source fields, safe note-type aggregates, and a no-raw-note-text/no-note-body-attribution policy. Ticket-note ingestion now recognizes Autotask `createDateTime` in addition to `createdDateTime` and `createDate`. `field_certification_report()` now includes `customer_responses` and `technician_responses` targets plus `source_reports.response_lineage`, keeping the evidence review-only.
+- **Runtime evidence:** Local read-only field certification found `675531` scoped ticket notes, `8091` customer-attributed notes, `667440` technician-attributed notes, `0` ambiguous notes, `8091` timestamped customer notes, `667440` timestamped technician notes, `100%` raw-backed timestamp coverage, and `0` normalized timestamp rows; response lineage state is `response_lineage_available`.
+- **Validation:** Focused container validation passed with `84 passed`. API/worker Python compilation and full pytest passed with `150 passed`; static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check` passed.
+- **Read-only evidence:** No sync jobs, production deployment, live Autotask probe, model threshold/workflow change, or Autotask write capability was run or added.
+- **Rollback:** Revert this branch commit; field certification returns to the prior target set without explicit customer/technician response lineage targets.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `41512ae44e78e7e25ed21ecf17dd9e335817bc11` and must be updated after this branch merges.
+
+## Historical receipt — Milestone 2 status-duration and waiting source-lineage
 
 - **Slice:** Certify status-duration and waiting-state source limitations on branch `agent/m2-status-duration-waiting-lineage` from canonical `main` `16aee8b0ccb1393ca52be2e86790f94220052150`; merged as PR #81 into canonical `main` `27b0bd7e502a0b9ef74b60238f0e9f362ece422b`.
 - **State:** `partial_foundation`; current waiting-state snapshot taxonomy is available from scoped local current status/reference labels, but historical status-duration and waiting-duration remain `source_limited` because local TicketHistory has no structured timestamped status-transition rows.
@@ -798,8 +812,8 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `41512ae44e78e7e25ed21ecf17dd9e335817bc11`. It records Autotask AI progress through PR #81, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, and PR #81 status-duration/waiting source-limited evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `41512ae44e78e7e25ed21ecf17dd9e335817bc11`. It records Autotask AI progress through PR #81, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, and PR #81 status-duration/waiting source-limited evidence. Update the same PR with response-lineage evidence after this branch merges. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
 
 ## Exact next action
 
-Record the PR #81 merge/Second Brain projection update, then continue the next safe Milestone 2 source-lineage field. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting source-limited unless parser-compatible status transitions are backfilled or another read-only source is found.
+Merge the response-lineage certification branch after CI passes, update Second Brain PR #13, then continue the next safe Milestone 2 source-lineage field. Keep production-auth deployment evidence approval-gated and keep status-duration/waiting/response timing source-limited unless parser-compatible timestamps are backfilled or another read-only source is found.

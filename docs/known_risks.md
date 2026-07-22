@@ -58,7 +58,7 @@
 **Severity:** Medium
 **State:** Partially mitigated
 **Impact:** Ticket-health, prediction, and routing calculations may be incomplete or misleading.
-**Existing controls:** PR `newbie10122/autotask-ai#10` restored read-only TimeEntries and TicketHistory automation, including recent-sync TimeEntries, open-ticket gap repair, estate-wide gap sweeps, and operations coverage reporting. Branch `agent/m2-related-data-catchup-cadence` raises bounded estate TimeEntries/TicketHistory gap batch defaults to `100`, upgrades persisted old-default `25` values only, and exposes estimated bounded catch-up runs in Operations. PR #75 carries TimeEntries checked-empty versus unchecked gap-check evidence into field certification. PR #77 applies authorized company scope to labor coverage and field-certification labor context. PR #79 adds scoped SLA ID/met/due-target/pause lineage evidence. PR #81 adds aggregate-only TicketHistory shape evidence and current waiting-state snapshot taxonomy while keeping historical duration source-limited.
+**Existing controls:** PR `newbie10122/autotask-ai#10` restored read-only TimeEntries and TicketHistory automation, including recent-sync TimeEntries, open-ticket gap repair, estate-wide gap sweeps, and operations coverage reporting. Branch `agent/m2-related-data-catchup-cadence` raises bounded estate TimeEntries/TicketHistory gap batch defaults to `100`, upgrades persisted old-default `25` values only, and exposes estimated bounded catch-up runs in Operations. PR #75 carries TimeEntries checked-empty versus unchecked gap-check evidence into field certification. PR #77 applies authorized company scope to labor coverage and field-certification labor context. PR #79 adds scoped SLA ID/met/due-target/pause lineage evidence. PR #81 adds aggregate-only TicketHistory shape evidence and current waiting-state snapshot taxonomy while keeping historical duration source-limited. Branch `agent/m2-response-lineage-certification` adds aggregate-only ticket-note response lineage and confirms local note author IDs and raw `createDateTime` timestamps are present while normalized note timestamp columns need future refresh.
 **Next mitigation:** Continue remaining field inventory/source-lineage certification, freshness policy, restart/recovery tests, and explicit distinctions among synchronized, checked-empty, unchecked, failed, unavailable, source-limited, and authorization-filtered data.
 
 ### R18 — Scheduler heartbeat can drift from actual job execution
@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `27b0bd7e502a0b9ef74b60238f0e9f362ece422b` through PR #81; Second Brain PR #13 is open at head `41512ae44e78e7e25ed21ecf17dd9e335817bc11` with local knowledge validation passing.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `baf37e6c4dd2d1427f0d7770155c1641a3340580` through PR #82, with current branch response-lineage evidence pending merge; Second Brain PR #13 is open at head `41512ae44e78e7e25ed21ecf17dd9e335817bc11` with local knowledge validation passing.
 
 ### R16 — CI runner environment differences
 

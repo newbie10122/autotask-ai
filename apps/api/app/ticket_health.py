@@ -1585,6 +1585,272 @@ def sla_lineage_report(authorized_company_ids: list[int] | None = None) -> dict[
     }
 
 
+def response_lineage_report(authorized_company_ids: list[int] | None = None) -> dict[str, Any]:
+    init_schema()
+    company_scope_sql, company_scope_params = _company_scope_clause(authorized_company_ids)
+    with db_connection() as conn:
+        summary = conn.execute(
+            f"""
+            WITH scoped_tickets AS (
+                SELECT
+                    t.id,
+                    (
+                        t.completed_at_autotask IS NULL
+                        AND COALESCE(t.status, '') <> ALL(%s)
+                    ) AS is_open
+                FROM autotask_tickets t
+                WHERE true {company_scope_sql}
+            ),
+            scoped_notes AS (
+                SELECT
+                    n.ticket_id,
+                    n.note_type,
+                    n.resource_id,
+                    n.created_at_autotask,
+                    COALESCE(
+                        n.created_at_autotask,
+                        CASE
+                            WHEN NULLIF(n.raw->>'createDateTime', '') IS NOT NULL
+                              AND n.raw->>'createDateTime' ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}'
+                            THEN (n.raw->>'createDateTime')::timestamptz
+                        END,
+                        CASE
+                            WHEN NULLIF(n.raw->>'createdDateTime', '') IS NOT NULL
+                              AND n.raw->>'createdDateTime' ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}'
+                            THEN (n.raw->>'createdDateTime')::timestamptz
+                        END,
+                        CASE
+                            WHEN NULLIF(n.raw->>'createDate', '') IS NOT NULL
+                              AND n.raw->>'createDate' ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}'
+                            THEN (n.raw->>'createDate')::timestamptz
+                        END
+                    ) AS response_created_at,
+                    (
+                        NULLIF(n.raw->>'createdByContactID', '') IS NOT NULL
+                        AND n.raw->>'createdByContactID' <> '0'
+                    ) AS is_customer_response,
+                    (
+                        n.resource_id IS NOT NULL
+                        OR (
+                            NULLIF(n.raw->>'creatorResourceID', '') IS NOT NULL
+                            AND n.raw->>'creatorResourceID' <> '0'
+                        )
+                    ) AS is_technician_response,
+                    (
+                        NULLIF(n.raw->>'createdByContactID', '') IS NOT NULL
+                        AND n.raw->>'createdByContactID' <> '0'
+                    ) AS has_contact_author,
+                    (
+                        NULLIF(n.raw->>'creatorResourceID', '') IS NOT NULL
+                        AND n.raw->>'creatorResourceID' <> '0'
+                    ) AS has_creator_resource_author,
+                    (
+                        NULLIF(n.raw->>'createDateTime', '') IS NOT NULL
+                        OR NULLIF(n.raw->>'createdDateTime', '') IS NOT NULL
+                        OR NULLIF(n.raw->>'createDate', '') IS NOT NULL
+                    ) AS has_raw_create_timestamp
+                FROM autotask_ticket_notes n
+                JOIN scoped_tickets t ON t.id=n.ticket_id
+            ),
+            ticket_response_rollup AS (
+                SELECT
+                    ticket_id,
+                    bool_or(is_customer_response) AS has_customer_response,
+                    bool_or(is_technician_response) AS has_technician_response
+                FROM scoped_notes
+                GROUP BY ticket_id
+            )
+            SELECT
+                (SELECT count(*) FROM scoped_tickets) AS tickets,
+                (SELECT count(*) FROM scoped_tickets WHERE is_open) AS open_tickets,
+                (SELECT count(*) FROM scoped_notes) AS notes,
+                (SELECT count(*) FROM scoped_notes WHERE response_created_at IS NOT NULL) AS timestamped_notes,
+                (SELECT count(*) FROM scoped_notes WHERE created_at_autotask IS NOT NULL) AS normalized_timestamped_notes,
+                (SELECT count(*) FROM scoped_notes WHERE has_raw_create_timestamp) AS raw_timestamped_notes,
+                (SELECT count(*) FROM scoped_notes WHERE is_customer_response) AS customer_response_notes,
+                (SELECT count(*) FROM scoped_notes WHERE is_customer_response AND response_created_at IS NOT NULL) AS timestamped_customer_response_notes,
+                (SELECT count(*) FROM scoped_notes WHERE is_technician_response) AS technician_response_notes,
+                (SELECT count(*) FROM scoped_notes WHERE is_technician_response AND response_created_at IS NOT NULL) AS timestamped_technician_response_notes,
+                (SELECT count(*) FROM scoped_notes WHERE is_customer_response AND is_technician_response) AS ambiguous_customer_and_technician_notes,
+                (SELECT count(*) FROM scoped_notes WHERE NOT is_customer_response AND NOT is_technician_response) AS unattributed_notes,
+                (SELECT count(*) FROM scoped_notes WHERE has_contact_author) AS notes_with_contact_author,
+                (SELECT count(*) FROM scoped_notes WHERE resource_id IS NOT NULL) AS notes_with_normalized_resource_author,
+                (SELECT count(*) FROM scoped_notes WHERE has_creator_resource_author) AS notes_with_creator_resource_author,
+                (SELECT count(DISTINCT ticket_id) FROM scoped_notes WHERE is_customer_response) AS tickets_with_customer_responses,
+                (SELECT count(DISTINCT ticket_id) FROM scoped_notes WHERE is_technician_response) AS tickets_with_technician_responses,
+                (
+                    SELECT count(*)
+                    FROM scoped_tickets t
+                    JOIN ticket_response_rollup r ON r.ticket_id=t.id
+                    WHERE t.is_open AND r.has_customer_response
+                ) AS open_tickets_with_customer_responses,
+                (
+                    SELECT count(*)
+                    FROM scoped_tickets t
+                    JOIN ticket_response_rollup r ON r.ticket_id=t.id
+                    WHERE t.is_open AND r.has_technician_response
+                ) AS open_tickets_with_technician_responses,
+                (SELECT max(response_created_at) FROM scoped_notes WHERE is_customer_response) AS latest_customer_response_at,
+                (SELECT max(response_created_at) FROM scoped_notes WHERE is_technician_response) AS latest_technician_response_at
+            """,
+            (list(CLOSED_STATUS_IDS), *company_scope_params),
+        ).fetchone()
+        by_note_type = conn.execute(
+            f"""
+            WITH scoped_tickets AS (
+                SELECT t.id
+                FROM autotask_tickets t
+                WHERE true {company_scope_sql}
+            ),
+            scoped_notes AS (
+                SELECT
+                    n.ticket_id,
+                    n.note_type,
+                    n.resource_id,
+                    n.created_at_autotask,
+                    COALESCE(
+                        n.created_at_autotask,
+                        CASE
+                            WHEN NULLIF(n.raw->>'createDateTime', '') IS NOT NULL
+                              AND n.raw->>'createDateTime' ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}'
+                            THEN (n.raw->>'createDateTime')::timestamptz
+                        END,
+                        CASE
+                            WHEN NULLIF(n.raw->>'createdDateTime', '') IS NOT NULL
+                              AND n.raw->>'createdDateTime' ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}'
+                            THEN (n.raw->>'createdDateTime')::timestamptz
+                        END,
+                        CASE
+                            WHEN NULLIF(n.raw->>'createDate', '') IS NOT NULL
+                              AND n.raw->>'createDate' ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}'
+                            THEN (n.raw->>'createDate')::timestamptz
+                        END
+                    ) AS response_created_at,
+                    (
+                        NULLIF(n.raw->>'createdByContactID', '') IS NOT NULL
+                        AND n.raw->>'createdByContactID' <> '0'
+                    ) AS is_customer_response,
+                    (
+                        n.resource_id IS NOT NULL
+                        OR (
+                            NULLIF(n.raw->>'creatorResourceID', '') IS NOT NULL
+                            AND n.raw->>'creatorResourceID' <> '0'
+                        )
+                    ) AS is_technician_response
+                FROM autotask_ticket_notes n
+                JOIN scoped_tickets t ON t.id=n.ticket_id
+            )
+            SELECT
+                COALESCE(NULLIF(note_type, ''), '[Blank]') AS note_type,
+                count(*) AS row_count,
+                count(*) FILTER (WHERE response_created_at IS NOT NULL) AS rows_with_timestamp,
+                count(*) FILTER (WHERE is_customer_response) AS customer_response_rows,
+                count(*) FILTER (WHERE is_technician_response) AS technician_response_rows
+            FROM scoped_notes
+            GROUP BY COALESCE(NULLIF(note_type, ''), '[Blank]')
+            ORDER BY count(*) DESC, note_type
+            LIMIT 20
+            """,
+            tuple(company_scope_params),
+        ).fetchall()
+
+    tickets = int(summary["tickets"] or 0)
+    open_tickets = int(summary["open_tickets"] or 0)
+    notes = int(summary["notes"] or 0)
+    timestamped_notes = int(summary["timestamped_notes"] or 0)
+    customer_notes = int(summary["customer_response_notes"] or 0)
+    timestamped_customer_notes = int(summary["timestamped_customer_response_notes"] or 0)
+    technician_notes = int(summary["technician_response_notes"] or 0)
+    timestamped_technician_notes = int(summary["timestamped_technician_response_notes"] or 0)
+    ambiguous_notes = int(summary["ambiguous_customer_and_technician_notes"] or 0)
+    customer_status = _status(timestamped_customer_notes, customer_notes, partial=ambiguous_notes > 0)
+    technician_status = _status(timestamped_technician_notes, technician_notes, partial=ambiguous_notes > 0)
+    warnings = []
+    if notes == 0:
+        warnings.append("No local ticket notes are present in the scoped ticket set.")
+    if customer_notes and timestamped_customer_notes < customer_notes:
+        warnings.append("Some customer-attributed ticket notes lack local Autotask create timestamps.")
+    if technician_notes and timestamped_technician_notes < technician_notes:
+        warnings.append("Some technician-attributed ticket notes lack local Autotask create timestamps.")
+    if ambiguous_notes:
+        warnings.append(
+            "Some ticket notes carry both customer and technician author identifiers; keep response turn-taking analytics partial until attribution is reviewed."
+        )
+
+    return {
+        "ok": True,
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "certification_state": (
+            "response_lineage_available"
+            if customer_status == "available" and technician_status == "available"
+            else "partial_response_lineage"
+        ),
+        "summary": {
+            "tickets": tickets,
+            "open_tickets": open_tickets,
+            "notes": notes,
+            "timestamped_notes": timestamped_notes,
+            "normalized_timestamped_notes": int(summary["normalized_timestamped_notes"] or 0),
+            "raw_timestamped_notes": int(summary["raw_timestamped_notes"] or 0),
+            "timestamp_coverage_percent": _percent(timestamped_notes, notes),
+            "customer_response_notes": customer_notes,
+            "timestamped_customer_response_notes": timestamped_customer_notes,
+            "customer_response_timestamp_coverage_percent": _percent(timestamped_customer_notes, customer_notes),
+            "technician_response_notes": technician_notes,
+            "timestamped_technician_response_notes": timestamped_technician_notes,
+            "technician_response_timestamp_coverage_percent": _percent(
+                timestamped_technician_notes, technician_notes
+            ),
+            "ambiguous_customer_and_technician_notes": ambiguous_notes,
+            "unattributed_notes": int(summary["unattributed_notes"] or 0),
+            "notes_with_contact_author": int(summary["notes_with_contact_author"] or 0),
+            "notes_with_normalized_resource_author": int(summary["notes_with_normalized_resource_author"] or 0),
+            "notes_with_creator_resource_author": int(summary["notes_with_creator_resource_author"] or 0),
+            "tickets_with_customer_responses": int(summary["tickets_with_customer_responses"] or 0),
+            "tickets_with_technician_responses": int(summary["tickets_with_technician_responses"] or 0),
+            "open_tickets_with_customer_responses": int(summary["open_tickets_with_customer_responses"] or 0),
+            "open_tickets_with_technician_responses": int(summary["open_tickets_with_technician_responses"] or 0),
+            "open_customer_response_ticket_coverage_percent": _percent(
+                int(summary["open_tickets_with_customer_responses"] or 0), open_tickets
+            ),
+            "open_technician_response_ticket_coverage_percent": _percent(
+                int(summary["open_tickets_with_technician_responses"] or 0), open_tickets
+            ),
+            "latest_customer_response_at": summary["latest_customer_response_at"],
+            "latest_technician_response_at": summary["latest_technician_response_at"],
+        },
+        "author_lineage": {
+            "customer": {
+                "source": "autotask_ticket_notes.raw.createdByContactID plus normalized/raw note create timestamp",
+                "certification_status": customer_status,
+            },
+            "technician": {
+                "source": "autotask_ticket_notes.resource_id / raw.creatorResourceID plus normalized/raw note create timestamp",
+                "certification_status": technician_status,
+            },
+        },
+        "by_note_type": [
+            {
+                "note_type": _safe_shape_identifier(row["note_type"], fallback="[Blank]", max_length=60),
+                "row_count": int(row["row_count"] or 0),
+                "rows_with_timestamp": int(row["rows_with_timestamp"] or 0),
+                "customer_response_rows": int(row["customer_response_rows"] or 0),
+                "technician_response_rows": int(row["technician_response_rows"] or 0),
+            }
+            for row in by_note_type
+        ],
+        "policy": {
+            "aggregate_only": True,
+            "returns_raw_note_text": False,
+            "uses_note_body_for_attribution": False,
+            "autotask_writes_allowed": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+        },
+        "warnings": warnings,
+        "interpretation": "Response lineage is based on local ticket-note author identifiers and timestamps; it does not infer response quality, SLA compliance, or turn-taking from note text.",
+    }
+
+
 def _summary_where(queue: str | None, assigned_resource_id: int | None) -> tuple[str, list[Any]]:
     clauses = ["t.completed_at_autotask IS NULL", "NOT t.analytics_exclude", "COALESCE(t.status, '') <> ALL(%s)"]
     params: list[Any] = [list(CLOSED_STATUS_IDS)]
@@ -2278,6 +2544,7 @@ def field_certification_report(
     source_candidates: dict[str, Any] | None = None,
     labor_coverage: dict[str, Any] | None = None,
     sla_lineage: dict[str, Any] | None = None,
+    response_lineage: dict[str, Any] | None = None,
     ticket_history_shape_inventory: dict[str, Any] | None = None,
     waiting_snapshot: dict[str, Any] | None = None,
     authorized_company_ids: list[int] | None = None,
@@ -2292,6 +2559,7 @@ def field_certification_report(
             source_candidates,
             labor_coverage,
             sla_lineage,
+            response_lineage,
         )
     )
     coverage = coverage_report or field_coverage_report(authorized_company_ids=authorized_company_ids)
@@ -2306,6 +2574,28 @@ def field_certification_report(
     )
     labor_gap_context = labor_coverage or labor_coverage_report(authorized_company_ids=authorized_company_ids)
     sla_lineage_context = sla_lineage or sla_lineage_report(authorized_company_ids=authorized_company_ids)
+    if response_lineage is not None:
+        response_lineage_context = response_lineage
+    elif injected_context:
+        response_lineage_context = {
+            "certification_state": "partial_response_lineage",
+            "summary": {
+                "notes": 0,
+                "customer_response_notes": 0,
+                "timestamped_customer_response_notes": 0,
+                "technician_response_notes": 0,
+                "timestamped_technician_response_notes": 0,
+            },
+            "author_lineage": {
+                "customer": {"certification_status": "missing"},
+                "technician": {"certification_status": "missing"},
+            },
+            "policy": {"aggregate_only": True, "returns_raw_note_text": False},
+            "warnings": ["Injected certification context did not include response-lineage evidence."],
+            "authorized_company_scope_applied": authorized_company_ids is not None,
+        }
+    else:
+        response_lineage_context = response_lineage_report(authorized_company_ids=authorized_company_ids)
     if ticket_history_shape_inventory is not None:
         history_shape_context = ticket_history_shape_inventory
     elif injected_context:
@@ -2339,6 +2629,10 @@ def field_certification_report(
     status_sample = status_diag.get("status_sample_coverage") or {}
     labor_summary = labor_gap_context.get("summary") or {}
     sla_summary = sla_lineage_context.get("summary") or {}
+    response_summary = response_lineage_context.get("summary") or {}
+    response_author_lineage = response_lineage_context.get("author_lineage") or {}
+    customer_author_lineage = response_author_lineage.get("customer") or {}
+    technician_author_lineage = response_author_lineage.get("technician") or {}
     history_shape_counts = history_shape_context.get("counts") or {}
     waiting_snapshot_summary = waiting_snapshot_context.get("summary") or {}
     exact_status_transition = bool(source_capability.get("has_exact_status_transition_timestamp"))
@@ -2367,6 +2661,8 @@ def field_certification_report(
     time_entries = _field_row_status(coverage, "time_entries")
     labor_hours = _field_row_status(coverage, "labor_hours")
     sla_information = _field_row_status(coverage, "sla_information")
+    customer_responses = _field_row_status(coverage, "customer_responses")
+    technician_responses = _field_row_status(coverage, "technician_responses")
     waiting_states = _field_row_status(coverage, "waiting_states")
     ticket_status = _field_row_status(coverage, "ticket_status")
     labor_certification_status = _certification_status(
@@ -2388,6 +2684,20 @@ def field_certification_report(
     if sla_any_fields > 0 and sla_due_target_fields < sla_any_fields:
         sla_note = (
             "SLA identifiers or met flags exist without complete due/response/resolution target timestamps; keep SLA analytics partial for those records."
+        )
+    customer_response_certification_status = _certification_status(
+        str(customer_author_lineage.get("certification_status") or customer_responses.get("status") or "missing")
+    )
+    technician_response_certification_status = _certification_status(
+        str(technician_author_lineage.get("certification_status") or technician_responses.get("status") or "missing")
+    )
+    response_ambiguous_notes = int(response_summary.get("ambiguous_customer_and_technician_notes") or 0)
+    response_note = (
+        "Ticket-note response attribution is based on author identifiers and timestamps only; note text is not used."
+    )
+    if response_ambiguous_notes:
+        response_note = (
+            "Some ticket notes carry both customer and technician author identifiers; keep response analytics partial until attribution is reviewed."
         )
 
     targets = [
@@ -2454,6 +2764,34 @@ def field_certification_report(
             "note": sla_note,
         },
         {
+            "key": "customer_responses",
+            "label": "Customer response timestamp lineage",
+            "certification_status": customer_response_certification_status,
+            "source": customer_responses.get("source"),
+            "coverage_percent": response_summary.get("customer_response_timestamp_coverage_percent"),
+            "available_count": response_summary.get("timestamped_customer_response_notes"),
+            "total_count": response_summary.get("customer_response_notes"),
+            "tickets_with_responses": response_summary.get("tickets_with_customer_responses"),
+            "open_tickets_with_responses": response_summary.get("open_tickets_with_customer_responses"),
+            "latest_response_at": response_summary.get("latest_customer_response_at"),
+            "prediction_use": "excluded_until_certified_for_model_training",
+            "note": response_note,
+        },
+        {
+            "key": "technician_responses",
+            "label": "Technician response timestamp lineage",
+            "certification_status": technician_response_certification_status,
+            "source": technician_responses.get("source"),
+            "coverage_percent": response_summary.get("technician_response_timestamp_coverage_percent"),
+            "available_count": response_summary.get("timestamped_technician_response_notes"),
+            "total_count": response_summary.get("technician_response_notes"),
+            "tickets_with_responses": response_summary.get("tickets_with_technician_responses"),
+            "open_tickets_with_responses": response_summary.get("open_tickets_with_technician_responses"),
+            "latest_response_at": response_summary.get("latest_technician_response_at"),
+            "prediction_use": "excluded_until_certified_for_model_training",
+            "note": response_note,
+        },
+        {
             "key": "waiting_states",
             "label": "Waiting state/reason lineage",
             "certification_status": _certification_status(
@@ -2511,6 +2849,16 @@ def field_certification_report(
                 "warnings": sla_lineage_context.get("warnings") or [],
                 "interpretation": sla_lineage_context.get("interpretation"),
                 "authorized_company_scope_applied": sla_lineage_context.get("authorized_company_scope_applied"),
+            },
+            "response_lineage": {
+                "certification_state": response_lineage_context.get("certification_state"),
+                "summary": response_summary,
+                "author_lineage": response_author_lineage,
+                "by_note_type": response_lineage_context.get("by_note_type") or [],
+                "policy": response_lineage_context.get("policy"),
+                "warnings": response_lineage_context.get("warnings") or [],
+                "interpretation": response_lineage_context.get("interpretation"),
+                "authorized_company_scope_applied": response_lineage_context.get("authorized_company_scope_applied"),
             },
             "status_source": {
                 "source_capability": source_capability,
