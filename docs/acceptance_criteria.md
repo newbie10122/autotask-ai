@@ -34,7 +34,8 @@ A milestone may be marked `verified_complete` only when:
 - Repository receipts include exact commands, results, commits, risks, rollback, and Second Brain state.
 - Local reconciled evidence on branch `agent/m0-ci-validation`: `./scripts/validate-ci.sh` passed with redacted Compose validation, 6 ordered migrations, API image build, Python compile, `53 passed`, and static web JavaScript syntax.
 - GitHub Actions evidence: PR `newbie10122/autotask-ai#3` latest run `29850162173` passed workflow `CI`, job `Validate Autotask AI`, for head `67de41334d7c609bfdb9fd52580addd139804ac7`; PR #3 was merged into canonical `main` as `fec62ba9963e0ade35e292f88b337bbbe8bf5714`. Milestone 0 still requires fuller certification matrix/Quality Streak records before it can be marked `verified_complete`.
-- Current canonical evidence: PR `newbie10122/autotask-ai#42` merged into `main` as `c688c6d622e60e866ee63302a1f577f498635741`, with GitHub Actions run `29882172665` passing. Control documents must reference PR #42 and the current runtime/predictive evidence rather than stale PR #41 or `agent/predictive-threshold-sweep` completion steps.
+- Historical canonical evidence through PR #42: PR `newbie10122/autotask-ai#42` merged into `main` as `c688c6d622e60e866ee63302a1f577f498635741`, with GitHub Actions run `29882172665` passing. That receipt remains the canonical predictive threshold-sweep evidence for its time and must not be rewritten as a completion claim.
+- Current canonical evidence: PR `newbie10122/autotask-ai#66` merged into `main` as `a98f99a9156548958ea370c7b6042e0e74f99ed9`, with GitHub Actions run `29892106293` passing. Latest local governed validation passed with production-auth preflight, redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest `134 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and clean `git diff --check`.
 
 ## Milestone 1
 
@@ -117,6 +118,7 @@ A milestone may be marked `verified_complete` only when:
 - Post-merge validation: focused API mode tests passed with `2 passed`; focused Ask browser tests passed with `4 passed`; full `./scripts/validate-ci.sh` passed with full pytest `134 passed`, static web JavaScript syntax, Playwright browser smoke `12 passed`, and `git diff --check`. This is local read-only assistant evidence only; live production-auth deployment evidence remains required.
 - Post-merge conversational UI evidence on canonical `main` `99f79d82b8803b7d12930228f95aa023ce647107`: Ask Assistant ready text now follows the selected mode, telling operators that Ticket History Only skips the local CPU model and that General + Ticket History/Deep Dive may wait on it.
 - Post-merge validation: focused Ask browser tests passed with `5 passed`; full `./scripts/validate-ci.sh` passed with full pytest `134 passed`, static web JavaScript syntax, Playwright browser smoke `13 passed`, and `git diff --check`. This is local read-only assistant UI evidence only; live production-auth deployment evidence remains required.
+- Post-merge documentation evidence on canonical `main` `a98f99a9156548958ea370c7b6042e0e74f99ed9`: PR #66 records the mode-specific Ask Assistant ready-status behavior, current validation counts, and Second Brain projection state in project control documents. This remains documentation evidence only and does not mark Milestone 1 `verified_complete`.
 
 ## Milestone 2
 
