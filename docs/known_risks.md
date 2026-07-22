@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `ef848a778d2ffddc53a4c9163260cd7817ad7c68` through PR #99; Second Brain PR #13 is open at head `3c3a78bd93420932ed1a0bd8b0cb7490416bb61c` with local knowledge validation passing through PR #99.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `ce74485` through PR #101; Second Brain PR #13 is open at head `93ad3a6` with local knowledge validation passing through PR #101.
 
 ### R16 — CI runner environment differences
 
@@ -151,4 +151,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `3c3a78bd93420932ed1a0bd8b0cb7490416bb61c` with local validation passing through PR #99 evidence; pending merge there does not block independent Autotask AI engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `93ad3a6` with local validation passing through PR #101 evidence; pending merge there does not block independent Autotask AI engineering.
