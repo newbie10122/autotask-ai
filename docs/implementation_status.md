@@ -11,9 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `5368aa96582e7480e4709355ca0ffa2707d7ae5e`, which merged PR `newbie10122/autotask-ai#97` (`Add scheduler pause provenance`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#97` run `29952434655`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for scheduler pause provenance passed focused pause/provenance API tests with `2 passed`, focused Admin route audit tests with `2 passed`, focused Operations browser smoke with `1 passed`, full repository validation with `156 passed`, and Playwright browser smoke with `13 passed`.
-- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `e4ed5db2a68c414950a4e6e1ecc68ecf7d00fdb9` after recording Autotask AI progress through PR #97; local `python3 tools/validate_knowledge.py` passed with `105` Markdown files, `105` unique IDs, and `209` internal links.
+- Canonical `main` is `ef848a778d2ffddc53a4c9163260cd7817ad7c68`, which merged PR `newbie10122/autotask-ai#99` (`Preserve reference label provenance`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#99` run `29953209879`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for reference-label provenance passed focused reference provenance tests with `3 passed`, focused browser validation with `3 passed`, full repository validation with `158 passed`, and Playwright browser smoke with `13 passed`.
+- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `3c3a78bd93420932ed1a0bd8b0cb7490416bb61c` after recording Autotask AI progress through PR #99; local `python3 tools/validate_knowledge.py` passed with `106` Markdown files, `106` unique IDs, and `214` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -75,7 +75,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #91 adds an Admin-only local archive action for stale orphaned scheduler run metadata. It only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job.
 - PR #95 adds read-only scheduler recovery-streak evidence to Operations status and the Operations UI. It inspects the latest three scheduler-triggered runs for each required scheduler job without running jobs or exposing raw errors.
 - PR #97 records local pause/resume provenance in Operations settings/status and success audits: action, actor, reason, timestamp, and policy flags proving local metadata only, no job execution, and no Autotask writes.
-- Current branch `agent/m2-reference-label-provenance` preserves bootstrap reference-label provenance during reference sync, reports reference label counts by source, and displays bootstrap/inferred source counts in the UI.
+- PR #99 preserves bootstrap reference-label provenance during reference sync, reports reference label counts by source, and displays bootstrap/inferred/source counts in the UI.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -134,12 +134,24 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge reference-label provenance after full validation and CI pass.
+1. Record reference-label provenance merge evidence after PR #99 and Second Brain PR #13 update.
 2. Continue the next independent Milestone 2 field/source-lineage slice.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
-## Current receipt — Milestone 2 reference-label provenance
+## Current receipt — Milestone 2 reference-label provenance merge evidence
+
+- **Slice:** Record reference-label provenance merge evidence after PR #99 and Second Brain PR #13 update.
+- **State:** `partial_foundation`; source counts are clearer and bootstrap labels are no longer downgraded to inferred, but authoritative Autotask reference-label completeness remains open.
+- **Files changed:** Project status docs only.
+- **Implemented by PR #99:** Reference sync preserves `source=bootstrap` for known bootstrap values when ticket-observed values are upserted, keeps unknown values `source=inferred`, returns `reference_data_status().by_source`, and displays source counts in the web app.
+- **Runtime evidence:** Local runtime smoke after API/web rebuild returned Nginx `/ready` `HTTP 200`, UI root `HTTP 200`, and `/api/reference-data/status` source counts for inferred, Autotask, Autotask metadata, and bootstrap rows.
+- **Validation:** PR #99 CI run `29953209879` passed; focused reference provenance tests passed with `3 passed`; focused browser validation passed with `3 passed`; full repository validation passed with `158` API tests and `13` Playwright tests; `git diff --check` passed. This docs-only reconciliation requires docs whitespace validation and CI before merge.
+- **Read-only/authority evidence:** This docs-only branch does not run reference sync, run sync jobs, call Autotask, allow Autotask writes, deploy production code, change model threshold/workflow behavior, or change routing/assignment.
+- **Rollback:** Revert this docs-only commit; application behavior remains the PR #99 behavior on canonical main.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` remains open at head `3c3a78bd93420932ed1a0bd8b0cb7490416bb61c` and records PR #99 reference-label provenance evidence with local knowledge validation passing.
+
+## Historical receipt — Milestone 2 reference-label provenance
 
 - **Slice:** Preserve and expose reference-label provenance on branch `agent/m2-reference-label-provenance` from canonical `main` `d8e70b95139143283b435f958dd377cd362f17ca`.
 - **State:** `partial_foundation`; source counts are clearer and bootstrap labels are no longer downgraded to inferred, but authoritative Autotask reference-label completeness remains open.
@@ -148,7 +160,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - **Validation:** Focused reference provenance tests passed with `3 passed`.
 - **Read-only/authority evidence:** This branch only changes local reference metadata provenance and display. It does not run reference sync, sync jobs, live Autotask probes, production deployment, model threshold/workflow changes, routing/assignment changes, or Autotask writes.
 - **Rollback:** Revert this branch commit; reference sync returns to previous source labeling and the UI hides source counts.
-- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this branch merges.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` records this PR #99 evidence at head `3c3a78bd93420932ed1a0bd8b0cb7490416bb61c`.
 
 ## Historical receipt — Milestone 2 scheduler pause/resume provenance merge evidence
 
@@ -948,7 +960,7 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `e4ed5db2a68c414950a4e6e1ecc68ecf7d00fdb9`. It records Autotask AI progress through PR #97, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, and PR #97 pause/resume provenance evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py`.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `3c3a78bd93420932ed1a0bd8b0cb7490416bb61c`. It records Autotask AI progress through PR #99, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, and PR #99 reference-label provenance evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `106` Markdown files, `106` unique IDs, and `214` internal links.
 
 ## Exact next action
 
