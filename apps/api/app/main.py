@@ -447,6 +447,26 @@ def autotask_probe_reference_metadata_sources(_user: dict | None = Depends(requi
     return result
 
 
+@app.post("/api/autotask/probe/ticket-history-schema")
+def autotask_probe_ticket_history_schema(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
+    result = AutotaskReadOnlyClient(delay_seconds=0).probe_ticket_history_schema()
+    summary = result.get("summary") or {}
+    record_success_audit(
+        AuditAction.admin_action,
+        "autotask.probe.ticket_history_schema",
+        _user,
+        audit_scope(),
+        {
+            "entity": result.get("entity"),
+            "field_count": summary.get("field_count"),
+            "has_structured_status_transition_fields": summary.get("has_structured_status_transition_fields"),
+            "autotask_writes_allowed": False,
+            "returns_raw_ticket_history_rows": False,
+        },
+    )
+    return result
+
+
 @app.post("/autotask/test-connection")
 def autotask_test_connection(_user: dict | None = Depends(require_roles(Role.admin))) -> dict:
     payload = AutotaskReadOnlyClient().test_connection()

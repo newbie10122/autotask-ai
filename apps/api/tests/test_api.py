@@ -232,6 +232,7 @@ def test_admin_route_matrix_denies_readonly_and_audits_each_denial(monkeypatch):
         ("POST", "/api/autotask/test/tickets", None),
         ("POST", "/api/autotask/test/ticket-notes", None),
         ("POST", "/api/autotask/probe/status-transition-sources", None),
+        ("POST", "/api/autotask/probe/ticket-history-schema", None),
         ("POST", "/autotask/test-connection", None),
         ("POST", "/api/sync/companies/start", {}),
         ("POST", "/api/sync/tickets/start", {}),
@@ -323,6 +324,7 @@ def test_api_route_authority_matrix_classifies_every_route():
         ("POST", "/api/autotask/test/tickets"),
         ("POST", "/api/autotask/test/ticket-notes"),
         ("POST", "/api/autotask/probe/status-transition-sources"),
+        ("POST", "/api/autotask/probe/ticket-history-schema"),
         ("POST", "/api/autotask/probe/reference-metadata-sources"),
         ("POST", "/autotask/test-connection"),
         ("POST", "/api/sync/companies/start"),
@@ -414,6 +416,14 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
                 "autotask_writes_allowed": False,
             }
 
+        def probe_ticket_history_schema(self):
+            return {
+                "ok": True,
+                "entity": "TicketHistory",
+                "summary": {"field_count": 6, "has_structured_status_transition_fields": False},
+                "autotask_writes_allowed": False,
+            }
+
     monkeypatch.setattr("app.main.AutotaskReadOnlyClient", FakeAutotaskClient)
     token = create_session_token("admin", [Role.admin.value])["token"]
     headers = {"Authorization": f"Bearer {token}"}
@@ -425,6 +435,12 @@ def test_admin_success_actions_record_actor_scope_and_safe_metadata(monkeypatch)
             "/api/autotask/probe/status-transition-sources",
             None,
             "autotask.probe.status_transition_sources",
+        ),
+        (
+            "POST",
+            "/api/autotask/probe/ticket-history-schema",
+            None,
+            "autotask.probe.ticket_history_schema",
         ),
         (
             "POST",

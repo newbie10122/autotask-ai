@@ -169,6 +169,11 @@ class AutotaskReadOnlyClient:
         fields = payload.get("fields") or []
         return [field for field in fields if isinstance(field, dict)]
 
+    def ticket_history_entity_fields(self) -> list[dict[str, Any]]:
+        payload = self._request("GET", "/V1.0/TicketHistory/entityInformation/fields")
+        fields = payload.get("fields") or []
+        return [field for field in fields if isinstance(field, dict)]
+
     def query_entity(
         self,
         entity: str,
@@ -312,6 +317,62 @@ class AutotaskReadOnlyClient:
                 "read_only": True,
                 "manual_admin_only": True,
                 "automatic_reference_sync_allowed": False,
+                "automatic_model_or_workflow_changes_allowed": False,
+            },
+        }
+
+    def probe_ticket_history_schema(self) -> dict[str, Any]:
+        fields = self.ticket_history_entity_fields()
+        sanitized_fields = [
+            {
+                "name": str(field.get("name") or ""),
+                "data_type": field.get("dataType"),
+                "is_queryable": bool(field.get("isQueryable")),
+                "is_read_only": bool(field.get("isReadOnly")),
+                "is_picklist": bool(field.get("isPickList")),
+            }
+            for field in fields
+            if field.get("name")
+        ]
+        names = {str(field["name"]) for field in sanitized_fields}
+        structured_status_fields = sorted(
+            name
+            for name in names
+            if name.lower() in {"field", "oldvalue", "newvalue", "old_value", "new_value", "status"}
+            or ("status" in name.lower() and name not in {"action", "detail"})
+        )
+        timestamp_fields = sorted(
+            name
+            for name in names
+            if any(token in name.lower() for token in ("date", "time", "changed", "modified"))
+        )
+        unstructured_transition_text_fields = sorted(name for name in names if name in {"action", "detail"})
+        queryable_fields = sorted(name for name in names if any(field["name"] == name and field["is_queryable"] for field in sanitized_fields))
+        return {
+            "ok": True,
+            "probe": "ticket_history_schema",
+            "live_autotask_probe_ran": True,
+            "autotask_writes_allowed": False,
+            "entity": "TicketHistory",
+            "fields": sanitized_fields,
+            "summary": {
+                "field_count": len(sanitized_fields),
+                "queryable_fields": queryable_fields,
+                "timestamp_fields": timestamp_fields,
+                "unstructured_transition_text_fields": unstructured_transition_text_fields,
+                "structured_status_transition_fields": structured_status_fields,
+                "has_structured_status_transition_fields": bool(structured_status_fields),
+            },
+            "interpretation": (
+                "TicketHistory schema exposes structured status-transition fields."
+                if structured_status_fields
+                else "TicketHistory schema exposes queryable ticketID plus action/detail/date fields, but no structured old/new status transition fields."
+            ),
+            "policy": {
+                "read_only": True,
+                "manual_admin_only": True,
+                "returns_raw_ticket_history_rows": False,
+                "automatic_sync_path_changes_allowed": False,
                 "automatic_model_or_workflow_changes_allowed": False,
             },
         }

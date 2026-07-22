@@ -257,6 +257,37 @@ def test_reference_metadata_source_probe_isolates_repeated_unavailable_entities(
     assert all(item["availability"] == "unavailable" for item in report["results"])
 
 
+def test_ticket_history_schema_probe_reports_structured_transition_gap(monkeypatch):
+    calls = []
+
+    def fake_request(_self, method, endpoint, json=None):
+        calls.append((method, endpoint, json))
+        return {
+            "fields": [
+                {"name": "action", "dataType": "string", "isQueryable": False, "isReadOnly": True},
+                {"name": "date", "dataType": "datetime", "isQueryable": False, "isReadOnly": True},
+                {"name": "detail", "dataType": "string", "isQueryable": False, "isReadOnly": True},
+                {"name": "id", "dataType": "long", "isQueryable": False, "isReadOnly": True},
+                {"name": "ticketID", "dataType": "integer", "isQueryable": True, "isReadOnly": True},
+            ]
+        }
+
+    monkeypatch.setattr(AutotaskReadOnlyClient, "_request", fake_request)
+
+    report = AutotaskReadOnlyClient(delay_seconds=0).probe_ticket_history_schema()
+
+    assert calls == [("GET", "/V1.0/TicketHistory/entityInformation/fields", None)]
+    assert report["live_autotask_probe_ran"] is True
+    assert report["autotask_writes_allowed"] is False
+    assert report["summary"]["queryable_fields"] == ["ticketID"]
+    assert report["summary"]["timestamp_fields"] == ["date"]
+    assert report["summary"]["unstructured_transition_text_fields"] == ["action", "detail"]
+    assert report["summary"]["structured_status_transition_fields"] == []
+    assert report["summary"]["has_structured_status_transition_fields"] is False
+    assert report["policy"]["returns_raw_ticket_history_rows"] is False
+    assert "old/new status transition" in report["interpretation"]
+
+
 def test_next_page_query_urls_use_post(monkeypatch):
     calls = []
     monkeypatch.setattr(
