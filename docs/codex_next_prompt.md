@@ -5,9 +5,9 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `8f9c2710e67ac135797b3b0c38f7f112e097ecb9`
-- Latest merged PR: `newbie10122/autotask-ai#92`, `Record stale scheduler cleanup merge evidence`
-- Latest PR #92 CI: GitHub Actions run `29949728507`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Canonical `main`: `c1caa13d9b9785fce242b4a6ef2df8294857dceb`
+- Latest merged PR: `newbie10122/autotask-ai#93`, `Record stale scheduler cleanup execution evidence`
+- Latest PR #93 CI: GitHub Actions run `29950143994`, workflow `CI`, job `Validate Autotask AI`, passed before merge
 - Latest local validation for stale-run cleanup execution passed guarded local archive runtime smoke, Operations status runtime smoke, Nginx UI root smoke, focused docs whitespace validation, full repository validation with `154 passed`, and Playwright browser smoke with `13 passed`.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
@@ -55,7 +55,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge documentation evidence on canonical `main` `c9a2e8b487246a896cb81d561e50306556c4c5e0`: PR #90 records the PR #89 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
 - Post-merge Milestone 2 evidence on canonical `main` `216e803296698febd0c869bacbce671dd5f60e50`: PR #91 adds Admin-only local archival for stale orphaned scheduler run metadata. The route only archives running rows older than 30 minutes with no active lock and newer completed evidence for the same job; focused scheduler/archive tests passed with `3 passed`, route/audit tests with `4 passed`, Operations browser smoke with `1 passed`, full repository validation with `154 passed`, Playwright browser smoke with `13 passed`, and CI run `29948960498` passed. PR #91 did not execute cleanup against the live database.
 - Post-merge documentation evidence on canonical `main` `8f9c2710e67ac135797b3b0c38f7f112e097ecb9`: PR #92 records the PR #91 merge evidence and updated Second Brain PR #13 projection head in canonical project documents.
-- Current branch runtime evidence: guarded local Admin route `POST /api/operations/jobs/4143/archive-stale` returned `ok=true`, `archived=true`, policy `local_metadata_only=true`, `runs_jobs=false`, and `autotask_writes_allowed=false`; follow-up Operations status returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, no blockers, and `0` stale provenance rows. Nginx `/ready` and UI root returned `HTTP 200`.
+- Post-merge Milestone 2 evidence on canonical `main` `c1caa13d9b9785fce242b4a6ef2df8294857dceb`: PR #93 records guarded local Admin route cleanup execution for stale scheduler run `4143`; follow-up Operations status returned scheduler `healthy`, scheduler automation `scheduler_automation_available`, `9` required jobs, `9` certified jobs, `0` running jobs, `0` stale running jobs, no blockers, and `0` stale provenance rows. Nginx `/ready` and UI root returned `HTTP 200`.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -71,8 +71,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Record guarded stale scheduler-run cleanup execution evidence in canonical project documents, then merge that docs-only reconciliation after CI passes.
-2. Update existing Second Brain PR #13 with sanitized cleanup-execution evidence after this branch merges.
+1. Record PR #93 merge evidence in canonical project documents, then merge that docs-only reconciliation after CI passes.
+2. Continue sync/recovery streak evidence.
 3. Continue the next safe Milestone 2 source-lineage or sync/recovery evidence slice without Autotask writes, production deployment, or model workflow changes.
 
 ## Milestone status
@@ -96,4 +96,4 @@ Continue from a clean branch based on canonical `origin/main`.
 
 Projection PR `newbie10122/helix-second-brain#6` is merged into Second Brain `main` as `ca82ad4fb9b63db4c43a42e6dacdfeb56717bf8e`. Projection branch head `4306bcc` recorded Autotask AI progress through PR #70, including calibrated predictive ranking evidence, related-data catch-up visibility, admin inspection read audit coverage, TicketHistory content-certification evidence, Ask Assistant progress phases, deterministic Ticket History Only behavior, mode-specific Ask ready text, PR #66 control-document reconciliation, current validation counts, prior predictive evidence, Milestone 1 certification slices, restored scheduler automation, heartbeat repair, runtime counts, classification completion, and remaining gaps. Local validation passed with `python3 tools/validate_knowledge.py` before merge.
 
-Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `8235559d0dff9ba8225ebea3164123d8263db7d3`. It records Autotask AI progress through PR #91, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, and PR #91 stale scheduler cleanup capability evidence. Local validation passed with `python3 tools/validate_knowledge.py`. Do not mark it merged until the PR is actually merged.
+Projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `7cd186cb9777025770ce5bc27cbe7e77e2408a16`. It records Autotask AI progress through PR #93, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, and PR #93 cleanup-execution evidence. Local validation passed with `python3 tools/validate_knowledge.py`. Do not mark it merged until the PR is actually merged.
