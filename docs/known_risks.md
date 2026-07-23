@@ -1,6 +1,6 @@
 # Autotask AI Known Risks
 
-**Updated:** 2026-07-22
+**Updated:** 2026-07-23
 
 ## Critical and high risks
 
@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `e6a8eff` through PR #123; Second Brain PR #13 is open at head `1e4657f` with local knowledge validation passing through PR #123 and Operations status source-candidates UI evidence.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `7138010` through PR #125; Second Brain PR #13 is open at head `510e0ff` with local knowledge validation passing through PR #125 and queue-history source-candidate evidence.
 
 ### R16 — CI runner environment differences
 
@@ -151,4 +151,4 @@
 
 ## Critical-blockage status
 
-No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `1e4657f` with local validation passing through PR #123 Operations status source-candidates UI evidence; pending merge there does not block independent Autotask AI engineering.
+No critical blockage currently prevents documentation, CI, test, security-design, or other non-production work. High-risk production execution and protected actions remain approval-gated but do not block safe preparatory engineering. Second Brain PR #13 is open at head `510e0ff` with local validation passing through PR #125 queue-history source-candidate evidence; pending merge there does not block independent Autotask AI engineering.

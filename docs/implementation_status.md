@@ -11,9 +11,9 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Implemented foundation
 
-- Canonical `main` is `e6a8eff`, which merged PR `newbie10122/autotask-ai#123` (`Show status source candidates in operations`).
-- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#123` run `29964999861`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #123 passed focused Operations Playwright coverage with `1 passed`, static web JavaScript syntax validation, `git diff --check`, and full repository validation with `164` API tests plus `13` Playwright tests.
-- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `1e4657f` after recording Autotask AI progress through PR #123 and the Operations status source-candidates UI evidence; local `python3 tools/validate_knowledge.py` passed with `117` Markdown files, `117` unique IDs, and `276` internal links.
+- Canonical `main` is `7138010`, which merged PR `newbie10122/autotask-ai#125` (`Expose queue history source candidates`).
+- Latest GitHub Actions CI evidence is PR `newbie10122/autotask-ai#125` run `29969766016`, workflow `CI`, job `Validate Autotask AI`, passed before merge. Local validation for PR #125 passed focused queue-history API coverage with `2 passed`, focused route scope coverage with `1 passed`, focused Operations Playwright coverage with `1 passed`, static web JavaScript syntax validation, `git diff --check`, and full repository validation with `166` API tests plus `13` Playwright tests.
+- Second Brain projection PR `newbie10122/helix-second-brain#13` is open at head `510e0ff` after recording Autotask AI progress through PR #125 and queue-history source-candidate evidence; local `python3 tools/validate_knowledge.py` passed with `118` Markdown files, `118` unique IDs, and `281` internal links.
 - GitHub Actions CI workflow and local validation harness were merged through PR `newbie10122/autotask-ai#3`.
 - `scripts/validate-ci.sh` runs redacted Compose validation, migration ordering, API image build, API/worker Python compilation, full pytest, static web JavaScript syntax checks, and browser UI RBAC smoke tests.
 - `docs/CI_VALIDATION.md` defines the local/CI validation command and a capability-certification receipt format requiring explicit Autotask write-back disclosure.
@@ -87,6 +87,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - Branch `agent/m2-ticket-history-schema-probe` adds an Admin-only bounded read-only TicketHistory schema probe. Local runtime evidence found the TicketHistory schema exposes `action`, `date`, `detail`, `id`, `resourceID`, and queryable `ticketID`; it does not expose structured old/new status transition fields.
 - PR #121 carries the new TicketHistory schema probe into the status-transition source-candidates report so operators can see the governed route and evidence required before adding any sync path.
 - PR #123 surfaces those status-transition source candidates in the Operations field-certification panel.
+- PR #125 adds a read-only queue-history source-candidate report, embeds it in field certification, and surfaces current queue evidence plus missing queue-at-creation/history requirements in Operations.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -145,7 +146,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge queue-history source-candidate visibility after validation and CI pass.
+1. Merge this documentation-only PR #125 projection reconciliation after validation and CI pass.
 2. Continue the next safe Milestone 2 source-lineage slice now that TicketHistory schema evidence is recorded and queue-history source requirements are explicit.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
@@ -156,10 +157,21 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - **State:** `partial_foundation`; source-discovery and operator visibility only. This does not certify queue-at-creation/history analytics.
 - **Files changed:** API field-certification/report route, scoped route tests, focused report tests, Operations UI source-candidate rendering, Playwright fixture/test, and project status docs.
 - **Implemented:** New `/api/ticket-health/queue-history-sources` returns local current queue evidence, current queue picklist-label evidence, and the not-certified `queue_at_creation_history` candidate with required evidence for timestamped queue assignment/change events before prediction/routing use. `/api/ticket-health/field-certification` embeds the same queue-history candidate report, and Operations renders it alongside status-transition source candidates.
-- **Validation:** Focused queue-history API tests passed with `2 passed`; focused route scope test passed with `1 passed`; focused Operations Playwright validation passed with `1 passed`; static web JavaScript syntax validation passed; `git diff --check` passed; full `./scripts/validate-ci.sh` passed with `166` API tests and `13` Playwright tests. GitHub CI is still required before merge.
+- **Validation:** PR #125 CI run `29969766016` passed before merge. Focused queue-history API tests passed with `2 passed`; focused route scope test passed with `1 passed`; focused Operations Playwright validation passed with `1 passed`; static web JavaScript syntax validation passed; `git diff --check` passed; full `./scripts/validate-ci.sh` passed with `166` API tests and `13` Playwright tests.
 - **Read-only/authority evidence:** The report classifies local aggregate queue/reference evidence only. It does not run probes, call Autotask, query raw queue history rows, run sync jobs, write to Autotask, deploy production code, or change model/routing/assignment behavior.
-- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this Autotask AI PR is merged.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` is open at head `510e0ff` and records PR #125 queue-history source-candidate evidence with local knowledge validation passing: `118` Markdown files, `118` unique IDs, and `281` internal links.
 - **Rollback:** Revert this branch commit; current queue/reference field certification remains available, but queue-history source candidates are no longer exposed.
+
+## Current receipt — PR #125 Second Brain projection reconciliation
+
+- **Slice:** Record PR #125 merge evidence and Second Brain projection head after queue-history source candidates.
+- **State:** `partial_foundation`; documentation/projection evidence only.
+- **Files changed:** canonical control docs only.
+- **Implemented:** Project docs now identify canonical `main` at `7138010`, PR #125 CI run `29969766016`, and Second Brain PR #13 head `510e0ff`.
+- **Validation:** `git diff --check` passed; full `./scripts/validate-ci.sh` passed with `166` API tests and `13` Playwright tests. GitHub CI is still required before merge.
+- **Read-only/authority evidence:** No application code, migrations, runtime configuration, production deployment, sync jobs, model workflow, routing behavior, assignment behavior, or Autotask writes changed.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` is open at head `510e0ff` and records PR #125 queue-history source-candidate evidence with local knowledge validation passing: `118` Markdown files, `118` unique IDs, and `281` internal links.
+- **Rollback:** Revert this docs-only reconciliation commit; canonical PR #125 application behavior and Second Brain PR #13 branch remain unchanged.
 
 ## Current receipt — PR #123 Second Brain projection reconciliation
 
@@ -180,7 +192,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - **Implemented:** Operations now renders `source_reports.status_transition_source_candidates.candidates` from `/api/ticket-health/field-certification`, including status, source, access mode, candidate route, required evidence, and next-step guidance. The Playwright fixture includes `ticket_history_schema_metadata` with `/api/autotask/probe/ticket-history-schema` so UI coverage proves the governed probe route is visible without a separate API call.
 - **Validation:** PR #123 CI run `29964999861` passed; focused Operations Playwright validation passed with `1 passed`; static web JavaScript syntax validation passed; `git diff --check` passed; full `./scripts/validate-ci.sh` passed with `164` API tests and `13` Playwright tests.
 - **Read-only/authority evidence:** The UI consumes existing local field-certification payload data only. It does not run probes, call the TicketHistory schema route, query TicketHistory rows, run sync jobs, write to Autotask, deploy production code, or change model/routing/assignment behavior.
-- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` has since advanced to head `1e4657f` and records PR #123 Operations status source-candidates UI evidence with local knowledge validation passing: `117` Markdown files, `117` unique IDs, and `276` internal links.
+- **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` has since advanced to head `510e0ff` and records PR #123 Operations status source-candidates UI evidence plus PR #125 queue-history source-candidate evidence with local knowledge validation passing: `118` Markdown files, `118` unique IDs, and `281` internal links.
 - **Rollback:** Revert this branch commit; Operations stops rendering source-candidate cards while backend source-candidate reports remain available.
 
 ## Current receipt — PR #121 Second Brain projection reconciliation
@@ -1110,7 +1122,7 @@ None currently identified for documentation and non-production implementation wo
 
 ## Second Brain state
 
-`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `1e4657f`. It records Autotask AI progress through PR #123, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, PR #99 reference-label provenance evidence, PR #101 reference-lineage source-authority evidence, PR #103 reference-label source-candidate evidence, PR #105 reference metadata source-contract evidence, PR #107 reference metadata source-probe evidence, PR #109 reference metadata runtime-probe evidence, PR #112 TicketCategories metadata sync runtime evidence, PR #115 ticket picklist metadata sync runtime evidence, PR #117 field blocker diagnostics evidence, PR #119 TicketHistory schema probe evidence, PR #121 status source-candidate schema guidance evidence, and PR #123 Operations status source-candidates UI evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `117` Markdown files, `117` unique IDs, and `276` internal links.
+`pull-request-open` — projection PR `newbie10122/helix-second-brain#13` is open on branch `agent/autotask-ai-audit-inspection-projection` at head `510e0ff`. It records Autotask AI progress through PR #125, including PR #75 labor gap lineage, PR #77 scoped labor lineage, PR #79 scoped SLA lineage, PR #81 status-duration/waiting source-limited evidence, PR #83 response-lineage evidence, PR #85 reference-field lineage evidence, PR #87 scheduler automation evidence, PR #89 stale-run provenance evidence, PR #91 stale scheduler cleanup capability evidence, PR #93 cleanup-execution evidence, PR #95 recovery-streak evidence, PR #97 pause/resume provenance evidence, PR #99 reference-label provenance evidence, PR #101 reference-lineage source-authority evidence, PR #103 reference-label source-candidate evidence, PR #105 reference metadata source-contract evidence, PR #107 reference metadata source-probe evidence, PR #109 reference metadata runtime-probe evidence, PR #112 TicketCategories metadata sync runtime evidence, PR #115 ticket picklist metadata sync runtime evidence, PR #117 field blocker diagnostics evidence, PR #119 TicketHistory schema probe evidence, PR #121 status source-candidate schema guidance evidence, PR #123 Operations status source-candidates UI evidence, and PR #125 queue-history source-candidate evidence. Local Second Brain validation passed with `python3 tools/validate_knowledge.py` using `118` Markdown files, `118` unique IDs, and `281` internal links.
 
 ## Exact next action
 
