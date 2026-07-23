@@ -304,6 +304,7 @@ def test_api_route_authority_matrix_classifies_every_route():
         ("GET", "/api/ticket-health/predictive-evaluation"),
         ("GET", "/api/ticket-health/field-certification"),
         ("GET", "/api/ticket-health/status-transition-sources"),
+        ("GET", "/api/ticket-health/queue-history-sources"),
         ("GET", "/api/ticket-health/reference-metadata-source-contract"),
         ("GET", "/api/ticket-health/ticket-history-content-certification"),
         ("GET", "/api/customer-success/summary"),
@@ -704,6 +705,10 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
         captured["status_transition_source_candidates_report"] = authorized_company_ids
         return {"ok": True}
 
+    def fake_queue_history_source_candidates_report(authorized_company_ids):
+        captured["queue_history_source_candidates_report"] = authorized_company_ids
+        return {"ok": True}
+
     def fake_reference_metadata_source_contract_report(authorized_company_ids):
         captured["reference_metadata_source_contract_report"] = authorized_company_ids
         return {"ok": True}
@@ -721,6 +726,10 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
     monkeypatch.setattr(
         "app.main.status_transition_source_candidates_report",
         fake_status_transition_source_candidates_report,
+    )
+    monkeypatch.setattr(
+        "app.main.queue_history_source_candidates_report",
+        fake_queue_history_source_candidates_report,
     )
     monkeypatch.setattr(
         "app.main.reference_metadata_source_contract_report",
@@ -746,6 +755,7 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
     assert client.get("/api/ticket-health/predictive-evaluation?limit=120&delayed_days_threshold=10", headers=headers).status_code == 200
     assert client.get("/api/ticket-health/field-certification", headers=headers).status_code == 200
     assert client.get("/api/ticket-health/status-transition-sources", headers=headers).status_code == 200
+    assert client.get("/api/ticket-health/queue-history-sources", headers=headers).status_code == 200
     assert client.get("/api/ticket-health/reference-metadata-source-contract", headers=headers).status_code == 200
     assert client.get("/api/ticket-health/ticket-history-content-certification", headers=headers).status_code == 200
 
@@ -756,6 +766,7 @@ def test_scoped_local_capability_routes_pass_company_scope(monkeypatch):
     assert captured["ticket_health_predictive_evaluation"] == (120, 10, [123])
     assert captured["field_certification_report"] == [123]
     assert captured["status_transition_source_candidates_report"] == [123]
+    assert captured["queue_history_source_candidates_report"] == [123]
     assert captured["reference_metadata_source_contract_report"] == [123]
     assert captured["ticket_history_content_certification_report"] == [123]
 
