@@ -329,6 +329,37 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
                 autotask_writes_allowed: false
               }
             },
+            status_duration_source_candidates: {
+              certification_state: "status_duration_source_candidates_partial",
+              candidates: [
+                {
+                  key: "current_waiting_state_snapshot",
+                  label: "Current waiting-state snapshot",
+                  source: "autotask_tickets.status plus status picklist labels",
+                  access: "local_read_only",
+                  certification_status: "current_snapshot_available",
+                  next_step: "Use for present-state review only; do not infer historical waiting duration from the current status snapshot."
+                },
+                {
+                  key: "historical_status_duration",
+                  label: "Historical status-duration lineage",
+                  source: "timestamped status-transition events",
+                  access: "local_read_only_when_present",
+                  certification_status: "source_limited",
+                  evidence_required: [
+                    "complete open-ticket TicketHistory coverage",
+                    "timestamped status-transition rows"
+                  ],
+                  next_step: "Keep status-duration review-only and source-limited until timestamped status transitions are present and parser-certified."
+                }
+              ],
+              policy: {
+                read_only: true,
+                live_autotask_probe_ran: false,
+                runs_jobs: false,
+                autotask_writes_allowed: false
+              }
+            },
             queue_history_source_candidates: {
               certification_state: "queue_history_source_candidates_partial",
               candidates: [

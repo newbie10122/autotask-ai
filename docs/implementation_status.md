@@ -88,6 +88,7 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - PR #121 carries the new TicketHistory schema probe into the status-transition source-candidates report so operators can see the governed route and evidence required before adding any sync path.
 - PR #123 surfaces those status-transition source candidates in the Operations field-certification panel.
 - PR #125 adds a read-only queue-history source-candidate report, embeds it in field certification, and surfaces current queue evidence plus missing queue-at-creation/history requirements in Operations.
+- Branch `agent/m2-status-duration-source-candidates` adds a read-only status-duration/waiting source-candidate report, scoped route, field-certification embedding, and Operations visibility so current waiting-state snapshot evidence is clearly separated from not-certified historical duration lineage.
 - Operations visibility branch `agent/operations-automation-visibility` exposes scheduler heartbeat, next due job, TimeEntries/TicketHistory totals, and recent related-data job movement in the Operations UI.
 - Predictive ticket review branch `agent/predictive-ticket-review-ranking` adds a scoped review-only ticket-health queue with Bayesian-smoothed historical completion signals, local-feedback calibration, reason codes, confidence, and low-sample abstention.
 - Predictive calibrated-ranking branch `agent/predictive-ranking-calibrated-score` exposes a review-only model version, calibrated delay probability, calibration adjustments, and calibrated rank contribution in the predictive review queue and Ticket Health UI.
@@ -146,8 +147,8 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge this documentation-only PR #125 projection reconciliation after validation and CI pass.
-2. Continue the next safe Milestone 2 source-lineage slice now that TicketHistory schema evidence is recorded and queue-history source requirements are explicit.
+1. Merge status-duration/waiting source-candidate visibility after validation and CI pass.
+2. Continue the next safe Milestone 2 source-lineage slice now that status-duration, waiting-duration, and queue-history source requirements are explicit.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
 
@@ -172,6 +173,17 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 - **Read-only/authority evidence:** No application code, migrations, runtime configuration, production deployment, sync jobs, model workflow, routing behavior, assignment behavior, or Autotask writes changed.
 - **Second Brain state:** `pull-request-open`; existing projection PR `newbie10122/helix-second-brain#13` is open at head `510e0ff` and records PR #125 queue-history source-candidate evidence with local knowledge validation passing: `118` Markdown files, `118` unique IDs, and `281` internal links.
 - **Rollback:** Revert this docs-only reconciliation commit; canonical PR #125 application behavior and Second Brain PR #13 branch remain unchanged.
+
+## Current receipt — Milestone 2 status-duration source candidates
+
+- **Slice:** Add read-only status-duration and waiting-duration source-candidate evidence.
+- **State:** `partial_foundation`; source-discovery and operator visibility only. This does not certify historical status-duration or waiting-duration analytics.
+- **Files changed:** API field-certification/report route, scoped route tests, focused report tests, Operations UI source-candidate rendering, Playwright fixture/test, and project status docs.
+- **Implemented:** New `/api/ticket-health/status-duration-sources` returns current waiting-state snapshot evidence, historical status-duration lineage requirements, and historical waiting-duration lineage requirements. `/api/ticket-health/field-certification` embeds the same `status_duration_source_candidates` report, and Operations renders it alongside status-transition and queue-history source candidates.
+- **Validation:** Focused status-duration/queue-history API tests passed with `3 passed`; focused route matrix/scope validation passed with `2 passed`; focused Operations Playwright validation passed with `1 passed`; static web JavaScript syntax validation passed; `git diff --check` passed; full `./scripts/validate-ci.sh` passed with `167` API tests and `13` Playwright tests. GitHub CI is still required before merge.
+- **Read-only/authority evidence:** The report reads local aggregate evidence only. It does not run probes, run sync jobs, change parsers, change models, change routing/assignment/workflow behavior, deploy production code, or write to Autotask.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this Autotask AI PR is merged.
+- **Rollback:** Revert this branch commit; field-certification target cards and prior status-transition source-candidate reports remain available, but the dedicated status-duration/waiting source-candidate route and Operations cards are removed.
 
 ## Current receipt — PR #123 Second Brain projection reconciliation
 

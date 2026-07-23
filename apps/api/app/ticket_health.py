@@ -3001,6 +3001,137 @@ def status_transition_source_candidates_report(
     }
 
 
+def status_duration_source_candidates_report(
+    status_diagnostics: dict[str, Any] | None = None,
+    transition_parse_summary: dict[str, Any] | None = None,
+    ticket_history_shape_inventory: dict[str, Any] | None = None,
+    waiting_snapshot: dict[str, Any] | None = None,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    started = time.monotonic()
+    status_diag = status_diagnostics or ticket_status_source_diagnostics(authorized_company_ids=authorized_company_ids)
+    transition_summary = transition_parse_summary or ticket_history_transition_parse_summary(
+        authorized_company_ids=authorized_company_ids
+    )
+    history_shape = ticket_history_shape_inventory or ticket_history_source_shape_inventory(
+        authorized_company_ids=authorized_company_ids
+    )
+    waiting_context = waiting_snapshot or current_waiting_state_snapshot_report(
+        authorized_company_ids=authorized_company_ids
+    )
+    source_capability = status_diag.get("source_capability") or {}
+    open_history = status_diag.get("open_ticket_history_context") or {}
+    status_sample = status_diag.get("status_sample_coverage") or {}
+    history_counts = history_shape.get("counts") or {}
+    waiting_summary = waiting_context.get("summary") or {}
+    parsed_status_transitions = int(transition_summary.get("parsed_status_transitions") or 0)
+    timestamped_status_transitions = int(transition_summary.get("timestamped_status_transitions") or 0)
+    structured_status_transition_rows = int(history_counts.get("structured_status_transition_rows") or 0)
+    sampled_status_candidate_rows = int(status_sample.get("sampled_status_candidate_rows") or 0)
+    open_tickets = int(open_history.get("open_tickets") or 0)
+    open_tickets_without_history = int(open_history.get("open_tickets_without_history") or 0)
+    historical_duration_available = (
+        bool(source_capability.get("has_exact_status_transition_timestamp"))
+        and open_tickets > 0
+        and open_tickets_without_history == 0
+        and sampled_status_candidate_rows > 0
+        and parsed_status_transitions > 0
+        and timestamped_status_transitions > 0
+        and structured_status_transition_rows > 0
+    )
+    candidates = [
+        {
+            "key": "current_waiting_state_snapshot",
+            "label": "Current waiting-state snapshot",
+            "source": "autotask_tickets.status plus status picklist labels",
+            "access": "local_read_only",
+            "certification_status": "current_snapshot_available",
+            "evidence": {
+                "taxonomy_version": waiting_context.get("taxonomy_version"),
+                "tickets": waiting_summary.get("tickets"),
+                "unknown_unmapped_tickets": waiting_summary.get("unknown_unmapped_tickets"),
+                "unknown_unmapped_percent": waiting_summary.get("unknown_unmapped_percent"),
+                "duration_source": waiting_context.get("duration_source"),
+            },
+            "next_step": "Use for present-state review only; do not infer historical waiting duration from the current status snapshot.",
+        },
+        {
+            "key": "historical_status_duration",
+            "label": "Historical status-duration lineage",
+            "source": "timestamped status-transition events",
+            "access": "local_read_only_when_present",
+            "certification_status": "certified" if historical_duration_available else "source_limited",
+            "evidence": {
+                "open_tickets": open_tickets,
+                "open_tickets_without_history": open_tickets_without_history,
+                "sampled_status_candidate_rows": sampled_status_candidate_rows,
+                "parsed_status_transitions": parsed_status_transitions,
+                "timestamped_status_transitions": timestamped_status_transitions,
+                "structured_status_transition_rows": structured_status_transition_rows,
+            },
+            "evidence_required": [
+                "complete open-ticket TicketHistory coverage",
+                "timestamped status-transition rows",
+                "parser-compatible old/new status evidence",
+                "monotonic per-ticket transition ordering",
+            ],
+            "next_step": (
+                "Use parsed timestamped transitions for deterministic duration analytics."
+                if historical_duration_available
+                else "Keep status-duration review-only and source-limited until timestamped status transitions are present and parser-certified."
+            ),
+        },
+        {
+            "key": "historical_waiting_duration",
+            "label": "Historical waiting-duration lineage",
+            "source": "status-duration lineage plus waiting-state taxonomy",
+            "access": "derived_local_read_only_after_status_duration_certification",
+            "certification_status": "certified" if historical_duration_available else "source_limited",
+            "evidence": {
+                "current_snapshot_available": waiting_context.get("certification_state")
+                == "current_snapshot_available",
+                "historical_duration_available": historical_duration_available,
+                "uses_proxy_timestamps_for_duration": (waiting_context.get("policy") or {}).get(
+                    "uses_proxy_timestamps_for_duration"
+                ),
+            },
+            "evidence_required": [
+                "certified historical status-duration lineage",
+                "reviewed waiting/customer/vendor/internal status taxonomy",
+                "no proxy timestamp use for duration",
+            ],
+            "next_step": "Certify status-duration lineage before using waiting-duration analytics outside present-state review.",
+        },
+    ]
+    blockers = [
+        candidate["key"]
+        for candidate in candidates
+        if candidate["certification_status"] in {"source_limited", "partial", "missing", "not_certified"}
+    ]
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "certification_state": "certified" if not blockers else "status_duration_source_candidates_partial",
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "candidates": candidates,
+        "blockers": blockers,
+        "policy": {
+            "review_only": True,
+            "read_only": True,
+            "live_autotask_probe_ran": False,
+            "runs_jobs": False,
+            "autotask_writes_allowed": False,
+            "automatic_parser_changes_allowed": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+            "proxy_timestamps_count_as_status_duration": False,
+        },
+        "warnings": [
+            "Current waiting-state evidence is a snapshot only; historical duration requires timestamped status transitions.",
+            "This report reads local aggregate evidence only and does not run sync jobs, probes, parser changes, model changes, or Autotask writes.",
+        ],
+    }
+
+
 def queue_history_source_candidates_report(
     coverage_report: dict[str, Any] | None = None,
     reference_lineage: dict[str, Any] | None = None,
@@ -3329,6 +3460,13 @@ def field_certification_report(
         }
     else:
         waiting_snapshot_context = current_waiting_state_snapshot_report(authorized_company_ids=authorized_company_ids)
+    duration_source_candidate_report = status_duration_source_candidates_report(
+        status_diagnostics=status_diag,
+        transition_parse_summary=transition_summary,
+        ticket_history_shape_inventory=history_shape_context,
+        waiting_snapshot=waiting_snapshot_context,
+        authorized_company_ids=authorized_company_ids,
+    )
     source_capability = status_diag.get("source_capability") or {}
     open_history = status_diag.get("open_ticket_history_context") or {}
     status_sample = status_diag.get("status_sample_coverage") or {}
@@ -3701,6 +3839,7 @@ def field_certification_report(
             },
             "transition_parser": transition_summary,
             "status_transition_source_candidates": source_candidate_report,
+            "status_duration_source_candidates": duration_source_candidate_report,
             "queue_history_source_candidates": queue_source_candidate_report,
             "remaining_blocker_diagnostics": remaining_blocker_diagnostics,
         },

@@ -1005,9 +1005,11 @@
         const sourceCandidateTarget = document.getElementById("fieldCertificationSourceCandidates");
         sourceCandidateTarget.innerHTML = "";
         const sourceCandidates = data.source_reports?.status_transition_source_candidates || {};
+        const durationSourceCandidates = data.source_reports?.status_duration_source_candidates || {};
         const queueSourceCandidates = data.source_reports?.queue_history_source_candidates || {};
         const sourceCandidateItems = [
           ...(sourceCandidates.candidates || []),
+          ...(durationSourceCandidates.candidates || []),
           ...(queueSourceCandidates.candidates || []),
         ];
         sourceCandidateItems.forEach((item) => {
