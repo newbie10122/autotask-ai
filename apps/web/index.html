@@ -1005,7 +1005,12 @@
         const sourceCandidateTarget = document.getElementById("fieldCertificationSourceCandidates");
         sourceCandidateTarget.innerHTML = "";
         const sourceCandidates = data.source_reports?.status_transition_source_candidates || {};
-        (sourceCandidates.candidates || []).forEach((item) => {
+        const queueSourceCandidates = data.source_reports?.queue_history_source_candidates || {};
+        const sourceCandidateItems = [
+          ...(sourceCandidates.candidates || []),
+          ...(queueSourceCandidates.candidates || []),
+        ];
+        sourceCandidateItems.forEach((item) => {
           const card = document.createElement("div");
           card.className = "job-card";
           const title = document.createElement("strong");
@@ -1023,7 +1028,7 @@
           renderKeyValue(card, "Next", item.next_step || "Review source candidate evidence.");
           sourceCandidateTarget.appendChild(card);
         });
-        if (!(sourceCandidates.candidates || []).length) {
+        if (!sourceCandidateItems.length) {
           sourceCandidateTarget.textContent = "No status source candidates reported.";
         }
         const target = document.getElementById("fieldCertificationTargets");

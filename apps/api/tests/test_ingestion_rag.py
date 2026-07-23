@@ -3301,6 +3301,117 @@ def test_status_transition_source_candidates_are_review_only_and_scoped():
     assert report["policy"]["live_autotask_probe_ran"] is False
 
 
+def test_queue_history_source_candidates_are_review_only_and_scoped():
+    coverage = {
+        "fields": [
+            {
+                "key": "queue",
+                "status": "available",
+                "available_count": 95,
+                "total_count": 100,
+                "coverage_percent": 95.0,
+                "source": "autotask_tickets.queue / raw.queueID",
+            }
+        ]
+    }
+    reference_lineage = {
+        "targets": [
+            {
+                "key": "queue",
+                "certification_status": "certified",
+                "authoritative_label_coverage_percent": 100.0,
+                "authoritative_label_rows": 10,
+                "bootstrap_label_rows": 0,
+                "inferred_label_rows": 0,
+                "missing_reference_rows": 0,
+            }
+        ]
+    }
+
+    report = ticket_health_module.queue_history_source_candidates_report(
+        coverage,
+        reference_lineage,
+        authorized_company_ids=[123],
+    )
+    by_candidate = {candidate["key"]: candidate for candidate in report["candidates"]}
+
+    assert report["certification_state"] == "queue_history_source_candidates_partial"
+    assert report["authorized_company_scope_applied"] is True
+    assert by_candidate["current_ticket_queue"]["certification_status"] == "certified_current_field"
+    assert by_candidate["ticket_queue_picklist_metadata"]["certification_status"] == "certified"
+    assert by_candidate["queue_at_creation_history"]["certification_status"] == "not_certified"
+    assert "timestamped queue assignment/change events" in by_candidate["queue_at_creation_history"]["evidence_required"]
+    assert report["policy"]["autotask_writes_allowed"] is False
+    assert report["policy"]["live_autotask_probe_ran"] is False
+    assert report["policy"]["automatic_model_or_workflow_changes_allowed"] is False
+
+
+def test_field_certification_embeds_queue_history_source_candidates():
+    coverage = {
+        "ready_for_ticket_health": False,
+        "counts": {"tickets": 10, "ticket_history": 10, "time_entries": 3},
+        "blockers": [],
+        "fields": [
+            {"key": "ticket_status", "status": "available", "available_count": 10, "total_count": 10},
+            {"key": "ticket_status_history", "status": "available", "available_count": 10, "total_count": 10},
+            {"key": "waiting_states", "status": "available", "available_count": 10, "total_count": 10},
+            {
+                "key": "queue",
+                "status": "available",
+                "available_count": 10,
+                "total_count": 10,
+                "coverage_percent": 100.0,
+            },
+        ],
+    }
+    diagnostics = {
+        "source_capability": {"current_status_field_available": True},
+        "open_ticket_history_context": {
+            "open_tickets": 10,
+            "open_tickets_with_history": 10,
+            "open_tickets_without_history": 0,
+        },
+        "status_sample_coverage": {"sampled_status_candidate_rows": 0},
+    }
+    transition_summary = {
+        "parsed_status_transitions": 0,
+        "timestamped_status_transitions": 0,
+        "history_shape_inventory": {"counts": {"structured_status_transition_rows": 0}},
+    }
+    reference_lineage = {
+        "targets": [
+            {
+                "key": "queue",
+                "certification_status": "certified",
+                "authoritative_label_coverage_percent": 100.0,
+            }
+        ]
+    }
+    labor_coverage = {
+        "summary": {
+            "open_tickets": 10,
+            "open_tickets_with_time_entries": 10,
+            "open_tickets_checked_for_time_entries": 10,
+            "open_tickets_checked_empty_time_entries": 0,
+            "open_tickets_unchecked_time_entries": 0,
+        }
+    }
+    sla_lineage = {"summary": {"with_any_sla_fields": 0, "with_due_target_fields": 0}}
+
+    report = ticket_health_module.field_certification_report(
+        coverage,
+        diagnostics,
+        transition_summary,
+        labor_coverage=labor_coverage,
+        sla_lineage=sla_lineage,
+        reference_lineage=reference_lineage,
+    )
+
+    queue_candidates = report["source_reports"]["queue_history_source_candidates"]
+    assert queue_candidates["policy"]["runs_jobs"] is False
+    assert "queue_at_creation_history" in queue_candidates["blockers"]
+
+
 def test_ticket_history_content_certification_returns_aggregate_evidence(monkeypatch):
     class FakeResult:
         def __init__(self, rows=None, row=None):

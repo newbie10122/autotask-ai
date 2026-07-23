@@ -328,6 +328,37 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
                 runs_jobs: false,
                 autotask_writes_allowed: false
               }
+            },
+            queue_history_source_candidates: {
+              certification_state: "queue_history_source_candidates_partial",
+              candidates: [
+                {
+                  key: "current_ticket_queue",
+                  label: "Current ticket queue",
+                  source: "autotask_tickets.queue / raw.queueID",
+                  access: "local_read_only",
+                  certification_status: "certified_current_field",
+                  next_step: "Use as current ownership evidence only."
+                },
+                {
+                  key: "queue_at_creation_history",
+                  label: "Queue at creation/history",
+                  source: "candidate read-only Autotask history or audit source",
+                  access: "not_queried_by_this_report",
+                  certification_status: "not_certified",
+                  evidence_required: [
+                    "timestamped queue assignment/change events",
+                    "old and new queue identifiers or labels"
+                  ],
+                  next_step: "Find or certify a bounded read-only source for historical queue assignment."
+                }
+              ],
+              policy: {
+                read_only: true,
+                live_autotask_probe_ran: false,
+                runs_jobs: false,
+                autotask_writes_allowed: false
+              }
             }
           },
           targets: [

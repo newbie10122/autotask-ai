@@ -3001,6 +3001,98 @@ def status_transition_source_candidates_report(
     }
 
 
+def queue_history_source_candidates_report(
+    coverage_report: dict[str, Any] | None = None,
+    reference_lineage: dict[str, Any] | None = None,
+    authorized_company_ids: list[int] | None = None,
+) -> dict[str, Any]:
+    started = time.monotonic()
+    coverage = coverage_report or field_coverage_report(authorized_company_ids=authorized_company_ids)
+    reference_context = reference_lineage or reference_field_lineage_report(
+        authorized_company_ids=authorized_company_ids
+    )
+    queue_field = _field_row_status(coverage, "queue")
+    reference_targets = {target.get("key"): target for target in reference_context.get("targets") or []}
+    queue_reference = reference_targets.get("queue") or {}
+    queue_current_available = str(queue_field.get("status") or "") == "available"
+    authoritative_label_coverage = float(queue_reference.get("authoritative_label_coverage_percent") or 0)
+    current_queue_certified = queue_current_available and authoritative_label_coverage >= 100.0
+    candidates = [
+        {
+            "key": "current_ticket_queue",
+            "label": "Current ticket queue",
+            "source": "autotask_tickets.queue / raw.queueID",
+            "access": "local_read_only",
+            "certification_status": "certified_current_field" if current_queue_certified else "partial",
+            "evidence": {
+                "coverage_percent": queue_field.get("coverage_percent"),
+                "available_count": queue_field.get("available_count"),
+                "total_count": queue_field.get("total_count"),
+                "authoritative_label_coverage_percent": queue_reference.get(
+                    "authoritative_label_coverage_percent"
+                ),
+                "missing_reference_rows": queue_reference.get("missing_reference_rows"),
+            },
+            "next_step": "Use as current ownership evidence only; do not treat it as queue-at-creation or historical queue lineage.",
+        },
+        {
+            "key": "ticket_queue_picklist_metadata",
+            "label": "Current queue reference labels",
+            "source": "Tickets entityInformation/fields queueID picklist",
+            "access": "local_read_only_reference_sync",
+            "certification_status": "certified" if authoritative_label_coverage >= 100.0 else "partial",
+            "evidence": {
+                "authoritative_label_rows": queue_reference.get("authoritative_label_rows"),
+                "bootstrap_label_rows": queue_reference.get("bootstrap_label_rows"),
+                "inferred_label_rows": queue_reference.get("inferred_label_rows"),
+                "authoritative_label_coverage_percent": queue_reference.get(
+                    "authoritative_label_coverage_percent"
+                ),
+            },
+            "next_step": "Keep labels for current queue display; labels do not prove historical queue changes.",
+        },
+        {
+            "key": "queue_at_creation_history",
+            "label": "Queue at creation/history",
+            "source": "candidate read-only Autotask history or audit source",
+            "access": "not_queried_by_this_report",
+            "certification_status": "not_certified",
+            "evidence_required": [
+                "timestamped queue assignment/change events",
+                "old and new queue identifiers or labels",
+                "ticketID queryability or bounded local join key",
+                "coverage for completed and open tickets",
+            ],
+            "next_step": "Find or certify a bounded read-only source for historical queue assignment before using queue-at-creation/history in prediction or routing.",
+        },
+    ]
+    blockers = [
+        candidate["key"]
+        for candidate in candidates
+        if candidate["certification_status"] in {"partial", "not_certified", "missing"}
+    ]
+    return {
+        "ok": True,
+        "generated_at_ms": int((time.monotonic() - started) * 1000),
+        "certification_state": "certified" if not blockers else "queue_history_source_candidates_partial",
+        "authorized_company_scope_applied": authorized_company_ids is not None,
+        "candidates": candidates,
+        "blockers": blockers,
+        "policy": {
+            "review_only": True,
+            "autotask_writes_allowed": False,
+            "live_autotask_probe_ran": False,
+            "runs_jobs": False,
+            "automatic_sync_path_changes_allowed": False,
+            "automatic_model_or_workflow_changes_allowed": False,
+        },
+        "warnings": [
+            "This report classifies current local queue evidence and candidate historical sources; it does not call or write to Autotask.",
+            "Queue-at-creation/history remains source-limited until timestamped queue assignment/change events are certified.",
+        ],
+    }
+
+
 def _field_row_status(coverage_report: dict[str, Any], key: str) -> dict[str, Any]:
     for row in coverage_report.get("fields") or []:
         if row.get("key") == key:
@@ -3204,6 +3296,11 @@ def field_certification_report(
         }
     else:
         reference_lineage_context = reference_field_lineage_report(authorized_company_ids=authorized_company_ids)
+    queue_source_candidate_report = queue_history_source_candidates_report(
+        coverage,
+        reference_lineage_context,
+        authorized_company_ids=authorized_company_ids,
+    )
     if ticket_history_shape_inventory is not None:
         history_shape_context = ticket_history_shape_inventory
     elif injected_context:
@@ -3604,6 +3701,7 @@ def field_certification_report(
             },
             "transition_parser": transition_summary,
             "status_transition_source_candidates": source_candidate_report,
+            "queue_history_source_candidates": queue_source_candidate_report,
             "remaining_blocker_diagnostics": remaining_blocker_diagnostics,
         },
         "predictive_policy": {

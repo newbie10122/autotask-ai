@@ -64,6 +64,9 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(sourceCandidatesPanel).toContainText("structured status-transition fields");
   await expect(sourceCandidatesPanel).toContainText("manual_admin_only_read_only_probe");
   await expect(sourceCandidatesPanel).toContainText("Use bounded read-only probes before adding any sync path");
+  await expect(sourceCandidatesPanel).toContainText("Queue at creation/history");
+  await expect(sourceCandidatesPanel).toContainText("timestamped queue assignment/change events");
+  await expect(sourceCandidatesPanel).toContainText("not_queried_by_this_report");
   const fieldPanel = page.locator("#fieldCertificationTargets");
   await expect(fieldPanel).toContainText("TicketHistory coverage");
   await expect(fieldPanel).toContainText("source_limited");

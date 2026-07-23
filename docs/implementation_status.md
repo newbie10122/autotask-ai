@@ -145,10 +145,21 @@ The repository has a substantial implemented MVP foundation, but no roadmap mile
 
 ## Active execution queue
 
-1. Merge this docs-only projection reconciliation after CI passes.
-2. Continue the next safe Milestone 2 source-lineage slice now that TicketHistory schema evidence is recorded and surfaced in the status-source report and Operations UI.
+1. Merge queue-history source-candidate visibility after validation and CI pass.
+2. Continue the next safe Milestone 2 source-lineage slice now that TicketHistory schema evidence is recorded and queue-history source requirements are explicit.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 4. Add targeted capability Quality Streak evidence without marking milestones complete prematurely.
+
+## Current receipt — Milestone 2 queue-history source candidates
+
+- **Slice:** Add read-only queue-at-creation/history source-candidate evidence.
+- **State:** `partial_foundation`; source-discovery and operator visibility only. This does not certify queue-at-creation/history analytics.
+- **Files changed:** API field-certification/report route, scoped route tests, focused report tests, Operations UI source-candidate rendering, Playwright fixture/test, and project status docs.
+- **Implemented:** New `/api/ticket-health/queue-history-sources` returns local current queue evidence, current queue picklist-label evidence, and the not-certified `queue_at_creation_history` candidate with required evidence for timestamped queue assignment/change events before prediction/routing use. `/api/ticket-health/field-certification` embeds the same queue-history candidate report, and Operations renders it alongside status-transition source candidates.
+- **Validation:** Focused queue-history API tests passed with `2 passed`; focused route scope test passed with `1 passed`; focused Operations Playwright validation passed with `1 passed`; static web JavaScript syntax validation passed; `git diff --check` passed; full `./scripts/validate-ci.sh` passed with `166` API tests and `13` Playwright tests. GitHub CI is still required before merge.
+- **Read-only/authority evidence:** The report classifies local aggregate queue/reference evidence only. It does not run probes, call Autotask, query raw queue history rows, run sync jobs, write to Autotask, deploy production code, or change model/routing/assignment behavior.
+- **Second Brain state:** `pending-update`; update existing projection PR `newbie10122/helix-second-brain#13` after this Autotask AI PR is merged.
+- **Rollback:** Revert this branch commit; current queue/reference field certification remains available, but queue-history source candidates are no longer exposed.
 
 ## Current receipt — PR #123 Second Brain projection reconciliation
 
