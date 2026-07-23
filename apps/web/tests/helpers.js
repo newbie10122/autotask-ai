@@ -294,6 +294,40 @@ async function stubApi(page, { routeAuthRequired = true, user = null, askHandler
               parsed_status_transitions: 0,
               timestamped_status_transitions: 0,
               source_limited: true
+            },
+            status_transition_source_candidates: {
+              certification_state: "source_candidates_partial",
+              candidates: [
+                {
+                  key: "ticket_history_schema_metadata",
+                  label: "TicketHistory schema metadata",
+                  source: "TicketHistory entityInformation/fields",
+                  access: "manual_admin_only_read_only_probe",
+                  certification_status: "not_certified",
+                  candidate_route: "/api/autotask/probe/ticket-history-schema",
+                  evidence_required: [
+                    "queryable fields",
+                    "timestamp fields",
+                    "structured status-transition fields",
+                    "unstructured action/detail fields"
+                  ],
+                  next_step: "Use the Admin-only read-only TicketHistory schema probe before adding any sync path."
+                },
+                {
+                  key: "candidate_status_history_entities",
+                  label: "Autotask status-history candidate entities",
+                  source: "Autotask API",
+                  access: "not_queried_by_this_report",
+                  certification_status: "not_certified",
+                  next_step: "Use bounded read-only probes before adding any sync path."
+                }
+              ],
+              policy: {
+                read_only: true,
+                live_autotask_probe_ran: false,
+                runs_jobs: false,
+                autotask_writes_allowed: false
+              }
             }
           },
           targets: [

@@ -58,6 +58,12 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(diagnosticPanel).toContainText("source_shape_limited");
   await expect(diagnosticPanel).toContainText("Source limited");
   await expect(diagnosticPanel).toContainText("Continue bounded scheduled TicketHistory gap checks");
+  const sourceCandidatesPanel = page.locator("#fieldCertificationSourceCandidates");
+  await expect(sourceCandidatesPanel).toContainText("TicketHistory schema metadata");
+  await expect(sourceCandidatesPanel).toContainText("/api/autotask/probe/ticket-history-schema");
+  await expect(sourceCandidatesPanel).toContainText("structured status-transition fields");
+  await expect(sourceCandidatesPanel).toContainText("manual_admin_only_read_only_probe");
+  await expect(sourceCandidatesPanel).toContainText("Use bounded read-only probes before adding any sync path");
   const fieldPanel = page.locator("#fieldCertificationTargets");
   await expect(fieldPanel).toContainText("TicketHistory coverage");
   await expect(fieldPanel).toContainText("source_limited");

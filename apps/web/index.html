@@ -177,6 +177,7 @@
             <div><span>Status Parser</span><strong id="fieldCertificationParser">Loading</strong></div>
           </div>
           <div id="fieldCertificationDiagnostics" class="job-card-grid"></div>
+          <div id="fieldCertificationSourceCandidates" class="job-card-grid"></div>
           <div id="fieldCertificationTargets" class="job-card-grid"></div>
         </div>
         <h3>Run Now</h3>
@@ -1000,6 +1001,30 @@
         });
         if (!(diagnostics.items || []).length) {
           diagnosticTarget.textContent = "No remaining blocker diagnostics reported.";
+        }
+        const sourceCandidateTarget = document.getElementById("fieldCertificationSourceCandidates");
+        sourceCandidateTarget.innerHTML = "";
+        const sourceCandidates = data.source_reports?.status_transition_source_candidates || {};
+        (sourceCandidates.candidates || []).forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "job-card";
+          const title = document.createElement("strong");
+          title.textContent = item.label || item.key;
+          card.appendChild(title);
+          renderKeyValue(card, "Status", item.certification_status || "unknown");
+          renderKeyValue(card, "Source", item.source || "unknown");
+          renderKeyValue(card, "Access", item.access || "unknown");
+          if (item.candidate_route) {
+            renderKeyValue(card, "Route", item.candidate_route);
+          }
+          if (item.evidence_required && item.evidence_required.length) {
+            renderKeyValue(card, "Evidence", item.evidence_required.join(", "));
+          }
+          renderKeyValue(card, "Next", item.next_step || "Review source candidate evidence.");
+          sourceCandidateTarget.appendChild(card);
+        });
+        if (!(sourceCandidates.candidates || []).length) {
+          sourceCandidateTarget.textContent = "No status source candidates reported.";
         }
         const target = document.getElementById("fieldCertificationTargets");
         target.innerHTML = "";

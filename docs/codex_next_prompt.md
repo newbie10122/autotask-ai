@@ -5,10 +5,10 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 ## Current canonical state
 
 - Repository: `newbie10122/autotask-ai`
-- Canonical `main`: `8e031d1`
-- Latest merged PR: `newbie10122/autotask-ai#121`, `Guide status source candidates to schema probe`
-- Latest PR #121 CI: GitHub Actions run `29964318197`, workflow `CI`, job `Validate Autotask AI`, passed before merge
-- Latest local validation for PR #121 passed focused source-candidate validation with `1 passed`, static JavaScript syntax, `git diff --check`, and full repository validation with `164` API tests plus `13` Playwright tests.
+- Canonical `main`: `00cf377`
+- Latest merged PR: `newbie10122/autotask-ai#122`, `Record status guidance projection evidence`
+- Latest PR #122 CI: GitHub Actions run `29964713996`, workflow `CI`, job `Validate Autotask AI`, passed before merge
+- Latest local validation for PR #122 passed static JavaScript syntax, `git diff --check`, and full repository validation with `164` API tests plus `13` Playwright tests.
 - Latest local governed runtime checks on 2026-07-22: Operations status returned scheduler `healthy`, `global_pause=false`, local counts `tickets=67726`, `time_entries=50751`, `ticket_history=30186`, open-ticket TicketHistory coverage `100%`, open-ticket labor unchecked `0`, estate TimeEntries backlog `32082`, and estate TicketHistory backlog `64047`
 - Current branch validation: `agent/predictive-calibration-policy` passed full governed validation with `119` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned Brier `0.056`, ROC AUC `0.613`, PR AUC `0.115`, coverage `1.0`, abstention rate `0.0`, largest sanitized company bucket share `0.67`, and largest sanitized category bucket share `0.99`
 - Current active branch validation: `agent/predictive-leakage-bias-review` passed full governed validation with `122` API tests, `11` Playwright tests, and clean `git diff --check`; runtime predictive evaluation after local API rebuild returned `statistical_signal_not_better_on_f1_or_recall`, F1/recall deltas `0`, leakage review with `training_rows_after_or_during_holdout_included=0`, sanitized top company bucket share `0.67`, and sanitized top category bucket share `0.99`
@@ -74,6 +74,8 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 - Post-merge Milestone 2 evidence on canonical `main` `3a8f926`: PR #117 adds field-certification remaining-blocker diagnostics and Operations UI visibility. Local API rebuild returned `/ready` `HTTP 200`; field certification diagnostics reported one automation-improvable coverage blocker (`ticket_status_history`) and three source/lineage blockers (`status_duration`, `waiting_states`, and `queue`). Focused API validation passed with `6 passed`, focused Operations Playwright passed with `1 passed`, static JavaScript syntax passed, full `./scripts/validate-ci.sh` passed with `163` API tests and `13` Playwright tests, and PR #117 CI run `29962878273` passed before merge.
 - Post-merge Milestone 2 evidence on canonical `main` `f6611aa`: PR #119 adds an Admin-only read-only TicketHistory schema probe. Local API rebuild returned `/ready` `HTTP 200`; the live probe found `6` schema fields, queryable `ticketID`, timestamp field `date`, unstructured fields `action` and `detail`, no structured old/new status-transition fields, and `autotask_writes_allowed=false`. Focused schema-probe validation passed with `1 passed`, focused route/audit validation passed with `2 passed`, full `./scripts/validate-ci.sh` passed with `164` API tests and `13` Playwright tests, and PR #119 CI run `29963679064` passed before merge.
 - Post-merge Milestone 2 evidence on canonical `main` `8e031d1`: PR #121 adds the TicketHistory schema probe as an explicit candidate in `/api/ticket-health/status-transition-sources`. Local API rebuild returned `/ready` `HTTP 200`; the live report exposed `candidate_route=/api/autotask/probe/ticket-history-schema` and evidence requirements for queryable fields, timestamp fields, structured status-transition fields, and unstructured action/detail fields. Focused source-candidate validation passed with `1 passed`, `git diff --check` passed, full `./scripts/validate-ci.sh` passed with `164` API tests and `13` Playwright tests, and PR #121 CI run `29964318197` passed before merge.
+- Post-merge documentation evidence on canonical `main` `00cf377`: PR #122 records PR #121 merge evidence and Second Brain PR #13 projection head `977d6be` in canonical project documents. PR #122 CI run `29964713996` passed before merge.
+- Current active branch validation: `agent/m2-operations-status-source-candidates-ui` surfaces status-transition source-candidate cards in the Operations field-certification panel using the existing `/api/ticket-health/field-certification` payload. Focused Operations Playwright validation passed with `1 passed`, static web JavaScript syntax validation passed, `git diff --check` passed, and full `./scripts/validate-ci.sh` passed with `164` API tests and `13` Playwright tests. GitHub CI is still required before merge.
 - Application auth remains opt-in: `APP_ROUTE_AUTH_REQUIRED=false` by default
 - Autotask authority remains read-only; no Autotask write capability is approved
 
@@ -89,7 +91,7 @@ Use `docs/CODEX_HARNESS_PROMPT.md` as the governing harness prompt.
 
 Continue from a clean branch based on canonical `origin/main`.
 
-1. Merge `agent/m2-status-guidance-projection-reconciliation` after docs-only validation and CI pass.
+1. Merge `agent/m2-operations-status-source-candidates-ui` after full validation and CI pass, then project evidence to Second Brain.
 2. Continue status-duration source discovery, waiting-duration source discovery, TicketHistory estate coverage, and queue-at-creation/history blockers without Autotask writes, production deployment, or model workflow changes.
 3. Continue production-auth deployment evidence only when explicitly approved for that protected action.
 

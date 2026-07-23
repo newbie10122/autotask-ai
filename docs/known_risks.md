@@ -104,7 +104,7 @@
 **Severity:** Medium
 **State:** Mitigating
 **Impact:** Written progress could disagree with code, tests, or deployment reality.
-**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `8e031d1` through PR #121; Second Brain PR #13 is open at head `977d6be` with local knowledge validation passing through PR #121 and status source-candidate schema guidance evidence.
+**Mitigation:** Canonical control files, evidence-linked receipts, CI, independent verification, and sanitized Second Brain projection. Current reconciliation target is canonical `main` `00cf377` through PR #122; Second Brain PR #13 is open at head `977d6be` with local knowledge validation passing through PR #121 and status source-candidate schema guidance evidence.
 
 ### R16 — CI runner environment differences
 
