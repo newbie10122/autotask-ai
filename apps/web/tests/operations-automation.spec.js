@@ -64,6 +64,10 @@ test("operations view surfaces scheduler and related-data automation movement", 
   await expect(sourceCandidatesPanel).toContainText("structured status-transition fields");
   await expect(sourceCandidatesPanel).toContainText("manual_admin_only_read_only_probe");
   await expect(sourceCandidatesPanel).toContainText("Use bounded read-only probes before adding any sync path");
+  await expect(sourceCandidatesPanel).toContainText("Current waiting-state snapshot");
+  await expect(sourceCandidatesPanel).toContainText("Historical status-duration lineage");
+  await expect(sourceCandidatesPanel).toContainText("timestamped status-transition rows");
+  await expect(sourceCandidatesPanel).toContainText("present-state review only");
   await expect(sourceCandidatesPanel).toContainText("Queue at creation/history");
   await expect(sourceCandidatesPanel).toContainText("timestamped queue assignment/change events");
   await expect(sourceCandidatesPanel).toContainText("not_queried_by_this_report");

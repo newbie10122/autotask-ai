@@ -3346,6 +3346,52 @@ def test_queue_history_source_candidates_are_review_only_and_scoped():
     assert report["policy"]["automatic_model_or_workflow_changes_allowed"] is False
 
 
+def test_status_duration_source_candidates_are_snapshot_only_and_scoped():
+    diagnostics = {
+        "source_capability": {
+            "has_exact_status_transition_timestamp": False,
+        },
+        "open_ticket_history_context": {
+            "open_tickets": 12,
+            "open_tickets_without_history": 0,
+        },
+        "status_sample_coverage": {"sampled_status_candidate_rows": 0},
+    }
+    transition_summary = {
+        "parsed_status_transitions": 0,
+        "timestamped_status_transitions": 0,
+    }
+    history_shape = {
+        "counts": {"structured_status_transition_rows": 0},
+    }
+    waiting_snapshot = {
+        "taxonomy_version": "current_status_waiting_taxonomy_v1",
+        "certification_state": "current_snapshot_available",
+        "duration_source": "current_ticket_status_snapshot_only",
+        "summary": {"tickets": 12, "unknown_unmapped_tickets": 1},
+        "policy": {"uses_proxy_timestamps_for_duration": False},
+    }
+
+    report = ticket_health_module.status_duration_source_candidates_report(
+        diagnostics,
+        transition_summary,
+        ticket_history_shape_inventory=history_shape,
+        waiting_snapshot=waiting_snapshot,
+        authorized_company_ids=[123],
+    )
+    by_candidate = {candidate["key"]: candidate for candidate in report["candidates"]}
+
+    assert report["certification_state"] == "status_duration_source_candidates_partial"
+    assert report["authorized_company_scope_applied"] is True
+    assert by_candidate["current_waiting_state_snapshot"]["certification_status"] == "current_snapshot_available"
+    assert by_candidate["historical_status_duration"]["certification_status"] == "source_limited"
+    assert by_candidate["historical_waiting_duration"]["certification_status"] == "source_limited"
+    assert by_candidate["historical_waiting_duration"]["evidence"]["uses_proxy_timestamps_for_duration"] is False
+    assert "historical_status_duration" in report["blockers"]
+    assert report["policy"]["runs_jobs"] is False
+    assert report["policy"]["autotask_writes_allowed"] is False
+
+
 def test_field_certification_embeds_queue_history_source_candidates():
     coverage = {
         "ready_for_ticket_health": False,
@@ -3408,6 +3454,9 @@ def test_field_certification_embeds_queue_history_source_candidates():
     )
 
     queue_candidates = report["source_reports"]["queue_history_source_candidates"]
+    duration_candidates = report["source_reports"]["status_duration_source_candidates"]
+    assert duration_candidates["policy"]["runs_jobs"] is False
+    assert "historical_status_duration" in duration_candidates["blockers"]
     assert queue_candidates["policy"]["runs_jobs"] is False
     assert "queue_at_creation_history" in queue_candidates["blockers"]
 
